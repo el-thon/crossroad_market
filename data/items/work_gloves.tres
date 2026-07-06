@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://wxajundxy65a"]
+
+[ext_resource type="Script" uid="uid://exw0paehmuyt" path="res://resources/ItemData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "work_gloves"
+display_name = "Work Gloves"
+description = "Sturdy gardening gloves. A must-have for greenhouse workers like Irene."
+buy_cost = 10
+sell_price = 18
+shelf_type = 0

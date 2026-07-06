@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://dp4jgdmsd8oid"]
+
+[ext_resource type="Script" uid="uid://exw0paehmuyt" path="res://resources/ItemData.gd" id="1_ni3yx"]
+
+[resource]
+script = ExtResource("1_ni3yx")
+item_id = "painkiller"
+display_name = "Painkiller"
+description = "Relieves aches and pains. Popular with the hardworking crowd."
+buy_cost = 10
+sell_price = 18
+shelf_type = 0
+metadata/_custom_type_script = "uid://exw0paehmuyt"

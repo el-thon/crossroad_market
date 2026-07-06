@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://dao26m6cn6yjm"]
+
+[ext_resource type="Script" uid="uid://exw0paehmuyt" path="res://resources/ItemData.gd" id="1_u7rod"]
+
+[resource]
+script = ExtResource("1_u7rod")
+item_id = "phantom_ice_cream"
+display_name = "Phantom Ice Cream"
+description = "An eerily cold treat from an unknown origin. Humans can't seem to touch it"
+buy_cost = 12
+sell_price = 20
+shelf_type = 1
+metadata/_custom_type_script = "uid://exw0paehmuyt"
