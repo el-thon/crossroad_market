@@ -1,0 +1,129 @@
+[gd_scene format=3 uid="uid://bdnwm42gkma72"]
+
+[ext_resource type="Script" uid="uid://dq8v7xm2y3pkl" path="res://scripts/locations/Storage.gd" id="1_storage"]
+[ext_resource type="PackedScene" uid="uid://catgco5tfi312" path="res://scenes/objects/SupplyBox.tscn" id="2_supply_box"]
+[ext_resource type="Script" uid="uid://dyfcg4fpvs7ga" path="res://scripts/objects/MysterySupplyBox.gd" id="3_mystery_box"]
+[ext_resource type="PackedScene" uid="uid://cvet81vdrn7lk" path="res://scenes/objects/Shelf.tscn" id="4_shelf"]
+[ext_resource type="Script" uid="uid://cftax4a7xovpj" path="res://scripts/locations/WorldLighting.gd" id="5_lighting"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
+size = Vector2(480, 16)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_vertical"]
+size = Vector2(16, 270)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_return_door"]
+size = Vector2(18, 44)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_locked_ghost"]
+size = Vector2(160, 270)
+
+[node name="Storage" type="Node2D" unique_id=1215434071]
+y_sort_enabled = true
+script = ExtResource("1_storage")
+
+[node name="Background" type="ColorRect" parent="." unique_id=535134460]
+z_index = -100
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0.1, 0.08, 0.12, 1)
+
+[node name="Floor" type="ColorRect" parent="." unique_id=693224531]
+z_index = -99
+offset_top = 64.0
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0.17, 0.14, 0.16, 1)
+
+[node name="WorldBounds" type="StaticBody2D" parent="." unique_id=1012820168]
+
+[node name="Top" type="CollisionShape2D" parent="WorldBounds" unique_id=482888272]
+position = Vector2(240, 8)
+shape = SubResource("RectangleShape2D_wall_horizontal")
+
+[node name="Bottom" type="CollisionShape2D" parent="WorldBounds" unique_id=1963640723]
+position = Vector2(240, 278)
+shape = SubResource("RectangleShape2D_wall_horizontal")
+
+[node name="Left" type="CollisionShape2D" parent="WorldBounds" unique_id=165339808]
+position = Vector2(-8, 135)
+shape = SubResource("RectangleShape2D_wall_vertical")
+
+[node name="Right" type="CollisionShape2D" parent="WorldBounds" unique_id=378749077]
+position = Vector2(488, 135)
+shape = SubResource("RectangleShape2D_wall_vertical")
+
+[node name="ReturnDoor" type="Area2D" parent="." unique_id=682790548]
+position = Vector2(28, 136)
+
+[node name="ReturnDoorVisual" type="Polygon2D" parent="ReturnDoor" unique_id=552706441]
+color = Color(0.24, 0.16, 0.1, 1)
+polygon = PackedVector2Array(-9, -22, 9, -22, 9, 22, -9, 22)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ReturnDoor" unique_id=1653769841]
+shape = SubResource("RectangleShape2D_return_door")
+
+[node name="PlayerSpawn" type="Marker2D" parent="." unique_id=1125312585]
+position = Vector2(64, 136)
+
+[node name="Normal" parent="." unique_id=849810382 instance=ExtResource("2_supply_box")]
+position = Vector2(170, 218)
+items_to_give = Array[String](["bread", "water", "painkiller", "bandage"])
+
+[node name="ColorRect" parent="Normal" index="0" unique_id=1478309429]
+color = Color(0.46, 0.31, 0.16, 1)
+
+[node name="ShelfHuman" parent="." unique_id=155469397 instance=ExtResource("4_shelf")]
+position = Vector2(168, 118)
+
+[node name="ColorRect" parent="ShelfHuman" index="0" unique_id=28098589]
+metadata/_edit_use_anchors_ = true
+
+[node name="Mystery" parent="." unique_id=2107622966 instance=ExtResource("2_supply_box")]
+position = Vector2(374, 218)
+script = ExtResource("3_mystery_box")
+trigger_area_path = NodePath("Area2D")
+auto_place_on_ghost_shelf = false
+items_to_give = Array[String](["phantom_ice_cream"])
+
+[node name="ColorRect" parent="Mystery" index="0" unique_id=1478309429]
+color = Color(0.22, 0.18, 0.34, 1)
+
+[node name="ShelfGhost" parent="." unique_id=2014346637 instance=ExtResource("4_shelf")]
+position = Vector2(360, 118)
+shelf_type = 1
+
+[node name="ColorRect" parent="ShelfGhost" index="0" unique_id=28098589]
+metadata/_edit_use_anchors_ = true
+
+[node name="LockedGhostBlocker" type="StaticBody2D" parent="." unique_id=332481026]
+position = Vector2(400, 135)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LockedGhostBlocker" unique_id=1844381840]
+shape = SubResource("RectangleShape2D_locked_ghost")
+
+[node name="LockedGhostSection" type="ColorRect" parent="." unique_id=275553101]
+z_index = 70
+offset_left = 320.0
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0, 0, 0, 0.78)
+
+[node name="WorldLighting" type="CanvasLayer" parent="." unique_id=372559371]
+script = ExtResource("5_lighting")
+morning_color = Color(0.09, 0.07, 0.12, 0.16)
+day_color = Color(0.18, 0.13, 0.08, 0.12)
+night_color = Color(0.01, 0.03, 0.1, 0.52)
+
+[node name="Overlay" type="ColorRect" parent="WorldLighting" unique_id=292461609]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.09, 0.07, 0.12, 0.16)
+
+[editable path="Normal"]
+[editable path="ShelfHuman"]
+[editable path="Mystery"]
+[editable path="ShelfGhost"]
