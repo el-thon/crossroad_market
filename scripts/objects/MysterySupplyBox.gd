@@ -67,6 +67,13 @@ func unlock_mystery() -> void:
 	_try_trigger_discovery()
 
 
+func mark_discovered() -> void:
+	_unlocked = true
+	_discovered = true
+	_discovery_running = false
+	_apply_glow(true)
+
+
 func on_normal_item_taken() -> void:
 	_items_taken += 1
 	_try_trigger_discovery()
@@ -128,6 +135,9 @@ func _refresh_player_inside_trigger() -> void:
 	if trigger_area == null:
 		return
 
+	if not trigger_area.monitoring:
+		return
+
 	for body in trigger_area.get_overlapping_bodies():
 		if _is_player_node(body):
 			_player_inside_trigger = true
@@ -173,9 +183,17 @@ func _trigger_discovery() -> void:
 
 
 func _show_discovery_dialog() -> void:
+	var hud: Node = _get_hud()
+
+	if hud != null and hud.has_method("begin_action_lock"):
+		hud.call("begin_action_lock")
+
 	await _show_dialog_line("What is this...?", 2.3)
 	await _show_dialog_line("This box wasn’t in Grandma’s inventory list.", 2.9)
 	await _show_dialog_line("Why is it glowing... and why does it feel ice cold?", 3.3)
+
+	if hud != null and hud.has_method("end_action_lock"):
+		hud.call("end_action_lock")
 
 
 func _show_dialog_line(text: String, duration: float) -> void:
@@ -189,7 +207,10 @@ func _show_dialog_line(text: String, duration: float) -> void:
 
 	hud.call("show_notification", text, duration)
 
-	await get_tree().create_timer(duration + 0.15).timeout
+	if hud.has_method("wait_for_notification_finished"):
+		await hud.call("wait_for_notification_finished")
+	else:
+		await get_tree().create_timer(duration + 0.15).timeout
 
 
 func _get_hud() -> Node:

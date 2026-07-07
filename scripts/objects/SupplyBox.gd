@@ -71,3 +71,11 @@ func is_empty() -> bool:
 
 func is_all_taken() -> bool:
 	return _all_items_taken
+
+func mark_all_taken_without_inventory() -> void:
+	for item_id in items_to_give:
+		_collected_items[item_id] = _collected_items.get(item_id, 0) + 1
+
+	if one_time_only:
+		_already_collected = true
+		_all_items_taken = true

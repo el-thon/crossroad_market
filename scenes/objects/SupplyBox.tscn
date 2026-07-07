@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://catgco5tfi312"]
+
+[ext_resource type="Script" uid="uid://bcw0jpon6qe8e" path="res://scripts/objects/SupplyBox.gd" id="1_tvnl5"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1pj5l"]
+size = Vector2(39, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_physics"]
+size = Vector2(40, 20)
+
+[node name="SupplyBox" type="Node2D" unique_id=985687994]
+y_sort_enabled = true
+script = ExtResource("1_tvnl5")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1478309429]
+offset_left = -20.0
+offset_top = -40.0
+offset_right = 20.0
+
+[node name="Area2D" type="Area2D" parent="." unique_id=1978612162]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=1620696733]
+position = Vector2(0, -20)
+shape = SubResource("RectangleShape2D_1pj5l")
+
+[node name="PhysicsBody" type="StaticBody2D" parent="." unique_id=156433123]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PhysicsBody" unique_id=523918228]
+position = Vector2(0, -10)
+shape = SubResource("RectangleShape2D_physics")

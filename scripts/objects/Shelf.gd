@@ -53,6 +53,23 @@ func place_item(item_id: String) -> int:
 	item_placed.emit(slot, item_id)
 	return slot
 
+func stock_item_direct(item_id: String) -> int:
+	var item: ItemData = ItemDatabase.get_item(item_id)
+	if item == null:
+		push_warning("Shelf: item '%s' not found in database" % item_id)
+		return -1
+
+	if item.shelf_type != shelf_type:
+		return -1
+
+	var slot := _get_empty_slot()
+	if slot == -1:
+		return -1
+
+	_slots[slot] = item_id
+	item_placed.emit(slot, item_id)
+	return slot
+
 func remove_item(slot_index: int) -> String:
 	if slot_index < 0 or slot_index >= max_slots:
 		return ""
@@ -66,6 +83,13 @@ func remove_item(slot_index: int) -> String:
 	item_removed.emit(slot_index, item_id)
 	return item_id
 
+func remove_first_item() -> String:
+	for i in max_slots:
+		if _slots[i] != null:
+			return remove_item(i)
+
+	return ""
+
 func take_item_for_npc(item_id: String) -> bool:
 	for i in max_slots:
 		if _slots[i] == item_id:
@@ -76,6 +100,13 @@ func take_item_for_npc(item_id: String) -> bool:
 
 func has_item(item_id: String) -> bool:
 	return _slots.has(item_id)
+
+func has_stock() -> bool:
+	for item_id in _slots:
+		if item_id != null:
+			return true
+
+	return false
 
 func get_slot_content(slot_index: int) -> String:
 	return _slots[slot_index] if _slots[slot_index] != null else ""

@@ -6,11 +6,10 @@ extends CharacterBody2D
 @onready var interaction_area: Area2D = $InteractionArea
 
 var facing_direction: Vector2 = Vector2.DOWN
-var _discovered_ghost_shelf: bool = false
 var _supply_box_cursor: int = 0
 var _wrong_shelf_attempts: Dictionary = {}
 
-const MAX_WRONG_ATTEMPTS: int = 3
+const MAX_WRONG_ATTEMPTS: int = 1
 
 
 func _ready() -> void:
@@ -20,6 +19,11 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if _is_action_locked():
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+
 	var input_dir: Vector2 = Input.get_vector(
 		"move_left",
 		"move_right",
@@ -36,6 +40,9 @@ func _physics_process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _is_action_locked():
+		return
+
 	if event.is_action_pressed("interact"):
 		_try_interact()
 
@@ -48,10 +55,19 @@ func _update_interaction_area_position() -> void:
 
 
 func _try_interact() -> void:
+	if _is_action_locked():
+		return
+
 	var areas: Array[Area2D] = interaction_area.get_overlapping_areas()
 
 	if areas.is_empty():
 		return
+
+	# Fallback untuk door Storage.
+	# Jadi kalau body_entered door gagal, player tetap bisa masuk Storage dengan tombol interact.
+	for area in areas:
+		if _try_storage_door_interaction(area):
+			return
 
 	var best_target: Node = null
 	var best_priority: int = 999
@@ -98,11 +114,50 @@ func _try_interact() -> void:
 		return
 
 
+func _try_storage_door_interaction(area: Area2D) -> bool:
+	var door_type: String = _get_storage_door_type(area)
+
+	if door_type == "":
+		return false
+
+	var store: Node = get_tree().get_first_node_in_group("store")
+
+	if store == null:
+		return false
+
+	if not store.has_method("request_enter_storage"):
+		if door_type != "yard" or not store.has_method("request_enter_yard"):
+			return false
+
+	if door_type == "yard" and store.has_method("request_enter_yard"):
+		store.call("request_enter_yard", door_type)
+		return true
+
+	store.call("request_enter_storage", door_type)
+	return true
+
+
+func _get_storage_door_type(area: Area2D) -> String:
+	if area == null:
+		return ""
+
+	if area.has_meta("door_type"):
+		return str(area.get_meta("door_type"))
+
+	match String(area.name):
+		"StorageDoor", "StorageDoor_Normal":
+			return "normal"
+		"StorageDoor2", "StorageDoor_Mystery":
+			return "mistery"
+		_:
+			return ""
+
+
 func _get_interaction_priority(target: Node) -> int:
-	if target is NPC:
+	if target is Cashier:
 		return 0
 
-	if target is Cashier:
+	if target is NPC:
 		return 1
 
 	if target is SupplyBox:
@@ -121,17 +176,27 @@ func _interact_with_npc(npc: NPC) -> void:
 	var item_id: String = npc.item_to_buy
 	var item: ItemData = ItemDatabase.get_item(item_id)
 
-	npc.complete_checkout()
-
 	if item != null:
-		_show_notification("Checked out: %s" % item.display_name)
+		_show_notification("Use the cashier to scan %s." % item.display_name)
 
 
 func _interact_with_shelf(shelf: Shelf) -> void:
+	if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
+		_show_notification("Put the shelf down first.", 0.5)
+		return
+
+	if (
+		shelf.has_meta("is_installed_in_store")
+		and not bool(shelf.get_meta("is_installed_in_store"))
+		and not _is_inside_group(shelf, "storage")
+	):
+		_show_notification("I should bring this shelf into the store first.")
+		return
+
 	var inventory_items: Dictionary = Inventory.get_all()
 
 	if inventory_items.is_empty():
-		_show_notification("Inventory is empty.")
+		_take_item_from_shelf(shelf)
 		return
 
 	var item_id: String = str(inventory_items.keys()[0])
@@ -145,30 +210,35 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 	if result >= 0:
 		_wrong_shelf_attempts.erase(_get_wrong_shelf_key(item_id, shelf))
 
-		_show_notification("Placed %s on the shelf." % item.display_name)
-
 		if item.shelf_type != ItemData.ShelfType.GHOST:
-			_notify_human_item_placed()
-
-		if shelf.shelf_type == ItemData.ShelfType.GHOST and not _discovered_ghost_shelf:
-			_discovered_ghost_shelf = true
-			await _show_notification_sequence([
-				"Huh... so it only stays on this shelf?",
-				"This shelf looks different too...",
-				"What was Grandma keeping here?"
-			])
+			_show_notification("Placed %s" % item.display_name, 0.5)
 
 		return
 
 	if item.shelf_type != shelf.shelf_type:
 		_handle_wrong_shelf_attempt(item_id, item, shelf)
 	else:
-		_show_notification("Could not place %s on this shelf." % item.display_name)
+		_show_notification("Could not place %s." % item.display_name, 0.5)
+
+
+func _take_item_from_shelf(shelf: Shelf) -> void:
+	var item_id: String = shelf.remove_first_item()
+
+	if item_id == "":
+		_show_notification("Shelf is empty.", 0.5)
+		return
+
+	var item: ItemData = ItemDatabase.get_item(item_id)
+
+	if item != null:
+		_show_notification("Took %s" % item.display_name, 0.5)
+	else:
+		_show_notification("Took %s" % item_id, 0.5)
 
 
 func _handle_wrong_shelf_attempt(
 	item_id: String,
-	item: ItemData,
+	_item: ItemData,
 	shelf: Shelf
 ) -> void:
 	var attempt_key: String = _get_wrong_shelf_key(item_id, shelf)
@@ -218,14 +288,16 @@ func _interact_with_supply_box(box: SupplyBox) -> void:
 		if not (box is MysterySupplyBox):
 			_notify_mystery_taken()
 
-	if available.size() > 0:
-		_supply_box_cursor = (_supply_box_cursor + 1) % available.size()
+	var updated_available: Array = box.get_available_items()
+
+	if updated_available.size() > 0:
+		_supply_box_cursor = (_supply_box_cursor + 1) % updated_available.size()
 	else:
 		_supply_box_cursor = 0
 
 
 func _notify_mystery_taken() -> void:
-	var world: Node = get_tree().get_first_node_in_group("world")
+	var world: Node = get_tree().get_first_node_in_group("store")
 
 	if world == null:
 		return
@@ -234,18 +306,8 @@ func _notify_mystery_taken() -> void:
 		world.on_normal_item_taken()
 
 
-func _notify_human_item_placed() -> void:
-	var world: Node = get_tree().get_first_node_in_group("world")
-
-	if world == null:
-		return
-
-	if world.has_method("on_human_item_placed"):
-		world.on_human_item_placed()
-
-
 func _show_pickup_notification(item_name: String) -> void:
-	_show_notification("+ %s" % item_name)
+	_show_notification("Took %s" % item_name, 0.5)
 
 
 func _show_notification(text: String, duration: float = 2.0) -> void:
@@ -259,10 +321,43 @@ func _show_notification(text: String, duration: float = 2.0) -> void:
 
 
 func _show_notification_sequence(messages: Array[String]) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+
+	if hud != null and hud.has_method("begin_action_lock"):
+		hud.call("begin_action_lock")
+
 	for message in messages:
 		_show_notification(message, 2.5)
-		await get_tree().create_timer(2.65).timeout
+
+		if hud != null and hud.has_method("wait_for_notification_finished"):
+			await hud.call("wait_for_notification_finished")
+		else:
+			await get_tree().create_timer(2.65).timeout
+
+	if hud != null and hud.has_method("end_action_lock"):
+		hud.call("end_action_lock")
 
 
 func _interact_with_cashier(cashier: Cashier) -> void:
 	cashier.try_checkout()
+
+
+func _is_inside_group(node: Node, group_name: String) -> bool:
+	var current := node
+
+	while current != null:
+		if current.is_in_group(group_name):
+			return true
+
+		current = current.get_parent()
+
+	return false
+
+
+func _is_action_locked() -> bool:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+
+	if hud == null or not hud.has_method("is_action_locked"):
+		return false
+
+	return bool(hud.call("is_action_locked"))
