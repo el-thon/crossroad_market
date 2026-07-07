@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal notification_finished()
+
 @onready var gold_label: Label = $GoldLabel
 @onready var target_label: Label = $TargetLabel
 @onready var time_label: Label = $TimeLabel
@@ -12,10 +14,14 @@ const NOTIFY_DURATION: float = 2.0
 var _notify_timer: float = 0.0
 var _notify_duration: float = NOTIFY_DURATION
 var _notify_full_chars: int = 0
+var _action_lock_timer: float = 0.0
+var _action_lock_sessions: int = 0
+var _notification_finished_emitted: bool = true
 
 
 func _ready() -> void:
 	add_to_group("hud")
+	notification_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	EconomyManager.gold_changed.connect(_on_gold_changed)
 	EconomyManager.daily_target_reached.connect(_on_target_reached)
@@ -31,6 +37,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _action_lock_timer > 0.0:
+		_action_lock_timer = max(0.0, _action_lock_timer - delta)
+
 	if _notify_timer <= 0.0:
 		return
 
@@ -49,12 +58,52 @@ func _process(delta: float) -> void:
 		notification_label.modulate.a = 1.0 - fade_progress
 
 	if _notify_timer <= 0.0:
-		notification_label.modulate.a = 0.0
-		notification_label.visible_characters = 0
-		notification_label.visible = false
+		_finish_notification()
 
 
-func show_notification(text: String, duration: float = NOTIFY_DURATION) -> void:
+func _unhandled_input(event: InputEvent) -> void:
+	if not _is_dialog_skip_event(event):
+		return
+
+	var skipped := false
+
+	if notification_label.visible:
+		_finish_notification()
+		skipped = true
+
+	if _skip_world_dialogs():
+		skipped = true
+
+	if skipped:
+		get_viewport().set_input_as_handled()
+
+
+func _is_dialog_skip_event(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		return mouse_event.pressed and mouse_event.button_index in [
+			MOUSE_BUTTON_LEFT,
+			MOUSE_BUTTON_RIGHT,
+			MOUSE_BUTTON_MIDDLE
+		]
+
+	if event is InputEventScreenTouch:
+		return event.pressed
+
+	return false
+
+
+func _skip_world_dialogs() -> bool:
+	var skipped := false
+
+	for node in get_tree().get_nodes_in_group("dialog_skip_target"):
+		if node != null and node.has_method("skip_dialog"):
+			skipped = bool(node.call("skip_dialog")) or skipped
+
+	return skipped
+
+
+func show_notification(text: String, duration: float = NOTIFY_DURATION, blocks_actions: bool = true) -> void:
 	notification_label.visible = true
 	notification_label.text = text
 	_notify_full_chars = text.length()
@@ -62,6 +111,41 @@ func show_notification(text: String, duration: float = NOTIFY_DURATION) -> void:
 	_notify_timer = _notify_duration
 	notification_label.visible_characters = 0
 	notification_label.modulate.a = 1.0
+	_notification_finished_emitted = false
+
+	if blocks_actions:
+		_action_lock_timer = _notify_duration
+
+
+func wait_for_notification_finished() -> void:
+	if _notify_timer <= 0.0:
+		return
+
+	await notification_finished
+
+
+func begin_action_lock() -> void:
+	_action_lock_sessions += 1
+
+
+func end_action_lock() -> void:
+	_action_lock_sessions = max(0, _action_lock_sessions - 1)
+
+
+func is_action_locked() -> bool:
+	return _action_lock_sessions > 0 or _action_lock_timer > 0.0
+
+
+func _finish_notification() -> void:
+	_notify_timer = 0.0
+	_action_lock_timer = 0.0
+	notification_label.modulate.a = 0.0
+	notification_label.visible_characters = 0
+	notification_label.visible = false
+
+	if not _notification_finished_emitted:
+		_notification_finished_emitted = true
+		notification_finished.emit()
 
 
 func _update_all() -> void:
@@ -74,7 +158,7 @@ func _update_all() -> void:
 
 
 func _on_gold_changed(amount: int) -> void:
-	gold_label.text = "Gold: %dG" % amount
+	gold_label.text = "Wallet: %dG" % amount
 	target_label.text = "%dG / %dG" % [
 		EconomyManager.daily_revenue,
 		EconomyManager.daily_target
@@ -88,12 +172,8 @@ func _on_target_reached() -> void:
 	]
 
 
-func _on_time_updated(seconds: float) -> void:
-	var total_seconds: int = int(seconds)
-	var m: int = int(total_seconds / 60)
-	var s: int = total_seconds % 60
-
-	time_label.text = "%02d:%02d" % [m, s]
+func _on_time_updated(_seconds: float) -> void:
+	time_label.text = TimeManager.get_time_display()
 
 
 func _on_phase_changed(_phase) -> void:

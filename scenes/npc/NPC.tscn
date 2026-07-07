@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://jriw7c35rm3y"]
 
-[ext_resource type="Script" path="res://scripts/NPC.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/npc/NPC.gd" id="1"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_npc"]
 size = Vector2(28, 12)
@@ -9,6 +9,8 @@ size = Vector2(28, 12)
 size = Vector2(32, 32)
 
 [node name="NPC" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 0
 motion_mode = 1
 script = ExtResource("1")
 
