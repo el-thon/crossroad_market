@@ -15,17 +15,17 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Crossroad Market"
-run/main_scene="res://scenes/World.tscn"
+run/main_scene="uid://d0k6caqo7l0hn"
 config/features=PackedStringArray("4.6")
 
 [autoload]
 
-ItemDatabase="*uid://c0080s8uatcs1"
-Inventory="*uid://b0kehh58ddl41"
-TimeManager="*uid://bboop3max0huu"
-NPCScheduler="*uid://lkjnssiu3xf0"
-EconomyManager="*uid://cdivj315f7vpe"
-BlueprintManager="*res://autoloads/BlueprintManager.gd"
+ItemDatabase="*res://scripts/managers/ItemDatabase.gd"
+Inventory="*res://scripts/managers/Inventory.gd"
+TimeManager="*res://scripts/managers/TimeManager.gd"
+NPCScheduler="*res://scripts/managers/NPCScheduler.gd"
+EconomyManager="*res://scripts/managers/EconomyManager.gd"
+BlueprintManager="*res://scripts/managers/BlueprintManager.gd"
 
 [display]
 
@@ -58,6 +58,11 @@ move_down={
 interact={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":69,"key_label":0,"unicode":69,"location":0,"echo":false,"script":null)
+]
+}
+carry={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":70,"key_label":0,"unicode":102,"location":0,"echo":false,"script":null)
 ]
 }
 

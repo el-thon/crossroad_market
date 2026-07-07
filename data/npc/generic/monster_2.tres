@@ -1,14 +1,16 @@
 [gd_resource type="Resource" script_class="NPCData" format=3]
 
-[ext_resource type="Script" path="res://resources/NPCData.gd" id="1"]
+[ext_resource type="Script" path="res://data/npc/NPCData.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
 npc_id = "monster_2"
 display_name = "Werewolf Costumer"
-is_special = false
+npc_category = 1
 visit_phase = 2
 patience_type = 2
 favorite_items = PackedStringArray("spirit_water", "bandage")
 visit_days = PackedInt32Array(2, 4, 6)
-spawn_order = 6
+spawn_order = 7
+behavior_profile_id = "normal_shopper"
+spawn_chance = 0.5

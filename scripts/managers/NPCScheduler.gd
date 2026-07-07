@@ -1,0 +1,176 @@
+extends Node
+
+signal npc_spawn_requested(npc_data)
+
+const SPAWN_INTERVAL: float = 60.0
+const DAY_ONE_DAY_SPAWN_INTERVAL: float = 60.0
+const DAY_ONE_NIGHT_SPAWN_INTERVAL: float = 8.0
+
+var _npc_database: Dictionary = {}
+var _day_schedule: Array = []
+var _spawn_queue: Array = []
+var _spawn_timer: float = 0.0
+var _spawn_interval: float = SPAWN_INTERVAL
+var _is_spawning: bool = false
+var _day_one_night_monster_spawned: bool = false
+var _spawning_unlocked: bool = false
+
+func _ready() -> void:
+	_load_npc_data()
+	TimeManager.day_started.connect(_on_day_started)
+	TimeManager.phase_changed.connect(_on_phase_changed)
+
+func _process(delta: float) -> void:
+	if not _is_spawning or _spawn_queue.is_empty():
+		return
+
+	_spawn_timer -= delta
+	if _spawn_timer <= 0.0:
+		_spawn_next_npc()
+		_spawn_timer = _spawn_interval
+
+func _load_npc_database() -> void:
+	var _load_dir := func(dir_path: String) -> void:
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			return
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".tres"):
+				var npc = load(dir_path + file_name)
+				if npc != null and npc.npc_id != "":
+					_npc_database[npc.npc_id] = npc
+			file_name = dir.get_next()
+	_load_dir.call("res://data/npc/story/")
+	_load_dir.call("res://data/npc/generic/")
+
+func _load_npc_data() -> void:
+	_npc_database.clear()
+	_load_npc_database()
+
+func _on_day_started(day: int) -> void:
+	_day_one_night_monster_spawned = false
+	_generate_schedule(day)
+
+func _on_phase_changed(phase) -> void:
+	if not _spawning_unlocked:
+		_stop_spawning()
+		return
+
+	if phase == TimeManager.Phase.MORNING:
+		if TimeManager.current_day > 1:
+			_start_spawning(NPCData.VisitPhase.MORNING)
+		else:
+			_stop_spawning()
+	elif phase == TimeManager.Phase.DAY:
+		if TimeManager.current_day == 1:
+			_start_day_one_spawning(NPCData.VisitPhase.DAY)
+		else:
+			_start_spawning(NPCData.VisitPhase.DAY)
+	elif phase == TimeManager.Phase.NIGHT:
+		if TimeManager.current_day == 1:
+			_start_day_one_spawning(NPCData.VisitPhase.NIGHT)
+		else:
+			_start_spawning(NPCData.VisitPhase.NIGHT)
+
+
+func lock_spawning_until_ready() -> void:
+	_spawning_unlocked = false
+	_stop_spawning()
+
+
+func unlock_spawning_now(force_day_phase: bool = false) -> void:
+	if _spawning_unlocked:
+		return
+
+	_spawning_unlocked = true
+
+	if force_day_phase:
+		TimeManager.start_day_phase()
+	else:
+		_on_phase_changed(TimeManager.current_phase)
+
+
+func _generate_schedule(day: int) -> void:
+	_day_schedule.clear()
+
+	for npc in _npc_database.values():
+		if npc.visit_days.is_empty() or day in npc.visit_days:
+			_day_schedule.append(npc)
+
+	_day_schedule.sort_custom(func(a, b): return a.spawn_order < b.spawn_order)
+
+func _start_spawning(phase) -> void:
+	_spawn_queue.clear()
+	for npc in _day_schedule:
+		if npc.visit_phase == phase:
+			_spawn_queue.append(npc)
+	_is_spawning = true
+	_spawn_interval = SPAWN_INTERVAL
+	_spawn_timer = 5.0
+
+func _start_day_one_spawning(phase) -> void:
+	_spawn_queue.clear()
+
+	if phase == NPCData.VisitPhase.DAY:
+		_spawn_interval = DAY_ONE_DAY_SPAWN_INTERVAL
+		_spawn_queue.append(_make_day_one_customer("day1_bread_customer", "Customer", ["bread"], 10, phase))
+		_spawn_queue.append(_make_day_one_customer("day1_water_customer", "Customer", ["water"], 5, phase))
+		_spawn_queue.append(_make_day_one_customer("day1_bandage_customer", "Customer", ["bandage"], 15, phase))
+		_spawn_queue.append(_make_day_one_customer("irene", "Irene", ["painkiller"], 10, phase, NPCData.NPCCategory.STORY))
+	elif phase == NPCData.VisitPhase.NIGHT:
+		_spawn_interval = DAY_ONE_NIGHT_SPAWN_INTERVAL
+		_spawn_queue.append(_make_day_one_customer("gooby", "Gooby The Phantom", ["phantom_ice_cream"], 10, phase, NPCData.NPCCategory.STORY, "reject_return"))
+
+	_is_spawning = not _spawn_queue.is_empty()
+	_spawn_timer = 2.0
+
+func spawn_day_one_night_monster_customer() -> void:
+	if _day_one_night_monster_spawned:
+		return
+
+	if TimeManager.current_day != 1 or TimeManager.current_phase != TimeManager.Phase.NIGHT:
+		return
+
+	_day_one_night_monster_spawned = true
+	npc_spawn_requested.emit(_make_day_one_customer(
+		"day1_slime",
+		"Slime Customer",
+		["phantom_ice_cream"],
+		10,
+		NPCData.VisitPhase.NIGHT
+	))
+
+func _stop_spawning() -> void:
+	_is_spawning = false
+	_spawn_queue.clear()
+
+func _spawn_next_npc() -> void:
+	if _spawn_queue.is_empty():
+		_is_spawning = false
+		return
+	var npc_data = _spawn_queue.pop_front()
+	npc_spawn_requested.emit(npc_data)
+
+func _make_day_one_customer(
+	npc_id: String,
+	display_name: String,
+	shopping_items: Array[String],
+	checkout_total: int,
+	visit_phase: NPCData.VisitPhase,
+	category: NPCData.NPCCategory = NPCData.NPCCategory.GENERIC,
+	checkout_outcome: String = "paid"
+) -> NPCData:
+	var data := NPCData.new()
+	data.npc_id = npc_id
+	data.display_name = display_name
+	data.npc_category = category
+	data.visit_days = [1]
+	data.visit_phase = visit_phase
+	data.patience_type = NPCData.PatienceType.PATIENT
+	data.favorite_items = shopping_items.duplicate()
+	data.set_meta("shopping_list", shopping_items.duplicate())
+	data.set_meta("checkout_total", checkout_total)
+	data.set_meta("checkout_outcome", checkout_outcome)
+	return data

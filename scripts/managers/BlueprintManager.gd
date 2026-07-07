@@ -29,14 +29,14 @@ static func get_dialog(bp_type: int, mood: int, key: String) -> String:
 		_: return ""
 	return bp.get_dialog(bp_type, mood, key)
 
-static func evaluate_no_item_action(npc: NPC) -> Action:
+static func evaluate_no_item_action(npc) -> Action:
 	match npc.npc_data.patience_type:
 		NPCData.PatienceType.IMPATIENT: return Action.LEAVE
 		NPCData.PatienceType.PATIENT: return Action.QUEUE
 		NPCData.PatienceType.QUITTER: return Action.BROWSE_BUY
 	return Action.LEAVE
 
-static func get_item_found_dialog(npc: NPC) -> String:
+static func get_item_found_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
 	var item_name: String = _item_name(npc.item_to_buy)
 	var tmpl := get_dialog(bp_type, npc.npc_data.patience_type, "search")
@@ -44,7 +44,7 @@ static func get_item_found_dialog(npc: NPC) -> String:
 		return tmpl % item_name
 	return tmpl
 
-static func get_item_not_found_dialog(npc: NPC) -> String:
+static func get_item_not_found_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
 	var item_name: String = _item_name(npc.item_to_buy)
 	var tmpl := get_dialog(bp_type, npc.npc_data.patience_type, "not_found")
@@ -52,9 +52,9 @@ static func get_item_not_found_dialog(npc: NPC) -> String:
 		return tmpl % item_name
 	return tmpl
 
-static func get_checkout_dialog(npc: NPC) -> String:
+static func get_checkout_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
-	var mood := npc.npc_data.patience_type
+	var mood: int = npc.npc_data.patience_type
 	var item_data: ItemData = ItemDatabase.get_item(npc.item_to_buy)
 	var item_name: String = item_data.display_name if item_data else npc.item_to_buy
 	var price: int = item_data.sell_price if item_data else 0
@@ -67,19 +67,19 @@ static func get_checkout_dialog(npc: NPC) -> String:
 		return tmpl % price
 	return "I'd like to buy %s. %dG." % [item_name, price]
 
-static func get_done_dialog(npc: NPC) -> String:
+static func get_done_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
 	return get_dialog(bp_type, npc.npc_data.patience_type, "done")
 
-static func get_queue_too_long_dialog(npc: NPC) -> String:
+static func get_queue_too_long_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
 	return get_dialog(bp_type, npc.npc_data.patience_type, "queue_too_long")
 
-static func get_checkout_wait_dialog(npc: NPC) -> String:
+static func get_checkout_wait_dialog(npc) -> String:
 	var bp_type := _get_bp_type(npc)
 	return get_dialog(bp_type, npc.npc_data.patience_type, "checkout_wait")
 
-static func _get_bp_type(npc: NPC) -> int:
+static func _get_bp_type(npc) -> int:
 	match npc.npc_data.patience_type:
 		NPCData.PatienceType.IMPATIENT: return 0
 		NPCData.PatienceType.PATIENT: return 1
