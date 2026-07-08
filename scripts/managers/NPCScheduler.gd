@@ -104,6 +104,10 @@ func _generate_schedule(day: int) -> void:
 	_day_schedule.sort_custom(func(a, b): return a.spawn_order < b.spawn_order)
 
 func _start_spawning(phase) -> void:
+	if not _can_spawn_phase_now(phase):
+		_stop_spawning()
+		return
+
 	_spawn_queue.clear()
 	for npc in _day_schedule:
 		if npc.visit_phase == phase:
@@ -113,6 +117,10 @@ func _start_spawning(phase) -> void:
 	_spawn_timer = 5.0
 
 func _start_day_one_spawning(phase) -> void:
+	if not _can_spawn_phase_now(phase):
+		_stop_spawning()
+		return
+
 	_spawn_queue.clear()
 
 	if phase == NPCData.VisitPhase.DAY:
@@ -157,7 +165,20 @@ func _spawn_next_npc() -> void:
 		_is_spawning = false
 		return
 	var npc_data = _spawn_queue.pop_front()
+
+	if not _can_spawn_phase_now(npc_data.visit_phase):
+		_is_spawning = false
+		_spawn_queue.clear()
+		return
+
 	npc_spawn_requested.emit(npc_data)
+
+
+func _can_spawn_phase_now(visit_phase: NPCData.VisitPhase) -> bool:
+	if visit_phase == NPCData.VisitPhase.NIGHT:
+		return TimeManager.current_phase == TimeManager.Phase.NIGHT
+
+	return true
 
 func _make_day_one_customer(
 	npc_id: String,
