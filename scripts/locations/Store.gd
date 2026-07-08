@@ -9,6 +9,8 @@ const CASHIER_DEPTH_FRONT_OFFSET: float = 8.0
 const SHELF_DEPTH_HALF_WIDTH: float = 48.0
 const SHELF_DEPTH_BACK_OFFSET: float = 56.0
 const SHELF_DEPTH_FRONT_OFFSET: float = 8.0
+const CARRY_SHELF_CASHIER_BLOCKER_SIZE := Vector2(128, 120)
+const CARRY_SHELF_CASHIER_BLOCKER_OFFSET := Vector2(0, -18)
 
 var npc_scene: PackedScene = preload("res://scenes/npc/NPC.tscn")
 var storage_scene: PackedScene = preload("res://scenes/locations/Storage.tscn")
@@ -27,6 +29,8 @@ var _current_storage: Node2D = null
 var _current_yard: Node2D = null
 var _fade_layer: CanvasLayer = null
 var _fade_rect: ColorRect = null
+var _carry_shelf_blocker: StaticBody2D = null
+var _carry_shelf_blocker_shape: CollisionShape2D = null
 var _is_transitioning: bool = false
 
 var _normal_items_taken: int = 0
@@ -53,6 +57,7 @@ func _ready() -> void:
 	_connect_manager_signals()
 	_connect_scene_signals()
 	_create_fade_layer()
+	_create_carry_shelf_blocker()
 	_setup_npc_static_data()
 	NPC.current_queue.clear()
 	NPCScheduler.lock_spawning_until_ready()
@@ -63,8 +68,10 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	if _current_storage != null or _current_yard != null or _is_transitioning:
+		_set_carry_shelf_blocker_enabled(false)
 		return
 
+	_update_carry_shelf_blocker()
 	_update_player_depth_override()
 
 	if _is_action_locked():
@@ -418,8 +425,13 @@ func _drop_carried_shelf_in_store(object: Node2D) -> void:
 	if player == null:
 		return
 
+	var drop_position := player.global_position + STORE_DROP_OFFSET
+
+	if _is_shelf_drop_blocked(drop_position):
+		return
+
 	object.reparent(self, true)
-	object.global_position = player.global_position + STORE_DROP_OFFSET
+	object.global_position = drop_position
 	object.z_index = 0
 	object.set_meta("is_carried_storage_object", false)
 	object.set_meta("is_installed_in_store", true)
@@ -428,6 +440,59 @@ func _drop_carried_shelf_in_store(object: Node2D) -> void:
 	_register_installed_shelf(object)
 
 	_show_notification("Shelf placed in the store.")
+
+
+func _create_carry_shelf_blocker() -> void:
+	_carry_shelf_blocker = StaticBody2D.new()
+	_carry_shelf_blocker.name = "CarryShelfCashierBlocker"
+	_carry_shelf_blocker.visible = false
+	add_child(_carry_shelf_blocker)
+
+	var shape := RectangleShape2D.new()
+	shape.size = CARRY_SHELF_CASHIER_BLOCKER_SIZE
+
+	_carry_shelf_blocker_shape = CollisionShape2D.new()
+	_carry_shelf_blocker_shape.name = "CollisionShape2D"
+	_carry_shelf_blocker_shape.shape = shape
+	_carry_shelf_blocker.add_child(_carry_shelf_blocker_shape)
+
+	_set_carry_shelf_blocker_enabled(false)
+
+
+func _update_carry_shelf_blocker() -> void:
+	var carried_object := _get_carried_object_from_player()
+	var should_enable := carried_object != null and carried_object is Shelf
+
+	if _carry_shelf_blocker != null:
+		_carry_shelf_blocker.global_position = _get_carry_shelf_blocker_position()
+
+	_set_carry_shelf_blocker_enabled(should_enable)
+
+
+func _set_carry_shelf_blocker_enabled(enabled: bool) -> void:
+	if _carry_shelf_blocker_shape == null:
+		return
+
+	_carry_shelf_blocker_shape.disabled = not enabled
+
+
+func _is_shelf_drop_blocked(drop_position: Vector2) -> bool:
+	var blocker_rect := Rect2(
+		_get_carry_shelf_blocker_position() - CARRY_SHELF_CASHIER_BLOCKER_SIZE * 0.5,
+		CARRY_SHELF_CASHIER_BLOCKER_SIZE
+	)
+
+	return blocker_rect.has_point(drop_position)
+
+
+func _get_carry_shelf_blocker_position() -> Vector2:
+	if counter_pos != null:
+		return counter_pos.global_position + CARRY_SHELF_CASHIER_BLOCKER_OFFSET
+
+	if cashier != null:
+		return cashier.global_position + Vector2(0, 20)
+
+	return Vector2(96, 142)
 
 
 func _update_player_depth_override() -> void:
@@ -536,7 +601,7 @@ func _register_human_stock_progress() -> void:
 
 func _set_store_world_active(is_active: bool) -> void:
 	for child in get_children():
-		if child == _current_storage or child == _current_yard or child == _fade_layer or child == player:
+		if child == _current_storage or child == _current_yard or child == _fade_layer or child == _carry_shelf_blocker or child == player:
 			continue
 
 		if child.name == "HUD":
