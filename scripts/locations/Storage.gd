@@ -7,7 +7,6 @@ extends Node2D
 signal return_to_store(door_type: String)
 signal mystery_discovered()
 signal mystery_item_taken()
-signal human_shelf_stock_changed(stock_count: int)
 signal ghost_shelf_item_placed(slot_index: int, item_id: String)
 
 const SUPPLY_BOX_DEPTH_HALF_WIDTH: float = 34.0
@@ -107,43 +106,6 @@ func set_mystery_supply_depleted(is_depleted: bool) -> void:
 	_apply_mystery_box_item_state()
 
 
-func set_stored_shelf_items(human_items: Array[String], ghost_items: Array[String]) -> void:
-	if shelf_human != null and shelf_human.has_method("restore_slot_contents"):
-		shelf_human.restore_slot_contents(human_items)
-		human_shelf_stock_changed.emit(_get_shelf_stock_count(shelf_human))
-
-	if shelf_ghost != null and shelf_ghost.has_method("restore_slot_contents"):
-		shelf_ghost.restore_slot_contents(ghost_items)
-
-
-func get_human_shelf_items() -> Array[String]:
-	if _is_shelf_being_carried(shelf_human):
-		return []
-
-	if shelf_human == null or not shelf_human.has_method("get_slot_contents"):
-		return []
-
-	return shelf_human.get_slot_contents()
-
-
-func get_ghost_shelf_items() -> Array[String]:
-	if _is_shelf_being_carried(shelf_ghost):
-		return []
-
-	if shelf_ghost == null or not shelf_ghost.has_method("get_slot_contents"):
-		return []
-
-	return shelf_ghost.get_slot_contents()
-
-
-func _is_shelf_being_carried(shelf: Shelf) -> bool:
-	return (
-		shelf != null
-		and shelf.has_meta("is_carried_storage_object")
-		and bool(shelf.get_meta("is_carried_storage_object"))
-	)
-
-
 func unlock_locked_half() -> void:
 	set_mystery_phase_unlocked(true)
 
@@ -172,13 +134,6 @@ func _connect_signals() -> void:
 
 	if mystery_box != null and not mystery_box.item_taken.is_connected(_on_mystery_box_item_taken):
 		mystery_box.item_taken.connect(_on_mystery_box_item_taken)
-
-	if shelf_human != null:
-		if not shelf_human.item_placed.is_connected(_on_human_shelf_item_changed):
-			shelf_human.item_placed.connect(_on_human_shelf_item_changed)
-
-		if not shelf_human.item_removed.is_connected(_on_human_shelf_item_changed):
-			shelf_human.item_removed.connect(_on_human_shelf_item_changed)
 
 	if shelf_ghost != null and not shelf_ghost.item_placed.is_connected(_on_ghost_shelf_item_placed):
 		shelf_ghost.item_placed.connect(_on_ghost_shelf_item_placed)
@@ -560,29 +515,8 @@ func _on_mystery_box_item_taken(_item_id: String) -> void:
 	mystery_item_taken.emit()
 
 
-func _on_human_shelf_item_changed(_slot_index: int, _item_id: String) -> void:
-	human_shelf_stock_changed.emit(_get_shelf_stock_count(shelf_human))
-
-
 func _on_ghost_shelf_item_placed(slot_index: int, item_id: String) -> void:
 	ghost_shelf_item_placed.emit(slot_index, item_id)
-
-
-func get_human_shelf_stock_count() -> int:
-	return _get_shelf_stock_count(shelf_human)
-
-
-func _get_shelf_stock_count(shelf: Shelf) -> int:
-	if shelf == null:
-		return 0
-
-	var stock_count := 0
-
-	for slot_index in shelf.max_slots:
-		if shelf.get_slot_content(slot_index) != "":
-			stock_count += 1
-
-	return stock_count
 
 
 func _apply_mystery_box_item_state() -> void:

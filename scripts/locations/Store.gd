@@ -56,8 +56,6 @@ var _customer_open_notification_shown: bool = false
 var _suppress_next_day_open_notification: bool = false
 var _intro_shown: bool = false
 var _ghost_shelf_lesson_shown: bool = false
-var _storage_human_shelf_items: Array[String] = []
-var _storage_ghost_shelf_items: Array[String] = []
 
 var human_shelf: Shelf = null
 var ghost_shelf: Shelf = null
@@ -121,6 +119,16 @@ func on_normal_item_taken() -> void:
 
 func on_human_item_placed() -> void:
 	_register_human_stock_progress()
+
+
+func is_shelf_type_installed(shelf_type: ItemData.ShelfType) -> bool:
+	match shelf_type:
+		ItemData.ShelfType.HUMAN:
+			return _human_shelf_installed
+		ItemData.ShelfType.GHOST:
+			return _ghost_shelf_installed
+
+	return false
 
 
 func _connect_manager_signals() -> void:
@@ -215,12 +223,6 @@ func _enter_storage() -> void:
 			_ghost_shelf_installed or _is_player_carrying_shelf_named("ShelfGhost")
 		)
 
-	if _current_storage.has_method("set_stored_shelf_items"):
-		_current_storage.set_stored_shelf_items(
-			_storage_human_shelf_items,
-			_storage_ghost_shelf_items
-		)
-
 	if _current_storage.has_method("set_normal_supply_depleted"):
 		_current_storage.set_normal_supply_depleted(_normal_supply_depleted)
 
@@ -253,12 +255,6 @@ func _enter_storage() -> void:
 		if not _current_storage.is_connected("mystery_item_taken", mystery_item_callable):
 			_current_storage.connect("mystery_item_taken", mystery_item_callable)
 
-	if _current_storage.has_signal("human_shelf_stock_changed"):
-		var human_stock_callable := Callable(self, "_on_storage_human_shelf_stock_changed")
-
-		if not _current_storage.is_connected("human_shelf_stock_changed", human_stock_callable):
-			_current_storage.connect("human_shelf_stock_changed", human_stock_callable)
-
 	if _current_storage.has_signal("ghost_shelf_item_placed"):
 		var ghost_shelf_callable := Callable(self, "_on_ghost_shelf_item_placed")
 
@@ -288,7 +284,6 @@ func _on_storage_return(_door_type: String) -> void:
 	_is_transitioning = true
 	_close_cashier_runtime_ui()
 	await _fade_to_black()
-	_capture_storage_shelf_items()
 
 	if player == null and _current_storage != null:
 		player = _current_storage.get_node_or_null("Player") as Node2D
@@ -404,10 +399,6 @@ func _on_storage_mystery_discovered() -> void:
 
 func _on_storage_mystery_item_taken() -> void:
 	_mystery_supply_depleted = true
-
-
-func _on_storage_human_shelf_stock_changed(stock_count: int) -> void:
-	_set_human_stock_count(stock_count)
 
 
 func _get_storage_return_position() -> Vector2:
@@ -681,7 +672,6 @@ func _register_installed_shelf(object: Node2D) -> void:
 
 	if object.name == "ShelfHuman" and object is Shelf:
 		_human_shelf_installed = true
-		_storage_human_shelf_items.clear()
 		human_shelf = object as Shelf
 
 		_connect_human_shelf_signals(human_shelf)
@@ -692,7 +682,6 @@ func _register_installed_shelf(object: Node2D) -> void:
 
 	if object.name == "ShelfGhost" and object is Shelf:
 		_ghost_shelf_installed = true
-		_storage_ghost_shelf_items.clear()
 		ghost_shelf = object as Shelf
 
 		if not ghost_shelf.item_placed.is_connected(_on_ghost_shelf_item_placed):
@@ -887,17 +876,6 @@ func _close_cashier_runtime_ui() -> void:
 
 	if cashier != null and cashier.has_method("reset_runtime_ui"):
 		cashier.call("reset_runtime_ui")
-
-
-func _capture_storage_shelf_items() -> void:
-	if _current_storage == null:
-		return
-
-	if _current_storage.has_method("get_human_shelf_items"):
-		_storage_human_shelf_items = _current_storage.get_human_shelf_items()
-
-	if _current_storage.has_method("get_ghost_shelf_items"):
-		_storage_ghost_shelf_items = _current_storage.get_ghost_shelf_items()
 
 
 func _on_npc_spawn_requested(npc_data: NPCData) -> void:

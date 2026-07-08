@@ -189,6 +189,9 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 		_show_notification("Put the shelf down first.", 0.5)
 		return
 
+	if not _is_shelf_installed_in_store(shelf):
+		return
+
 	var inventory_items: Dictionary = Inventory.get_all()
 
 	if inventory_items.is_empty():
@@ -220,6 +223,9 @@ func _try_take_from_shelf() -> void:
 	var shelf := _get_best_shelf_target()
 
 	if shelf == null:
+		return
+
+	if not _is_shelf_installed_in_store(shelf):
 		return
 
 	_take_item_from_shelf(shelf)
@@ -290,11 +296,25 @@ func _get_wrong_shelf_key(item_id: String, shelf: Shelf) -> String:
 	return "%s_%s" % [item_id, str(shelf.get_instance_id())]
 
 
+func _is_shelf_installed_in_store(shelf: Shelf) -> bool:
+	if shelf == null:
+		return false
+
+	if not shelf.has_meta("is_installed_in_store"):
+		return true
+
+	return bool(shelf.get_meta("is_installed_in_store"))
+
+
 func _interact_with_supply_box(box: SupplyBox) -> void:
 	var available: Array = box.get_available_items()
 
 	if available.is_empty():
 		_show_notification("This box is already empty.")
+		return
+
+	if not _is_supply_box_shelf_ready(available):
+		_show_notification("maybe I should move the shelf out first")
 		return
 
 	_supply_box_cursor = _supply_box_cursor % available.size()
@@ -318,6 +338,49 @@ func _interact_with_supply_box(box: SupplyBox) -> void:
 		_supply_box_cursor = (_supply_box_cursor + 1) % updated_available.size()
 	else:
 		_supply_box_cursor = 0
+
+
+func _is_supply_box_shelf_ready(available_items: Array) -> bool:
+	var required_shelf_types: Dictionary = {}
+
+	for item_id_variant in available_items:
+		var item := ItemDatabase.get_item(str(item_id_variant))
+
+		if item == null:
+			continue
+
+		required_shelf_types[item.shelf_type] = true
+
+	if required_shelf_types.is_empty():
+		return true
+
+	var world: Node = get_tree().get_first_node_in_group("store")
+
+	if world != null and world.has_method("is_shelf_type_installed"):
+		for shelf_type in required_shelf_types.keys():
+			if not bool(world.call("is_shelf_type_installed", shelf_type)):
+				return false
+
+		return true
+
+	for shelf_type in required_shelf_types.keys():
+		if not _has_installed_shelf_type(shelf_type):
+			return false
+
+	return true
+
+
+func _has_installed_shelf_type(shelf_type: int) -> bool:
+	for node in get_tree().get_nodes_in_group("shelves"):
+		if not node is Shelf:
+			continue
+
+		var shelf := node as Shelf
+
+		if shelf.shelf_type == shelf_type and _is_shelf_installed_in_store(shelf):
+			return true
+
+	return false
 
 
 func _notify_mystery_taken() -> void:
