@@ -13,6 +13,7 @@ var _spawn_timer: float = 0.0
 var _spawn_interval: float = SPAWN_INTERVAL
 var _is_spawning: bool = false
 var _day_one_night_monster_spawned: bool = false
+var _day_one_day_spawning_started: bool = false
 var _spawning_unlocked: bool = false
 
 func _ready() -> void:
@@ -51,6 +52,7 @@ func _load_npc_data() -> void:
 
 func _on_day_started(day: int) -> void:
 	_day_one_night_monster_spawned = false
+	_day_one_day_spawning_started = false
 	_generate_schedule(day)
 
 func _on_phase_changed(phase) -> void:
@@ -80,14 +82,14 @@ func lock_spawning_until_ready() -> void:
 	_stop_spawning()
 
 
-func unlock_spawning_now(force_day_phase: bool = false) -> void:
+func unlock_spawning_now(start_day_one_customers_now: bool = false) -> void:
 	if _spawning_unlocked:
 		return
 
 	_spawning_unlocked = true
 
-	if force_day_phase:
-		TimeManager.start_day_phase()
+	if start_day_one_customers_now:
+		_start_day_one_spawning(NPCData.VisitPhase.DAY)
 	else:
 		_on_phase_changed(TimeManager.current_phase)
 
@@ -114,6 +116,10 @@ func _start_day_one_spawning(phase) -> void:
 	_spawn_queue.clear()
 
 	if phase == NPCData.VisitPhase.DAY:
+		if _day_one_day_spawning_started:
+			return
+
+		_day_one_day_spawning_started = true
 		_spawn_interval = DAY_ONE_DAY_SPAWN_INTERVAL
 		_spawn_queue.append(_make_day_one_customer("day1_bread_customer", "Customer", ["bread"], 10, phase))
 		_spawn_queue.append(_make_day_one_customer("day1_water_customer", "Customer", ["water"], 5, phase))

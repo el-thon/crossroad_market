@@ -754,7 +754,7 @@ func _check_customer_spawning_ready(show_notice: bool = true) -> void:
 
 	_customer_spawning_unlocked = true
 
-	var should_start_day_now := (
+	var should_start_day_one_customers_now := (
 		TimeManager.current_day == 1
 		and TimeManager.current_phase == TimeManager.Phase.MORNING
 	)
@@ -762,9 +762,9 @@ func _check_customer_spawning_ready(show_notice: bool = true) -> void:
 	if show_notice:
 		_show_customer_open_notification()
 	else:
-		_suppress_next_day_open_notification = should_start_day_now
+		_suppress_next_day_open_notification = should_start_day_one_customers_now
 
-	NPCScheduler.unlock_spawning_now(should_start_day_now)
+	NPCScheduler.unlock_spawning_now(should_start_day_one_customers_now)
 
 
 func _show_customer_open_notification() -> void:
