@@ -30,7 +30,9 @@ size = Vector2(20, 16)
 y_sort_enabled = true
 script = ExtResource("1_nf23d")
 
-[node name="ColorRect" type="ColorRect" parent="." unique_id=28098589]
+[node name="VisualRoot" type="Node2D" parent="."]
+
+[node name="PlaceholderRect" type="ColorRect" parent="VisualRoot" unique_id=28098589]
 offset_left = -32.0
 offset_top = -48.0
 offset_right = 32.0

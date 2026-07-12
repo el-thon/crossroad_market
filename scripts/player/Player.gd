@@ -69,6 +69,7 @@ func _try_interact() -> void:
 	var areas: Array[Area2D] = interaction_area.get_overlapping_areas()
 
 	if areas.is_empty():
+		_show_notification("Nothing to interact with.", 0.5)
 		return
 
 	# Fallback untuk door Storage.
@@ -103,6 +104,7 @@ func _try_interact() -> void:
 			best_distance = distance
 
 	if best_target == null:
+		_show_notification("Nothing useful here.", 0.5)
 		return
 
 	if best_target is NPC:
@@ -155,6 +157,7 @@ func _get_interaction_priority(target: Node) -> int:
 
 func _interact_with_npc(npc: NPC) -> void:
 	if npc.current_state != NPC.State.CHECKOUT:
+		_show_notification("They are busy right now.", 0.7)
 		return
 
 	var item_id: String = npc.item_to_buy
@@ -170,17 +173,20 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 		return
 
 	if not _is_shelf_installed_in_store(shelf):
+		_show_notification("Place this shelf in the store first.", 0.8)
 		return
 
 	var inventory_items: Dictionary = Inventory.get_all()
 
 	if inventory_items.is_empty():
+		_show_notification("No item to place.", 0.6)
 		return
 
 	var item_id: String = str(inventory_items.keys()[0])
 	var item: ItemData = ItemDatabase.get_item(item_id)
 
 	if item == null:
+		_show_notification("That item cannot be stocked yet.", 0.8)
 		return
 
 	var result: int = shelf.place_item(item_id)
@@ -192,6 +198,8 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 
 	if item.shelf_type != shelf.shelf_type:
 		_handle_wrong_shelf_attempt(item_id, item, shelf)
+	elif _is_shelf_full(shelf):
+		_show_notification("Shelf is full.", 0.6)
 	else:
 		_show_notification("Could not place %s." % item.display_name, 0.5)
 
@@ -203,9 +211,11 @@ func _try_take_from_shelf() -> void:
 	var shelf := _get_best_shelf_target()
 
 	if shelf == null:
+		_show_notification("No shelf in reach.", 0.5)
 		return
 
 	if not _is_shelf_installed_in_store(shelf):
+		_show_notification("Place this shelf in the store first.", 0.8)
 		return
 
 	_take_item_from_shelf(shelf)
@@ -248,7 +258,7 @@ func _take_item_from_shelf(shelf: Shelf) -> void:
 
 func _handle_wrong_shelf_attempt(
 	item_id: String,
-	_item: ItemData,
+	item: ItemData,
 	shelf: Shelf
 ) -> void:
 	var attempt_key: String = _get_wrong_shelf_key(item_id, shelf)
@@ -262,14 +272,32 @@ func _handle_wrong_shelf_attempt(
 
 	if attempts >= MAX_WRONG_ATTEMPTS:
 		await _show_notification_sequence([
-			"Huh? It keeps falling off from the shelf...",
-			"Maybe I should try the other shelf..."
+			"%s does not fit on this shelf." % item.display_name,
+			"Try the %s shelf." % _get_shelf_type_label(item.shelf_type)
 		])
 	else:
 		_show_notification(
 			"The item fell off the shelf... (%d/%d)" %
 			[attempts, MAX_WRONG_ATTEMPTS]
 		)
+
+
+func _is_shelf_full(shelf: Shelf) -> bool:
+	for slot_index in shelf.max_slots:
+		if shelf.get_slot_content(slot_index) == "":
+			return false
+
+	return true
+
+
+func _get_shelf_type_label(shelf_type: ItemData.ShelfType) -> String:
+	match shelf_type:
+		ItemData.ShelfType.HUMAN:
+			return "human"
+		ItemData.ShelfType.GHOST:
+			return "ghost"
+
+	return "matching"
 
 
 func _get_wrong_shelf_key(item_id: String, shelf: Shelf) -> String:

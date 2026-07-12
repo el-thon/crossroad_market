@@ -180,9 +180,11 @@ func _process_paid() -> void:
 	npc.complete_checkout()
 
 	if npc.checkout_outcome == "reject_return":
-		_show_notification("Gooby has no human money. The item goes back.", 3.0)
-		if NPCScheduler.has_method("spawn_day_one_night_monster_customer"):
-			NPCScheduler.spawn_day_one_night_monster_customer()
+		if _is_gooby_npc(npc):
+			_request_gooby_refusal_consequence()
+			_show_notification("Refused Gooby. The item returns to the shelf... something else is coming.", 3.0)
+		else:
+			_show_notification("Checkout rejected. The item returns to the shelf.", 2.0)
 		_add_history(npc, item_label, 0, "REJECTED")
 		_clear_scan()
 		return
@@ -226,8 +228,7 @@ func _process_gooby_refuse() -> void:
 	else:
 		npc.complete_checkout()
 
-	if NPCScheduler.has_method("spawn_day_one_night_monster_customer"):
-		NPCScheduler.spawn_day_one_night_monster_customer()
+	_request_gooby_refusal_consequence()
 
 	_add_history(npc, item_label, 0, "REFUSED")
 	_show_notification("Refused Gooby. The item returns to the shelf... something else is coming.", 3.0)
@@ -421,10 +422,16 @@ func _is_story_gift_checkout() -> bool:
 	if _scanned_npc.checkout_outcome != "reject_return":
 		return false
 
-	if _scanned_npc.npc_data == null:
-		return false
+	return _is_gooby_npc(_scanned_npc)
 
-	return _scanned_npc.npc_data.npc_id == GOOBY_ID
+
+func _is_gooby_npc(npc: NPC) -> bool:
+	return npc != null and npc.npc_data != null and npc.npc_data.npc_id == GOOBY_ID
+
+
+func _request_gooby_refusal_consequence() -> void:
+	if NPCScheduler.has_method("spawn_day_one_night_monster_customer"):
+		NPCScheduler.spawn_day_one_night_monster_customer()
 
 
 func _ensure_cashier_panel() -> void:

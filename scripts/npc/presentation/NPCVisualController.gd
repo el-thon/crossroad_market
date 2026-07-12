@@ -19,7 +19,7 @@ static func apply_visual(npc: Node, npc_data: NPCData) -> void:
 	if npc == null:
 		return
 
-	var color_rect := npc.get_node_or_null("ColorRect") as ColorRect
+	var color_rect := _get_placeholder_rect(npc)
 	var name_label := npc.get_node_or_null("NameLabel") as Label
 
 	if color_rect == null or npc_data == null:
@@ -44,3 +44,12 @@ static func apply_visual(npc: Node, npc_data: NPCData) -> void:
 		color_rect.color = Color(0.3, 0.5, 0.9, 0.75)
 		if name_label != null:
 			name_label.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0, 1.0))
+
+
+static func _get_placeholder_rect(npc: Node) -> ColorRect:
+	var color_rect := npc.get_node_or_null("VisualRoot/PlaceholderRect") as ColorRect
+
+	if color_rect != null:
+		return color_rect
+
+	return npc.get_node_or_null("ColorRect") as ColorRect

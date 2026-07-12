@@ -15,7 +15,7 @@ func _ready() -> void:
 	_apply_shelf_color()
 
 func _apply_shelf_color() -> void:
-	var color_rect = $ColorRect
+	var color_rect := _get_placeholder_rect()
 	if color_rect == null:
 		return
 	if shelf_type == ItemData.ShelfType.HUMAN:
@@ -25,7 +25,7 @@ func _apply_shelf_color() -> void:
 		color_rect.color = Color(0.15, 0.1, 0.25, 0.7)
 
 func apply_ghost_glow(enabled: bool) -> void:
-	var color_rect = $ColorRect
+	var color_rect := _get_placeholder_rect()
 	if color_rect == null:
 		return
 	if enabled:
@@ -117,3 +117,12 @@ func _get_empty_slot() -> int:
 		if _slots[i] == null:
 			return i
 	return -1
+
+
+func _get_placeholder_rect() -> ColorRect:
+	var color_rect := get_node_or_null("VisualRoot/PlaceholderRect") as ColorRect
+
+	if color_rect != null:
+		return color_rect
+
+	return get_node_or_null("ColorRect") as ColorRect

@@ -70,13 +70,13 @@ position = Vector2(64, 136)
 position = Vector2(170, 218)
 items_to_give = Array[String](["bread", "water", "painkiller", "bandage"])
 
-[node name="ColorRect" parent="Normal" index="0" unique_id=1478309429]
+[node name="PlaceholderRect" parent="Normal/VisualRoot" index="0" unique_id=1478309429]
 color = Color(0.46, 0.31, 0.16, 1)
 
 [node name="ShelfHuman" parent="." unique_id=155469397 instance=ExtResource("4_shelf")]
 position = Vector2(168, 118)
 
-[node name="ColorRect" parent="ShelfHuman" index="0" unique_id=28098589]
+[node name="PlaceholderRect" parent="ShelfHuman/VisualRoot" index="0" unique_id=28098589]
 metadata/_edit_use_anchors_ = true
 
 [node name="Mystery" parent="." unique_id=2107622966 instance=ExtResource("2_supply_box")]
@@ -86,14 +86,14 @@ trigger_area_path = NodePath("Area2D")
 auto_place_on_ghost_shelf = false
 items_to_give = Array[String](["phantom_ice_cream"])
 
-[node name="ColorRect" parent="Mystery" index="0" unique_id=1478309429]
+[node name="PlaceholderRect" parent="Mystery/VisualRoot" index="0" unique_id=1478309429]
 color = Color(0.22, 0.18, 0.34, 1)
 
 [node name="ShelfGhost" parent="." unique_id=2014346637 instance=ExtResource("4_shelf")]
 position = Vector2(360, 118)
 shelf_type = 1
 
-[node name="ColorRect" parent="ShelfGhost" index="0" unique_id=28098589]
+[node name="PlaceholderRect" parent="ShelfGhost/VisualRoot" index="0" unique_id=28098589]
 metadata/_edit_use_anchors_ = true
 
 [node name="LockedGhostBlocker" type="StaticBody2D" parent="." unique_id=332481026]

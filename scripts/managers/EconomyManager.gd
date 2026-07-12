@@ -8,6 +8,7 @@ var gold: int = 0
 var daily_revenue: int = 0
 var daily_expenses: int = 0
 var daily_target: int = 50
+var _daily_target_reached: bool = false
 
 # tax increases per day (index = day - 1)
 var _tax_per_day: Array[int] = [10, 10, 15, 15, 20, 25]
@@ -21,7 +22,8 @@ func add_gold(amount: int) -> void:
 	daily_revenue += amount
 	gold_changed.emit(gold)
 
-	if daily_revenue >= daily_target:
+	if not _daily_target_reached and daily_revenue >= daily_target:
+		_daily_target_reached = true
 		daily_target_reached.emit()
 
 func spend_gold(amount: int) -> bool:
@@ -57,6 +59,7 @@ func get_daily_report() -> Dictionary:
 func _on_day_started(_day: int) -> void:
 	daily_revenue = 0
 	daily_expenses = 0
+	_daily_target_reached = false
 
 func _on_day_ended(_day: int) -> void:
 	var report := get_daily_report()

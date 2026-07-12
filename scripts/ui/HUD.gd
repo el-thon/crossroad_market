@@ -167,22 +167,14 @@ func _update_all() -> void:
 	_on_time_updated(TimeManager.time_remaining)
 	_on_trust_changed(GOOBY_ID, RelationshipManager.get_trust(GOOBY_ID), 0)
 
-	target_label.text = "Target: %dG" % EconomyManager.daily_target
-
 
 func _on_gold_changed(amount: int) -> void:
 	gold_label.text = "Wallet: %dG" % amount
-	target_label.text = "%dG / %dG" % [
-		EconomyManager.daily_revenue,
-		EconomyManager.daily_target
-	]
+	_update_target_label()
 
 
 func _on_target_reached() -> void:
-	target_label.text = "%dG / %dG  TARGET ACHIEVED" % [
-		EconomyManager.daily_revenue,
-		EconomyManager.daily_target
-	]
+	_update_target_label()
 
 
 func _on_time_updated(_seconds: float) -> void:
@@ -195,6 +187,7 @@ func _on_phase_changed(_phase) -> void:
 
 func _on_day_started(day: int) -> void:
 	day_label.text = "Day %d" % day
+	_update_target_label()
 
 
 func _on_trust_changed(npc_id: String, new_trust: int, _delta: int) -> void:
@@ -215,3 +208,15 @@ func _create_trust_label() -> void:
 	_trust_label.text = "Gooby Trust: 0/100"
 	_trust_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_trust_label)
+
+
+func _update_target_label() -> void:
+	var target_text := "%dG / %dG" % [
+		EconomyManager.daily_revenue,
+		EconomyManager.daily_target
+	]
+
+	if EconomyManager.daily_revenue >= EconomyManager.daily_target:
+		target_text += "  TARGET ACHIEVED"
+
+	target_label.text = target_text
