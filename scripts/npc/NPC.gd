@@ -94,12 +94,7 @@ func _physics_process(delta: float) -> void:
 
 func complete_checkout() -> void:
 	if checkout_outcome == "reject_return":
-		_return_cart_items_to_shelf()
-		_show_dialog("Boo...")
-		_dialog_timer = DIALOG_DURATION
-		_leave_queue()
-		target_position = entrance_position
-		_set_state(State.EXIT)
+		reject_checkout_and_return_items("Boo...")
 		return
 
 	var total := get_checkout_total()
@@ -108,10 +103,19 @@ func complete_checkout() -> void:
 		purchase_completed.emit(self, item_to_buy, total)
 		_show_dialog(BlueprintManager.get_done_dialog(self))
 
-	_dialog_timer = DIALOG_DURATION
-	_leave_queue()
-	target_position = entrance_position
-	_set_state(State.EXIT)
+	_finish_checkout_and_exit()
+
+
+func complete_story_gift(dialog_text: String = "Thank you...") -> void:
+	_cart_items.clear()
+	_show_dialog(dialog_text)
+	_finish_checkout_and_exit()
+
+
+func reject_checkout_and_return_items(dialog_text: String = "Boo...") -> void:
+	_return_cart_items_to_shelf()
+	_show_dialog(dialog_text)
+	_finish_checkout_and_exit()
 
 
 func get_checkout_total() -> int:
@@ -142,10 +146,7 @@ func skip_dialog() -> bool:
 func cancel_checkout_and_leave() -> void:
 	_return_cart_items_to_shelf()
 	_show_dialog("Never mind. I'll come back later.")
-	_dialog_timer = DIALOG_DURATION
-	_leave_queue()
-	target_position = entrance_position
-	_set_state(State.EXIT)
+	_finish_checkout_and_exit()
 
 
 func queue_done() -> void:
@@ -465,6 +466,13 @@ func _return_cart_items_to_shelf() -> void:
 				break
 
 	_cart_items.clear()
+
+
+func _finish_checkout_and_exit() -> void:
+	_dialog_timer = DIALOG_DURATION
+	_leave_queue()
+	target_position = entrance_position
+	_set_state(State.EXIT)
 
 
 func _set_state(new_state: State) -> void:
