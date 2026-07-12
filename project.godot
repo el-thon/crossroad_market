@@ -25,6 +25,7 @@ Inventory="*res://scripts/managers/Inventory.gd"
 TimeManager="*res://scripts/managers/TimeManager.gd"
 NPCScheduler="*res://scripts/managers/NPCScheduler.gd"
 EconomyManager="*res://scripts/managers/EconomyManager.gd"
+RelationshipManager="*res://scripts/managers/RelationshipManager.gd"
 BlueprintManager="*res://scripts/managers/BlueprintManager.gd"
 
 [display]
