@@ -15,23 +15,17 @@ func _ready() -> void:
 	_apply_shelf_color()
 
 func _apply_shelf_color() -> void:
-	var color_rect := _get_placeholder_rect()
-	if color_rect == null:
-		return
 	if shelf_type == ItemData.ShelfType.HUMAN:
-		color_rect.color = Color(0.7, 0.5, 0.3, 1.0)
+		_apply_visual_tint(Color(0.7, 0.5, 0.3, 1.0))
 	else:
 		# ghost shelf starts dim, revealed after mystery box discovery
-		color_rect.color = Color(0.15, 0.1, 0.25, 0.7)
+		_apply_visual_tint(Color(0.15, 0.1, 0.25, 0.7))
 
 func apply_ghost_glow(enabled: bool) -> void:
-	var color_rect := _get_placeholder_rect()
-	if color_rect == null:
-		return
 	if enabled:
-		color_rect.color = Color(0.5, 0.35, 0.9, 1.0)  # glowing purple
+		_apply_visual_tint(Color(0.5, 0.35, 0.9, 1.0))
 	else:
-		color_rect.color = Color(0.15, 0.1, 0.25, 0.7)
+		_apply_visual_tint(Color(0.15, 0.1, 0.25, 0.7))
 
 func place_item(item_id: String) -> int:
 	var item: ItemData = ItemDatabase.get_item(item_id)
@@ -71,7 +65,7 @@ func stock_item_direct(item_id: String) -> int:
 	return slot
 
 func remove_item(slot_index: int) -> String:
-	if slot_index < 0 or slot_index >= max_slots:
+	if slot_index < 0 or slot_index >= _slots.size():
 		return ""
 
 	var item_id: String = _slots[slot_index]
@@ -84,14 +78,14 @@ func remove_item(slot_index: int) -> String:
 	return item_id
 
 func remove_first_item() -> String:
-	for i in max_slots:
+	for i in _slots.size():
 		if _slots[i] != null:
 			return remove_item(i)
 
 	return ""
 
 func take_item_for_npc(item_id: String) -> bool:
-	for i in max_slots:
+	for i in _slots.size():
 		if _slots[i] == item_id:
 			_slots[i] = null
 			item_removed.emit(i, item_id)
@@ -109,20 +103,27 @@ func has_stock() -> bool:
 	return false
 
 func get_slot_content(slot_index: int) -> String:
+	if slot_index < 0 or slot_index >= _slots.size():
+		return ""
+
 	return _slots[slot_index] if _slots[slot_index] != null else ""
 
 
 func _get_empty_slot() -> int:
-	for i in max_slots:
+	for i in _slots.size():
 		if _slots[i] == null:
 			return i
 	return -1
 
 
-func _get_placeholder_rect() -> ColorRect:
+func _apply_visual_tint(color: Color) -> void:
 	var color_rect := get_node_or_null("VisualRoot/PlaceholderRect") as ColorRect
 
 	if color_rect != null:
-		return color_rect
+		color_rect.color = color
+		return
 
-	return get_node_or_null("ColorRect") as ColorRect
+	var visual := get_node_or_null("VisualRoot/AssetSprite") as CanvasItem
+
+	if visual != null:
+		visual.modulate = color

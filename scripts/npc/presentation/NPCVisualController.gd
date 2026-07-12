@@ -19,37 +19,40 @@ static func apply_visual(npc: Node, npc_data: NPCData) -> void:
 	if npc == null:
 		return
 
-	var color_rect := _get_placeholder_rect(npc)
 	var name_label := npc.get_node_or_null("NameLabel") as Label
 
-	if color_rect == null or npc_data == null:
+	if npc_data == null:
 		return
 
 	if npc_data.npc_category == NPCData.NPCCategory.STORY:
 		if npc_data.npc_id == "irene":
-			color_rect.color = Color(0.2, 0.7, 0.3, 1.0)
+			_apply_visual_tint(npc, Color(0.2, 0.7, 0.3, 1.0))
 			if name_label != null:
 				name_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4, 1.0))
 		elif npc_data.npc_id == "gooby":
-			color_rect.color = Color(0.4, 0.2, 0.8, 1.0)
+			_apply_visual_tint(npc, Color(0.4, 0.2, 0.8, 1.0))
 			if name_label != null:
 				name_label.add_theme_color_override("font_color", Color(0.7, 0.5, 1.0, 1.0))
 		return
 
 	if npc_data.visit_phase == NPCData.VisitPhase.DAY:
-		color_rect.color = Color(1.0, 0.5, 0.0, 0.75)
+		_apply_visual_tint(npc, Color(1.0, 0.5, 0.0, 0.75))
 		if name_label != null:
 			name_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.4, 1.0))
 	else:
-		color_rect.color = Color(0.3, 0.5, 0.9, 0.75)
+		_apply_visual_tint(npc, Color(0.3, 0.5, 0.9, 0.75))
 		if name_label != null:
 			name_label.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0, 1.0))
 
 
-static func _get_placeholder_rect(npc: Node) -> ColorRect:
+static func _apply_visual_tint(npc: Node, color: Color) -> void:
 	var color_rect := npc.get_node_or_null("VisualRoot/PlaceholderRect") as ColorRect
 
 	if color_rect != null:
-		return color_rect
+		color_rect.color = color
+		return
 
-	return npc.get_node_or_null("ColorRect") as ColorRect
+	var visual := npc.get_node_or_null("VisualRoot/AssetSprite") as CanvasItem
+
+	if visual != null:
+		visual.modulate = color

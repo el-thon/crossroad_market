@@ -306,24 +306,23 @@ func _get_ghost_shelf() -> Shelf:
 
 
 func _apply_glow(enabled: bool) -> void:
-	var color_rect := _get_placeholder_rect()
-
-	if color_rect == null:
-		return
-
 	if enabled:
-		color_rect.color = Color(0.4, 0.3, 0.8, 1.0)
+		_apply_visual_tint(Color(0.4, 0.3, 0.8, 1.0))
 	else:
-		color_rect.color = Color(0.2, 0.2, 0.2, 0.3)
+		_apply_visual_tint(Color(0.2, 0.2, 0.2, 0.3))
 
 
-func _get_placeholder_rect() -> ColorRect:
+func _apply_visual_tint(color: Color) -> void:
 	var color_rect := get_node_or_null("VisualRoot/PlaceholderRect") as ColorRect
 
 	if color_rect != null:
-		return color_rect
+		color_rect.color = color
+		return
 
-	return get_node_or_null("ColorRect") as ColorRect
+	var visual := get_node_or_null("VisualRoot/AssetSprite") as CanvasItem
+
+	if visual != null:
+		visual.modulate = color
 
 
 func is_empty() -> bool:

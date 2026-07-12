@@ -32,6 +32,8 @@ script = ExtResource("1_nf23d")
 
 [node name="VisualRoot" type="Node2D" parent="."]
 
+[node name="AssetSprite" type="Sprite2D" parent="VisualRoot"]
+
 [node name="PlaceholderRect" type="ColorRect" parent="VisualRoot" unique_id=28098589]
 offset_left = -32.0
 offset_top = -48.0

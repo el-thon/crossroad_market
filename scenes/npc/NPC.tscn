@@ -16,6 +16,8 @@ script = ExtResource("1")
 
 [node name="VisualRoot" type="Node2D" parent="."]
 
+[node name="AssetSprite" type="Sprite2D" parent="VisualRoot"]
+
 [node name="PlaceholderRect" type="ColorRect" parent="VisualRoot"]
 offset_left = -12.0
 offset_top = -40.0
