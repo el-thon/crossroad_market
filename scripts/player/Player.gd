@@ -14,9 +14,11 @@ var facing_direction: Vector2 = Vector2.DOWN
 var _supply_box_cursor: int = 0
 var _wrong_shelf_attempts: Dictionary = {}
 var _seen_item_ids: Dictionary = {}
+var _seen_guidance_keys: Dictionary = {}
 
 const MAX_WRONG_ATTEMPTS: int = 1
 const STORY_INTERACTION_TRUST_GAIN: int = 20
+const GOOBY_ID: String = "gooby"
 
 
 func _ready() -> void:
@@ -44,14 +46,15 @@ func _physics_process(_delta: float) -> void:
 
 	velocity = input_dir * speed
 	move_and_slide()
+	_update_interaction_hint()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _is_action_locked():
 		return
 
-	if event.is_action_pressed("take_shelf_item"):
-		_try_take_from_shelf()
+	if event.is_action_pressed("put"):
+		_try_put()
 		return
 
 	if event.is_action_pressed("interact"):
@@ -81,30 +84,7 @@ func _try_interact() -> void:
 		if _try_storage_door_interaction(area):
 			return
 
-	var best_target: Node = null
-	var best_priority: int = 999
-	var best_distance: float = INF
-
-	for area in areas:
-		var parent: Node = area.get_parent()
-
-		if parent == null:
-			continue
-
-		var priority: int = _get_interaction_priority(parent)
-
-		if priority == 999:
-			continue
-
-		var distance: float = global_position.distance_squared_to(area.global_position)
-
-		if priority < best_priority:
-			best_target = parent
-			best_priority = priority
-			best_distance = distance
-		elif priority == best_priority and distance < best_distance:
-			best_target = parent
-			best_distance = distance
+	var best_target := _get_best_interaction_target(areas)
 
 	if best_target == null:
 		_show_notification("Nothing useful here.", 0.5)
@@ -162,6 +142,250 @@ func _get_interaction_priority(target: Node) -> int:
 	return PlayerInteraction.get_interaction_priority(target)
 
 
+func _get_best_interaction_target(areas: Array[Area2D]) -> Node:
+	var best_target: Node = null
+	var best_priority: int = 999
+	var best_distance: float = INF
+
+	for area in areas:
+		var parent: Node = area.get_parent()
+
+		if parent == null:
+			continue
+
+		var priority: int = _get_interaction_priority(parent)
+
+		if priority == 999:
+			continue
+
+		var distance: float = global_position.distance_squared_to(area.global_position)
+
+		if priority < best_priority:
+			best_target = parent
+			best_priority = priority
+			best_distance = distance
+		elif priority == best_priority and distance < best_distance:
+			best_target = parent
+			best_distance = distance
+
+	return best_target
+
+
+func _update_interaction_hint() -> void:
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud == null:
+		return
+
+	if _is_action_locked():
+		_set_hud_hover_feedback(hud, "", "")
+		return
+
+	var areas: Array[Area2D] = interaction_area.get_overlapping_areas()
+	var object_name := _get_hover_object_name(areas)
+	var hint_text := _get_interaction_hint_text(areas)
+	_set_hud_hover_feedback(hud, object_name, hint_text)
+
+
+func _set_hud_hover_feedback(hud: Node, object_name: String, hint_text: String) -> void:
+	if hud.has_method("set_hover_object_name"):
+		hud.call("set_hover_object_name", object_name)
+
+	if hud.has_method("set_interaction_hint"):
+		hud.call("set_interaction_hint", hint_text)
+
+
+func _get_hover_object_name(areas: Array[Area2D]) -> String:
+	var carried_object := _get_carried_shelf()
+
+	if carried_object != null:
+		return _get_object_prompt_name(carried_object)
+
+	for area in areas:
+		var door_type := _get_storage_door_type(area)
+
+		if door_type == "yard":
+			return "Yard Door"
+
+		if door_type != "":
+			return "Storage Door"
+
+	var best_target := _get_best_interaction_target(areas)
+
+	if best_target == null:
+		return ""
+
+	if best_target is Shelf:
+		return _get_shelf_hover_name(best_target as Shelf)
+
+	return _get_object_prompt_name(best_target)
+
+
+func _get_interaction_hint_text(areas: Array[Area2D]) -> String:
+	var carried_object := _get_carried_shelf()
+
+	if carried_object != null:
+		return _get_guided_hint(
+			"carried_shelf_put",
+			"%s - Press Q to place" % _get_object_prompt_name(carried_object),
+			"Carrying %s. Press Q to place it on a clear floor tile." %
+			_get_object_prompt_name(carried_object)
+		)
+
+	for area in areas:
+		var door_type := _get_storage_door_type(area)
+
+		if door_type == "yard":
+			return "Yard Door - Press E to enter"
+
+		if door_type != "":
+			return "Storage Door - Press E to enter"
+
+	var best_target := _get_best_interaction_target(areas)
+
+	if best_target == null:
+		return ""
+
+	if best_target is NPC:
+		return _get_guided_hint(
+			"npc_interact",
+			"%s - Press E to interact" % _get_object_prompt_name(best_target),
+			"%s. Press E to talk or check what they need." %
+			_get_object_prompt_name(best_target)
+		)
+
+	if best_target is Cashier:
+		return _get_guided_hint(
+			"cashier_interact",
+			"Cashier - Press E to serve",
+			"Cashier. Press E to scan and serve the front customer."
+		)
+
+	if best_target is SupplyBox:
+		return _get_guided_hint(
+			"supply_box_take",
+			"%s - Press E to take stock" % _get_object_prompt_name(best_target),
+			"%s. Press E to take one stock item." %
+			_get_object_prompt_name(best_target)
+		)
+
+	if best_target is Shelf:
+		return _get_shelf_hint_text(best_target as Shelf)
+
+	if best_target is ActivityBoard:
+		return _get_guided_hint(
+			"activity_board_read",
+			"Activity Board - Press E to read",
+			"Activity Board. Press E to read current work guidance."
+		)
+
+	return ""
+
+
+func _get_shelf_hint_text(shelf: Shelf) -> String:
+	var shelf_name := _get_object_prompt_name(shelf)
+
+	if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
+		return _get_guided_hint(
+			"carried_shelf_put",
+			"%s - Press Q to place" % shelf_name,
+			"Carrying %s. Press Q to place it on a clear floor tile." % shelf_name
+		)
+
+	if not _is_shelf_installed_in_store(shelf):
+		return _get_guided_hint(
+			"shelf_pickup",
+			"%s - Press E to pick up" % shelf_name,
+			"%s. Press E to pick it up, then press Q to place it." % shelf_name
+		)
+
+	var inventory_items := Inventory.get_all()
+	var has_inventory_item := not inventory_items.is_empty()
+	var has_shelf_stock := shelf.has_stock()
+
+	if has_inventory_item and has_shelf_stock:
+		return _get_guided_hint(
+			"shelf_dual",
+			"%s - E take / Q stock" % shelf_name,
+			"%s. Press E to take an item, or Q to stock your carried item." %
+			shelf_name
+		)
+
+	if has_inventory_item:
+		return _get_guided_hint(
+			"shelf_stock",
+			"%s - Press Q to stock" % shelf_name,
+			"%s. Press Q to put your carried item on this shelf." %
+			shelf_name
+		)
+
+	if has_shelf_stock:
+		return _get_guided_hint(
+			"shelf_take_item",
+			"%s - Press E to take item" % shelf_name,
+			"%s. Press E to take the first stocked item." % shelf_name
+		)
+
+	return "%s - Empty" % shelf_name
+
+
+func _get_shelf_hover_name(shelf: Shelf) -> String:
+	if shelf.has_stock() and shelf.has_method("get_first_stocked_item_id"):
+		var item_id := str(shelf.call("get_first_stocked_item_id"))
+		var item: ItemData = ItemDatabase.get_item(item_id)
+
+		if item != null and item.display_name != "":
+			return item.display_name
+
+		if item_id != "":
+			return item_id.capitalize()
+
+	return _get_object_prompt_name(shelf)
+
+
+func _get_guided_hint(key: String, compact_text: String, first_time_text: String) -> String:
+	if _seen_guidance_keys.has(key):
+		return compact_text
+
+	_seen_guidance_keys[key] = true
+	return first_time_text
+
+
+func _get_object_prompt_name(target: Node) -> String:
+	if target is NPC:
+		var npc := target as NPC
+
+		if npc.npc_data != null and npc.npc_data.display_name != "":
+			return npc.npc_data.display_name
+
+	if target is SupplyBox:
+		if target is MysterySupplyBox:
+			return "Mystery Box"
+
+		return "Supply Box"
+
+	if target is Shelf:
+		var shelf := target as Shelf
+
+		match shelf.shelf_type:
+			ItemData.ShelfType.HUMAN:
+				return "Human Shelf"
+			ItemData.ShelfType.GHOST:
+				return "Ghost Shelf"
+
+	var node_name := String(target.name)
+	return node_name.capitalize()
+
+
+func _get_carried_shelf() -> Shelf:
+	for child in get_children():
+		if child is Shelf and child.has_meta("is_carried_storage_object"):
+			if bool(child.get_meta("is_carried_storage_object")):
+				return child as Shelf
+
+	return null
+
+
 func _interact_with_npc(npc: NPC) -> void:
 	var trust_text := _apply_story_npc_interaction_trust(npc)
 
@@ -189,23 +413,60 @@ func _apply_story_npc_interaction_trust(npc: NPC) -> String:
 	if npc.npc_data.npc_category != NPCData.NPCCategory.STORY:
 		return ""
 
+	if npc.npc_data.npc_id == GOOBY_ID:
+		return ""
+
 	RelationshipManager.add_trust(npc.npc_data.npc_id, STORY_INTERACTION_TRUST_GAIN)
 	return "%s Trust +%d." % [npc.npc_data.display_name, STORY_INTERACTION_TRUST_GAIN]
 
 
 func _interact_with_shelf(shelf: Shelf) -> void:
 	if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
-		_show_notification("Put the shelf down first.", 0.5)
+		_show_notification("Press Q to place the shelf first.", 0.8)
 		return
 
 	if not _is_shelf_installed_in_store(shelf):
-		_show_notification("Place this shelf in the store first.", 0.8)
+		if _try_pickup_shelf(shelf):
+			return
+
+		_show_notification("Press E to pick up this shelf.", 0.8)
 		return
 
+	if shelf.has_stock():
+		_take_item_from_shelf(shelf)
+		return
+
+	if _try_pickup_shelf(shelf):
+		return
+
+	_show_notification("Shelf is empty. Press Q to stock it.", 0.8)
+
+
+func _try_put() -> void:
+	if _is_action_locked():
+		return
+
+	if _try_drop_carried_object():
+		return
+
+	var shelf := _get_best_shelf_target()
+
+	if shelf == null:
+		_show_notification("No place target in reach.", 0.5)
+		return
+
+	if not _is_shelf_installed_in_store(shelf):
+		_show_notification("Press E to pick up this shelf first.", 0.8)
+		return
+
+	_put_item_on_shelf(shelf)
+
+
+func _put_item_on_shelf(shelf: Shelf) -> void:
 	var inventory_items: Dictionary = Inventory.get_all()
 
 	if inventory_items.is_empty():
-		_show_notification("No item to place.", 0.6)
+		_show_notification("No item to put.", 0.6)
 		return
 
 	var item_id: String = str(inventory_items.keys()[0])
@@ -219,7 +480,7 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 
 	if result >= 0:
 		_wrong_shelf_attempts.erase(_get_wrong_shelf_key(item_id, shelf))
-		_show_notification("Placed %s" % item.display_name, 0.5)
+		_show_notification("Put %s on shelf." % item.display_name, 0.5)
 		return
 
 	if item.shelf_type != shelf.shelf_type:
@@ -227,24 +488,7 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 	elif _is_shelf_full(shelf):
 		_show_notification("Shelf is full.", 0.6)
 	else:
-		_show_notification("Could not place %s." % item.display_name, 0.5)
-
-
-func _try_take_from_shelf() -> void:
-	if _is_action_locked():
-		return
-
-	var shelf := _get_best_shelf_target()
-
-	if shelf == null:
-		_show_notification("No shelf in reach.", 0.5)
-		return
-
-	if not _is_shelf_installed_in_store(shelf):
-		_show_notification("Place this shelf in the store first.", 0.8)
-		return
-
-	_take_item_from_shelf(shelf)
+		_show_notification("Could not put %s here." % item.display_name, 0.5)
 
 
 func _get_best_shelf_target() -> Shelf:
@@ -393,11 +637,11 @@ func _show_pickup_notification(item_id: String, item: ItemData) -> void:
 	_seen_item_ids[item_id] = true
 
 	if item == null:
-		_show_notification("Took %s. Press E near a shelf to try stocking it." % item_name, 2.2)
+		_show_notification("Took %s. Press Q near a shelf to try putting it there." % item_name, 2.2)
 		return
 
 	_show_notification(
-		"Took %s. Press E near the %s shelf to stock it. Press Q near a shelf to take stock." %
+		"Took %s. Press Q near the %s shelf to stock it. Press E near a shelf to take stock." %
 		[item.display_name, _get_shelf_type_label(item.shelf_type)],
 		3.0
 	)
@@ -417,6 +661,32 @@ func _interact_with_cashier(cashier: Cashier) -> void:
 
 func _interact_with_activity_board(activity_board: ActivityBoard) -> void:
 	activity_board.open_board()
+
+
+func _try_pickup_shelf(shelf: Shelf) -> bool:
+	for group_name in ["store", "storage"]:
+		var location := get_tree().get_first_node_in_group(group_name)
+
+		if location != null and location.has_method("request_pickup_shelf"):
+			if bool(location.call("request_pickup_shelf", shelf)):
+				return true
+
+	return false
+
+
+func _try_drop_carried_object() -> bool:
+	for group_name in ["store", "storage"]:
+		var location := get_tree().get_first_node_in_group(group_name)
+
+		if location != null and location.has_method("request_drop_carried_shelf"):
+			if bool(location.call("request_drop_carried_shelf")):
+				return true
+
+		if location != null and location.has_method("request_drop_carried_object"):
+			if bool(location.call("request_drop_carried_object")):
+				return true
+
+	return false
 
 
 func _is_action_locked() -> bool:

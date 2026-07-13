@@ -9,12 +9,12 @@ signal notification_finished()
 @onready var time_label: Label = $TopCenterHUD/TimeLabel
 @onready var notification_label: Label = $NotificationLabel
 @onready var objective_label: Label = $ObjectiveLabel
-@onready var _trust_label: Label = get_node_or_null("TopRightHUD/TrustLabel") as Label
+@onready var object_name_label: Label = $ObjectNameLabel
+@onready var interaction_hint_label: Label = $InteractionHintLabel
 
 const NOTIFY_DURATION: float = 2.0
 const MIN_NOTIFY_DURATION: float = 0.9
 const NOTIFY_CHARS_PER_SECOND: float = 34.0
-const GOOBY_ID: String = "gooby"
 
 var _notify_timer: float = 0.0
 var _notify_duration: float = NOTIFY_DURATION
@@ -26,14 +26,12 @@ var _notification_finished_emitted: bool = true
 func _ready() -> void:
 	add_to_group("hud")
 	notification_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_setup_trust_label()
 
 	EconomyManager.gold_changed.connect(_on_gold_changed)
 	EconomyManager.daily_target_reached.connect(_on_target_reached)
 	TimeManager.time_updated.connect(_on_time_updated)
 	TimeManager.phase_changed.connect(_on_phase_changed)
 	TimeManager.day_started.connect(_on_day_started)
-	RelationshipManager.trust_changed.connect(_on_trust_changed)
 
 	_update_all()
 
@@ -41,10 +39,22 @@ func _ready() -> void:
 	notification_label.modulate.a = 0.0
 	notification_label.visible_characters = 0
 
+	if object_name_label != null:
+		object_name_label.visible = false
+
+	if interaction_hint_label != null:
+		interaction_hint_label.visible = false
+
 
 func _process(delta: float) -> void:
 	if _action_lock_timer > 0.0:
 		_action_lock_timer = max(0.0, _action_lock_timer - delta)
+
+	if interaction_hint_label != null and interaction_hint_label.visible and _has_interactive_overlay_open():
+		interaction_hint_label.visible = false
+
+	if object_name_label != null and object_name_label.visible and _has_interactive_overlay_open():
+		object_name_label.visible = false
 
 	if _notify_timer <= 0.0:
 		return
@@ -167,6 +177,30 @@ func set_objective(text: String) -> void:
 	objective_label.text = "Objective: %s" % text
 
 
+func set_interaction_hint(text: String) -> void:
+	if interaction_hint_label == null:
+		return
+
+	if text == "" or _has_interactive_overlay_open():
+		interaction_hint_label.visible = false
+		return
+
+	interaction_hint_label.visible = true
+	interaction_hint_label.text = text
+
+
+func set_hover_object_name(text: String) -> void:
+	if object_name_label == null:
+		return
+
+	if text == "" or _has_interactive_overlay_open():
+		object_name_label.visible = false
+		return
+
+	object_name_label.visible = true
+	object_name_label.text = text
+
+
 func _get_readable_notification_duration(text: String, requested_duration: float) -> float:
 	var readable_duration := float(text.length()) / NOTIFY_CHARS_PER_SECOND
 	return max(requested_duration, MIN_NOTIFY_DURATION, readable_duration)
@@ -208,7 +242,6 @@ func _update_all() -> void:
 	_on_day_started(TimeManager.current_day)
 	_on_phase_changed(TimeManager.current_phase)
 	_on_time_updated(TimeManager.time_remaining)
-	_on_trust_changed(GOOBY_ID, RelationshipManager.get_trust(GOOBY_ID), 0)
 
 
 func _on_gold_changed(amount: int) -> void:
@@ -231,35 +264,6 @@ func _on_phase_changed(_phase) -> void:
 func _on_day_started(day: int) -> void:
 	day_label.text = "Day %d" % day
 	_update_target_label()
-
-
-func _on_trust_changed(npc_id: String, new_trust: int, _delta: int) -> void:
-	if npc_id != GOOBY_ID:
-		return
-
-	if _trust_label != null:
-		_trust_label.text = "Trust: %d/100" % new_trust
-
-
-func _setup_trust_label() -> void:
-	if _trust_label != null:
-		_trust_label.text = "Trust: 0/100"
-		_trust_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		return
-
-	_trust_label = Label.new()
-	_trust_label.name = "TrustLabel"
-	_trust_label.position = Vector2(0, 0)
-	_trust_label.size = Vector2(120, 15)
-	_trust_label.text = "Trust: 0/100"
-	_trust_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-
-	var fallback_parent: Node = get_node_or_null("TopRightHUD")
-	if fallback_parent != null:
-		fallback_parent.add_child(_trust_label)
-	else:
-		_trust_label.position = Vector2(350, 5)
-		add_child(_trust_label)
 
 
 func _update_target_label() -> void:
