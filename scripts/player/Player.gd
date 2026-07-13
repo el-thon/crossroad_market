@@ -331,8 +331,8 @@ func _get_shelf_hint_text(shelf: Shelf) -> String:
 	if has_inventory_item and has_shelf_stock:
 		return _get_guided_hint(
 			"shelf_dual",
-			"%s - E take / Q stock" % shelf_name,
-			"%s. Press E to take an item, or Q to stock your carried item." %
+			"%s - E pick up / Q stock" % shelf_name,
+			"%s. Press E to move the shelf, or Q to stock your carried item." %
 			shelf_name
 		)
 
@@ -346,12 +346,12 @@ func _get_shelf_hint_text(shelf: Shelf) -> String:
 
 	if has_shelf_stock:
 		return _get_guided_hint(
-			"shelf_take_item",
-			"%s - Press E to take item" % shelf_name,
-			"%s. Press E to take the first stocked item." % shelf_name
+			"shelf_reposition_stocked",
+			"%s - Press E to pick up" % shelf_name,
+			"%s. Press E to move the stocked shelf." % shelf_name
 		)
 
-	return "%s - Empty" % shelf_name
+	return "%s - Press E to pick up" % shelf_name
 
 
 func _get_shelf_hover_name(shelf: Shelf) -> String:
@@ -457,14 +457,10 @@ func _interact_with_shelf(shelf: Shelf) -> void:
 		_show_notification("Press E to pick up this shelf.", 0.8)
 		return
 
-	if shelf.has_stock():
-		_take_item_from_shelf(shelf)
-		return
-
 	if _try_pickup_shelf(shelf):
 		return
 
-	_show_notification("Shelf is empty. Press Q to stock it.", 0.8)
+	_show_notification("Press Q to stock this shelf.", 0.8)
 
 
 func _try_put() -> void:

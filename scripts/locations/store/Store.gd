@@ -20,6 +20,8 @@ const CARRY_SHELF_CASHIER_BLOCKER_OFFSET := Vector2(0, -70)
 const STORE_SHELF_PICKUP_DISTANCE: float = 76.0
 const DOOR_NO_DROP_MARGIN: float = 8.0
 const CASHIER_NO_DROP_MARGIN: float = 4.0
+const CUSTOMER_MAIN_PATH_CHECKPOINTS: int = 6
+const CUSTOMER_MAIN_PATH_RADIUS: float = 16.0
 const CUSTOMER_QUEUE_PATH_SIZE := Vector2(48, 32)
 const CUSTOMER_QUEUE_PATH_OFFSET := Vector2(0, 12)
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
@@ -30,6 +32,14 @@ const RESTRICTED_DANGER_LINE_CYCLE_DURATION: float = 2.0
 const RESTRICTED_DANGER_LINE_WIDTH: float = 3.0
 const RESTRICTED_DANGER_LINE_COLOR := Color(1.0, 0.16, 0.08, 1.0)
 const LOCATION_TITLE_DURATION: float = 1.25
+const DROP_REJECTION_NONE: StringName = &"none"
+const DROP_REJECTION_STORAGE_DOOR: StringName = &"storage_door"
+const DROP_REJECTION_YARD_DOOR: StringName = &"yard_door"
+const DROP_REJECTION_CASHIER_RESTRICTED: StringName = &"cashier_restricted"
+const DROP_REJECTION_CHECKOUT_LINE: StringName = &"checkout_line"
+const DROP_REJECTION_CUSTOMER_PATH: StringName = &"customer_path"
+const DROP_REJECTION_COLLISION: StringName = &"collision"
+const DROP_REJECTION_REACHABILITY: StringName = &"reachability"
 const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 	Vector2(0, 56),
 	Vector2(56, 0),
@@ -63,8 +73,9 @@ var _location_title_label: Label = null
 var _location_title_tween: Tween = null
 var _carry_shelf_blocker: StaticBody2D = null
 var _carry_shelf_blocker_shape: CollisionShape2D = null
-var _cashier_restricted_danger_line: Line2D = null
-var _cashier_restricted_danger_tween: Tween = null
+var _restricted_placement_warning: Node2D = null
+var _restricted_placement_warning_lines: Array[Line2D] = []
+var _restricted_placement_warning_tween: Tween = null
 var _is_transitioning: bool = false
 var _shown_location_titles: Dictionary = {}
 
@@ -84,7 +95,7 @@ var _first_activity_board_shown: bool = false
 var _ghost_shelf_lesson_shown: bool = false
 var _gooby_resolved: bool = false
 var _last_objective_text: String = ""
-var _restricted_drop_feedback_running: bool = false
+var _restricted_drop_feedback_token: int = 0
 
 var human_shelf: Shelf = null
 var ghost_shelf: Shelf = null
@@ -98,7 +109,7 @@ func _ready() -> void:
 	_create_fade_layer()
 	_create_location_title_layer()
 	_create_carry_shelf_blocker()
-	_create_cashier_restricted_danger_line()
+	_create_restricted_placement_warning()
 	_setup_npc_static_data()
 	NPC.current_queue.clear()
 	NPCScheduler.lock_spawning_until_ready()
@@ -572,17 +583,18 @@ func _drop_carried_shelf_in_store(object: Node2D) -> void:
 		return
 
 	var primary_drop_position := _get_primary_shelf_drop_position()
-	var primary_rejection := _get_drop_rejection_reason(object, primary_drop_position)
+	var primary_rejection := _get_drop_rejection_context(object, primary_drop_position)
 	var drop_position := _find_safe_drop_position(object)
 
 	if drop_position == Vector2.INF:
-		if _has_cashier_restricted_drop_context(object):
-			primary_rejection = "This area is reserved for the cashier."
-		elif primary_rejection == "":
-			primary_rejection = _get_drop_failure_message(object)
+		if not _has_drop_rejection_message(primary_rejection):
+			primary_rejection = _get_drop_failure_context(object)
 
-		if primary_rejection == "":
-			primary_rejection = "I can't place the shelf here."
+		if not _has_drop_rejection_message(primary_rejection):
+			primary_rejection = _make_drop_rejection(
+				"I can't place the shelf here.",
+				DROP_REJECTION_COLLISION
+			)
 
 		_show_drop_rejection_feedback(primary_rejection)
 		return
@@ -590,10 +602,7 @@ func _drop_carried_shelf_in_store(object: Node2D) -> void:
 	object.reparent(self, true)
 	object.global_position = drop_position
 	object.z_index = 0
-	object.set_meta("is_carried_storage_object", false)
-	object.set_meta("is_installed_in_store", true)
-
-	_set_node_enabled_recursive(object, true)
+	_set_shelf_carried_state(object, false)
 	_register_installed_shelf(object)
 
 	_show_notification("Shelf placed in the store.")
@@ -616,17 +625,13 @@ func _create_carry_shelf_blocker() -> void:
 	_set_carry_shelf_blocker_enabled(false)
 
 
-func _create_cashier_restricted_danger_line() -> void:
-	_cashier_restricted_danger_line = Line2D.new()
-	_cashier_restricted_danger_line.name = "CashierRestrictedDangerLine"
-	_cashier_restricted_danger_line.width = RESTRICTED_DANGER_LINE_WIDTH
-	_cashier_restricted_danger_line.default_color = RESTRICTED_DANGER_LINE_COLOR
-	_cashier_restricted_danger_line.closed = true
-	_cashier_restricted_danger_line.z_index = 90
-	_cashier_restricted_danger_line.visible = false
-	_cashier_restricted_danger_line.modulate.a = 0.0
-	add_child(_cashier_restricted_danger_line)
-	_sync_cashier_restricted_danger_line()
+func _create_restricted_placement_warning() -> void:
+	_restricted_placement_warning = Node2D.new()
+	_restricted_placement_warning.name = "RestrictedPlacementWarning"
+	_restricted_placement_warning.z_index = 90
+	_restricted_placement_warning.visible = false
+	_restricted_placement_warning.modulate.a = 0.0
+	add_child(_restricted_placement_warning)
 
 
 func _update_carry_shelf_blocker() -> void:
@@ -645,32 +650,20 @@ func _set_carry_shelf_blocker_enabled(_enabled: bool) -> void:
 
 func _find_safe_drop_position(object: Node2D) -> Vector2:
 	for candidate in _get_drop_candidates():
-		if _get_drop_rejection_reason(object, candidate) == "":
+		if not _has_drop_rejection_message(_get_drop_rejection_context(object, candidate)):
 			return candidate
 
 	return Vector2.INF
 
 
-func _get_drop_failure_message(object: Node2D) -> String:
+func _get_drop_failure_context(object: Node2D) -> Dictionary:
 	for candidate in _get_drop_candidates():
-		var rejection := _get_drop_rejection_reason(object, candidate)
+		var rejection := _get_drop_rejection_context(object, candidate)
 
-		if rejection != "":
+		if _has_drop_rejection_message(rejection):
 			return rejection
 
-	return ""
-
-
-func _has_cashier_restricted_drop_context(object: Node2D) -> bool:
-	var cashier_rect := _get_cashier_no_drop_rect()
-
-	for candidate in _get_drop_candidates():
-		var object_rect := _get_object_body_rect_at(object, candidate)
-
-		if object_rect.intersects(cashier_rect):
-			return true
-
-	return false
+	return _make_drop_rejection()
 
 
 func _get_drop_candidates() -> Array[Vector2]:
@@ -722,28 +715,104 @@ func _is_drop_position_clear(object: Node2D, candidate: Vector2) -> bool:
 	return true
 
 
-func _get_drop_rejection_reason(object: Node2D, candidate: Vector2) -> String:
+func _get_drop_rejection_context(object: Node2D, candidate: Vector2) -> Dictionary:
 	var object_rect := _get_object_body_rect_at(object, candidate)
 
 	if _intersects_area_no_drop_zone(object_rect, storage_door, DOOR_NO_DROP_MARGIN):
-		return "This blocks the storage door."
+		return _make_drop_rejection(
+			"This blocks the storage door.",
+			DROP_REJECTION_STORAGE_DOOR
+		)
 
 	if _intersects_area_no_drop_zone(object_rect, yard_door, DOOR_NO_DROP_MARGIN):
-		return "This blocks the yard door."
+		return _make_drop_rejection(
+			"This blocks the yard door.",
+			DROP_REJECTION_YARD_DOOR
+		)
 
-	if object_rect.intersects(_get_cashier_no_drop_rect()):
-		return "This area is reserved for the cashier."
+	var cashier_rect := _get_cashier_restricted_feedback_rect()
 
-	if object_rect.intersects(_get_customer_queue_path_rect()):
-		return "This blocks the checkout line."
+	if object_rect.intersects(cashier_rect):
+		return _make_drop_rejection(
+			"This area is reserved for the cashier.",
+			DROP_REJECTION_CASHIER_RESTRICTED,
+			[cashier_rect]
+		)
+
+	var checkout_queue_rect := _get_checkout_queue_path_rect()
+
+	if object_rect.intersects(checkout_queue_rect):
+		return _make_drop_rejection(
+			"This blocks the checkout line.",
+			DROP_REJECTION_CHECKOUT_LINE,
+			[checkout_queue_rect]
+		)
+
+	var customer_path_rects := _get_intersecting_customer_main_path_rects(object_rect)
+
+	if not customer_path_rects.is_empty():
+		return _make_drop_rejection(
+			"This blocks the customer path.",
+			DROP_REJECTION_CUSTOMER_PATH,
+			customer_path_rects
+		)
 
 	if not _is_drop_position_clear(object, candidate):
-		return "I can't place the shelf here."
+		return _make_drop_rejection("I can't place the shelf here.", DROP_REJECTION_COLLISION)
 
 	if not _has_clear_standing_spot_near_shelf(object, candidate):
-		return "I can't reach the shelf there."
+		return _make_drop_rejection(
+			"I can't reach the shelf there.",
+			DROP_REJECTION_REACHABILITY
+		)
 
-	return ""
+	return _make_drop_rejection()
+
+
+func _make_drop_rejection(
+	message: String = "",
+	rejection_type: StringName = DROP_REJECTION_NONE,
+	feedback_rects: Array[Rect2] = []
+) -> Dictionary:
+	return {
+		"message": message,
+		"type": rejection_type,
+		"feedback_rects": feedback_rects
+	}
+
+
+func _has_drop_rejection_message(rejection: Dictionary) -> bool:
+	return str(rejection.get("message", "")) != ""
+
+
+func _is_restricted_warning_rejection(rejection: Dictionary) -> bool:
+	return rejection.get("type", DROP_REJECTION_NONE) in [
+		DROP_REJECTION_CASHIER_RESTRICTED,
+		DROP_REJECTION_CHECKOUT_LINE,
+		DROP_REJECTION_CUSTOMER_PATH
+	]
+
+
+func _get_restricted_feedback_rects_for_rejection(rejection: Dictionary) -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+	var rect_variants: Array = rejection.get("feedback_rects", [])
+
+	for rect_variant in rect_variants:
+		if rect_variant is Rect2:
+			rects.append(rect_variant as Rect2)
+
+	if not rects.is_empty():
+		return rects
+
+	match rejection.get("type", DROP_REJECTION_NONE):
+		DROP_REJECTION_CASHIER_RESTRICTED:
+			rects.append(_get_cashier_restricted_feedback_rect())
+		DROP_REJECTION_CHECKOUT_LINE:
+			rects.append(_get_checkout_queue_path_rect())
+		DROP_REJECTION_CUSTOMER_PATH:
+			rects.append_array(_get_customer_main_path_rects())
+
+	return rects
 
 
 func _get_object_body_rect_at(object: Node2D, candidate: Vector2) -> Rect2:
@@ -800,12 +869,47 @@ func _get_cashier_no_drop_rect() -> Rect2:
 	return rect.grow(CASHIER_NO_DROP_MARGIN)
 
 
-func _get_customer_queue_path_rect() -> Rect2:
+func _get_cashier_restricted_feedback_rect() -> Rect2:
+	return _get_cashier_no_drop_rect()
+
+
+func _get_checkout_queue_path_rect() -> Rect2:
 	if counter_pos == null:
 		return Rect2()
 
 	var center := counter_pos.global_position + CUSTOMER_QUEUE_PATH_OFFSET
 	return Rect2(center - CUSTOMER_QUEUE_PATH_SIZE * 0.5, CUSTOMER_QUEUE_PATH_SIZE)
+
+
+func _get_customer_main_path_rects() -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+
+	if counter_pos == null or entrance_pos == null:
+		return rects
+
+	var start: Vector2 = entrance_pos.global_position
+	var end: Vector2 = counter_pos.global_position
+	var steps: int = maxi(1, CUSTOMER_MAIN_PATH_CHECKPOINTS - 1)
+
+	for index in CUSTOMER_MAIN_PATH_CHECKPOINTS:
+		var t: float = float(index) / float(steps)
+		var center: Vector2 = start.lerp(end, t)
+		rects.append(Rect2(
+			center - Vector2.ONE * CUSTOMER_MAIN_PATH_RADIUS,
+			Vector2.ONE * CUSTOMER_MAIN_PATH_RADIUS * 2.0
+		))
+
+	return rects
+
+
+func _get_intersecting_customer_main_path_rects(object_rect: Rect2) -> Array[Rect2]:
+	var matching_rects: Array[Rect2] = []
+
+	for path_rect in _get_customer_main_path_rects():
+		if object_rect.intersects(path_rect):
+			matching_rects.append(path_rect)
+
+	return matching_rects
 
 
 func _has_clear_standing_spot_near_shelf(object: Node2D, candidate: Vector2) -> bool:
@@ -911,89 +1015,136 @@ func _pickup_installed_shelf(object: Node2D) -> void:
 	elif object == ghost_shelf:
 		_ghost_shelf_installed = false
 
-	object.remove_from_group("shelves")
 	object.reparent(player, true)
 	object.position = Vector2(0, -34)
 	object.z_index = 80
-	object.set_meta("is_carried_storage_object", true)
-	object.set_meta("is_installed_in_store", false)
-	_set_node_enabled_recursive(object, false)
+	_set_shelf_carried_state(object, true)
 	_update_objective()
 	_show_notification("Shelf picked up. Press Q to place it.")
 
 
-func _show_drop_rejection_feedback(message: String) -> void:
-	if message == "This area is reserved for the cashier.":
-		_show_restricted_drop_feedback(message)
+func _set_shelf_carried_state(object: Node2D, is_carried: bool) -> void:
+	if object == null:
+		return
+
+	object.set_meta("is_carried_storage_object", is_carried)
+	object.set_meta("is_installed_in_store", not is_carried)
+
+	if is_carried:
+		object.remove_from_group("shelves")
+		_set_node_enabled_recursive(object, false)
+	else:
+		_set_node_enabled_recursive(object, true)
+
+
+func _show_drop_rejection_feedback(rejection: Dictionary) -> void:
+	var message := str(rejection.get("message", "I can't place the shelf here."))
+
+	if _is_restricted_warning_rejection(rejection):
+		_show_restricted_drop_feedback(rejection)
 		return
 
 	_show_notification(message, 0.9)
 
 
-func _show_restricted_drop_feedback(message: String) -> void:
-	if _restricted_drop_feedback_running:
-		return
+func _show_restricted_drop_feedback(rejection: Dictionary) -> void:
+	_restricted_drop_feedback_token += 1
+	var feedback_token := _restricted_drop_feedback_token
+	var message := str(rejection.get("message", "Keep this area clear for customers."))
+	var feedback_rects := _get_restricted_feedback_rects_for_rejection(rejection)
 
-	_restricted_drop_feedback_running = true
-	_play_cashier_restricted_danger_line()
+	_play_restricted_placement_warning(feedback_rects)
 
 	for i in RESTRICTED_DROP_MESSAGE_COUNT:
+		if feedback_token != _restricted_drop_feedback_token:
+			return
+
 		_show_notification(message, RESTRICTED_DROP_MESSAGE_DURATION)
 		await get_tree().create_timer(2.0 / float(RESTRICTED_DROP_MESSAGE_COUNT)).timeout
 
-	_restricted_drop_feedback_running = false
 
 
-func _play_cashier_restricted_danger_line() -> void:
-	if _cashier_restricted_danger_line == null:
+func _play_restricted_placement_warning(rects: Array[Rect2]) -> void:
+	if _restricted_placement_warning == null:
 		return
 
-	if _cashier_restricted_danger_tween != null and _cashier_restricted_danger_tween.is_valid():
-		_cashier_restricted_danger_tween.kill()
+	if _restricted_placement_warning_tween != null and _restricted_placement_warning_tween.is_valid():
+		_restricted_placement_warning_tween.kill()
 
-	_sync_cashier_restricted_danger_line()
-	_cashier_restricted_danger_line.visible = true
-	_cashier_restricted_danger_line.modulate.a = 0.0
+	_sync_restricted_placement_warning(rects)
+	_restricted_placement_warning.visible = true
+	_restricted_placement_warning.modulate.a = 0.0
 
-	_cashier_restricted_danger_tween = create_tween()
+	_restricted_placement_warning_tween = create_tween()
 
 	for i in RESTRICTED_DANGER_LINE_CYCLES:
-		_cashier_restricted_danger_tween.tween_property(
-			_cashier_restricted_danger_line,
+		_restricted_placement_warning_tween.tween_property(
+			_restricted_placement_warning,
 			"modulate:a",
 			1.0,
 			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
 		)
-		_cashier_restricted_danger_tween.tween_property(
-			_cashier_restricted_danger_line,
+		_restricted_placement_warning_tween.tween_property(
+			_restricted_placement_warning,
 			"modulate:a",
 			0.0,
 			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
 		)
 
-	_cashier_restricted_danger_tween.tween_callback(_hide_cashier_restricted_danger_line)
+	_restricted_placement_warning_tween.tween_callback(_hide_restricted_placement_warning)
 
 
-func _hide_cashier_restricted_danger_line() -> void:
-	if _cashier_restricted_danger_line == null:
+func _hide_restricted_placement_warning() -> void:
+	if _restricted_placement_warning == null:
 		return
 
-	_cashier_restricted_danger_line.visible = false
-	_cashier_restricted_danger_line.modulate.a = 0.0
+	_restricted_placement_warning.visible = false
+	_restricted_placement_warning.modulate.a = 0.0
+
+	for line in _restricted_placement_warning_lines:
+		line.visible = false
 
 
-func _sync_cashier_restricted_danger_line() -> void:
-	if _cashier_restricted_danger_line == null:
+func _sync_restricted_placement_warning(rects: Array[Rect2]) -> void:
+	if _restricted_placement_warning == null:
 		return
 
-	var rect := _get_cashier_no_drop_rect()
+	_ensure_restricted_warning_line_count(rects.size())
+
+	for index in _restricted_placement_warning_lines.size():
+		var line := _restricted_placement_warning_lines[index]
+		var has_rect := index < rects.size()
+		line.visible = has_rect
+
+		if has_rect:
+			_sync_restricted_warning_line_to_rect(line, rects[index])
+
+
+func _ensure_restricted_warning_line_count(count: int) -> void:
+	if _restricted_placement_warning == null:
+		return
+
+	while _restricted_placement_warning_lines.size() < count:
+		var line := Line2D.new()
+		line.name = "RestrictedAreaLine%d" % _restricted_placement_warning_lines.size()
+		line.width = RESTRICTED_DANGER_LINE_WIDTH
+		line.default_color = RESTRICTED_DANGER_LINE_COLOR
+		line.closed = true
+		_restricted_placement_warning.add_child(line)
+		_restricted_placement_warning_lines.append(line)
+
+
+func _sync_restricted_warning_line_to_rect(line: Line2D, rect: Rect2) -> void:
+	if line == null:
+		return
+
 	var points := PackedVector2Array([
 		to_local(rect.position),
 		to_local(rect.position + Vector2(rect.size.x, 0.0)),
 		to_local(rect.position + rect.size),
 		to_local(rect.position + Vector2(0.0, rect.size.y))
 	])
-	_cashier_restricted_danger_line.points = points
+	line.points = points
 
 
 func _get_carry_shelf_blocker_position() -> Vector2:
