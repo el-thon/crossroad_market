@@ -14,13 +14,13 @@ size = Vector2(480, 49)
 size = Vector2(16, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door"]
-size = Vector2(40, 40)
+size = Vector2(40, 74)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_activity_board_body"]
-size = Vector2(96, 72)
+size = Vector2(72, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_activity_board_area"]
-size = Vector2(96, 72)
+size = Vector2(85, 49)
 
 [node name="Store" type="Node2D" unique_id=915059892]
 y_sort_enabled = true
@@ -69,6 +69,7 @@ color = Color(0.95, 0.75, 0.25, 1)
 polygon = PackedVector2Array(10, -2, 14, -2, 14, 2, 10, 2)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor" unique_id=1207501204]
+position = Vector2(0, 17)
 shape = SubResource("RectangleShape2D_storage_door")
 
 [node name="StorageReturnPos" type="Marker2D" parent="." unique_id=979609029]
@@ -128,13 +129,13 @@ offset_bottom = -26.0
 color = Color(0.8, 0.63, 0.32, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ActivityBoard" unique_id=1198582917]
-position = Vector2(0, -20)
+position = Vector2(0, -14)
 shape = SubResource("RectangleShape2D_activity_board_body")
 
 [node name="InteractionArea" type="Area2D" parent="ActivityBoard" unique_id=1132306788]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ActivityBoard/InteractionArea" unique_id=1012384419]
-position = Vector2(0, -20)
+position = Vector2(-0.5, -15.5)
 shape = SubResource("RectangleShape2D_activity_board_area")
 
 [node name="Player" parent="." unique_id=1580443777 instance=ExtResource("1_player")]
