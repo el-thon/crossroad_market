@@ -12,7 +12,7 @@ Polish the mechanics that already exist.
 Prepare the project so final assets can be swapped in safely later.
 ```
 
-This document is intended to guide AI Agent / Codex work. Use it as a task spec. Do not execute everything at once.
+This document is intended to guide AI Agent / Codex work. Use it as a task spec.
 
 ```text
 1 prompt = 1 task or 1 small subtask
@@ -21,8 +21,6 @@ This document is intended to guide AI Agent / Codex work. Use it as a task spec.
 ---
 
 ## 2. Current Revision Context
-
-The project already has a playable Day 1 shop loop, but current playtest feedback shows several polish mismatches that should be fixed before deeper content work.
 
 Important user decisions:
 
@@ -39,16 +37,17 @@ Gooby refuse = revenue path through Slime
 Recent playtest notes:
 
 ```text
-- Interaction hints appear after pressing the button, but they should appear before input.
-- Player needs button/click guidance at least once so they understand E/Q and panel buttons.
-- Objective text exists, but its purpose and source must be audited.
-- Item/object hover should show the item/object name.
-- Shelf pickup after placement is too strict.
-- Cashier restricted area still needs danger-line feedback.
-- Store entry position does not align with the door.
-- Cashier Ask Again UI is hard to read because NPC dialogue can be hidden behind the panel.
+- Interaction hints should appear before input.
+- Player needs button/click guidance at least once.
+- Objective text source must be audited.
+- Item/object hover should show names.
+- Shelf pickup after placement should be easier.
+- Cashier restricted area needs danger-line feedback.
+- Cashier restricted warning visual and actual no-drop validation are currently mismatched.
+- Store entry position should align with door.
+- Cashier Ask Again UI should be readable inside the panel.
 - Day/Night timing and Day revenue pacing need adjustment.
-- Gooby/Slime logic should be revised: Slime comes after Gooby outcome, not only as a direct refusal spawn.
+- Slime should come after Gooby outcome and react to item availability.
 ```
 
 ---
@@ -65,6 +64,7 @@ Allowed Day 1 polish:
 - Improve cashier panel readability and button/click instructions.
 - Improve shelf placement, pickup, and no-drop safety.
 - Improve cashier restricted area feedback.
+- Sync cashier restricted warning visual with actual no-drop validation.
 - Improve door transition / entry alignment.
 - Improve NPC state flow and normal Day revenue pacing.
 - Improve TimeManager phase split so Night starts at 18:00.
@@ -100,25 +100,26 @@ Task 4  — Add Hover / Object Name Feedback
 Task 5  — Polish Shelf Pickup Reachability
 Task 6  — Polish Shelf Placement Safety / No-Drop Zones
 Task 7  — Polish Cashier Restricted Area Danger Line
-Task 8  — Fix Store Door Entry Alignment
-Task 9  — Move Trust Display to NPC World UI
-Task 10 — Polish Cashier Ask Again UI
-Task 11 — Polish Cashier Panel Button Guidance
-Task 12 — Audit Objective HUD Guidance
-Task 13 — Polish Activity Board / Action Guidance
-Task 14 — Polish Time / Phase Split
-Task 15 — Polish Day Revenue Pacing to 40G
-Task 16 — Revise Gooby / Slime Follow-Up Logic
-Task 17 — Validate Gooby Night Choice
-Task 18 — Review Full Core Loop
-Task 19 — Prepare Asset-Ready Node Structure
-Task 20 — Documentation Update
+Task 8  — Sync Cashier Restricted Area and Warning Visual
+Task 9  — Fix Store Door Entry Alignment
+Task 10 — Move Trust Display to NPC World UI
+Task 11 — Polish Cashier Ask Again UI
+Task 12 — Polish Cashier Panel Button Guidance
+Task 13 — Audit Objective HUD Guidance
+Task 14 — Polish Activity Board / Action Guidance
+Task 15 — Polish Time / Phase Split
+Task 16 — Polish Day Revenue Pacing to 40G
+Task 17 — Revise Gooby / Slime Follow-Up Logic
+Task 18 — Validate Gooby Night Choice
+Task 19 — Review Full Core Loop
+Task 20 — Prepare Asset-Ready Node Structure
+Task 21 — Documentation Update
 ```
 
 Current status:
 
 ```text
-All tasks in this revision should be treated as pending or needing validation unless Codex has already implemented and tested them after this document update.
+Treat tasks as pending or needing validation unless Codex has implemented and tested them after this document update.
 ```
 
 ---
@@ -137,45 +138,17 @@ Q = put / place / drop / stock
 Esc = close / cancel UI
 ```
 
-### Examples
-
-```text
-Supply Box:
-- E to take stock
-
-Shelf object:
-- E to pick up shelf
-- Q to drop/place carried shelf
-
-Shelf item:
-- Q to place/stock item on shelf
-- E to take/get item from shelf, if current feature supports it
-
-Cashier:
-- E to serve customer / interact with cashier
-
-Activity Board:
-- E to read board
-```
-
 ### Checklist
 
-- [x] Input action names are consistent.
-- [x] Prompt text follows the same E/Q rule.
-- [x] SupplyBox uses E for get/take stock.
-- [x] Shelf pickup uses E.
-- [x] Shelf placement / drop uses Q.
-- [x] Shelf stocking uses Q.
-- [x] Cashier interaction uses E.
-- [x] Board interaction uses E.
-- [x] No prompt contradicts the mapping.
-
-### Implementation Notes
-
-- `project.godot` now uses `interact` on E and `put` on Q; the old `carry` / `take_shelf_item` input actions are no longer used.
-- Player E handles get/take/pickup/interact/read/serve: supply box stock pickup, shelf item pickup, shelf object pickup, cashier service, NPC interaction, and activity board reading.
-- Player Q handles put/place/drop/stock: shelf stocking and carried shelf placement.
-- Store and Storage expose shelf pickup/drop request methods so the player interaction layer can keep E/Q behavior consistent across locations.
+- [ ] Input action names are consistent.
+- [ ] Prompt text follows the same E/Q rule.
+- [ ] SupplyBox uses E for get/take stock.
+- [ ] Shelf pickup uses E.
+- [ ] Shelf placement / drop uses Q.
+- [ ] Shelf stocking uses Q.
+- [ ] Cashier interaction uses E.
+- [ ] Board interaction uses E.
+- [ ] No prompt contradicts the mapping.
 
 ### Codex Prompt
 
@@ -217,21 +190,13 @@ Player enters object InteractionArea / CollisionShape2D
 
 ### Checklist
 
-- [x] Prompt appears on area enter / hover / proximity.
-- [x] Prompt appears before pressing E/Q.
-- [x] Prompt disappears on area exit.
-- [x] Prompt identifies object/item name.
-- [x] Prompt explains the correct input.
-- [x] Prompt does not block player movement.
-- [x] Prompt does not overlap cashier modal / board modal.
-
-### Implementation Notes
-
-- Added a non-blocking HUD `InteractionHintLabel` for compact proximity prompts.
-- Player updates the hint every frame from existing interaction-area overlap detection before E/Q is pressed.
-- Prompt text follows Task 1 mapping: E for get/take/pickup/interact/read/serve and Q for put/place/drop/stock.
-- Prompt text identifies current target names such as Supply Box, Human Shelf, Ghost Shelf, Cashier, Activity Board, NPC display name, and door names.
-- HUD hides the interaction hint while cashier or activity board overlays are open.
+- [ ] Prompt appears on area enter / hover / proximity.
+- [ ] Prompt appears before pressing E/Q.
+- [ ] Prompt disappears on area exit.
+- [ ] Prompt identifies object/item name.
+- [ ] Prompt explains the correct input.
+- [ ] Prompt does not block player movement.
+- [ ] Prompt does not overlap cashier modal / board modal.
 
 ### Codex Prompt
 
@@ -260,8 +225,6 @@ Expected output:
 
 Player should receive clear guidance at least once about what each input/button does. This is especially important because E/Q are contextual.
 
-This is not a permanent tutorial spam. It is a **first-time explanation** for new controls, panels, or item/object categories.
-
 ### Expected Behavior
 
 ```text
@@ -286,8 +249,6 @@ Only compact prompts repeat, not the long tutorial explanation.
 
 ### Cashier Panel Button Guidance
 
-The cashier panel should explain button meanings once, or show compact tooltips/labels:
-
 ```text
 Confirm Scan — process selected item.
 Ask Again — repeat the customer's request.
@@ -299,19 +260,12 @@ Receive Payment — finish normal paid checkout.
 
 ### Checklist
 
-- [x] First-time button guidance exists for core input mapping.
-- [x] Cashier panel has clear button labels or one-time guidance.
-- [x] Guidance runs once per input/object/panel category.
-- [x] Guidance does not loop every time.
-- [x] Guidance does not block cashier decision flow.
-- [x] Compact prompts still appear after first-time guidance.
-
-### Implementation Notes
-
-- Player proximity hints now use one-time guidance keys per category, then fall back to compact prompts.
-- One-time guidance covers supply box take, shelf pickup, carried shelf placement, shelf stocking, shelf item pickup, cashier interaction, NPC interaction, and activity board reading.
-- Cashier panel now has a non-blocking guide label that explains Scan, Paid, and Gooby choice buttons once per panel type.
-- Cashier guide text does not use blocking notifications, so scan/payment/Gooby decisions remain clickable immediately.
+- [ ] First-time button guidance exists for core input mapping.
+- [ ] Cashier panel has clear button labels or one-time guidance.
+- [ ] Guidance runs once per input/object/panel category.
+- [ ] Guidance does not loop every time.
+- [ ] Guidance does not block cashier decision flow.
+- [ ] Compact prompts still appear after first-time guidance.
 
 ### Codex Prompt
 
@@ -356,19 +310,12 @@ Activity Board
 
 ### Checklist
 
-- [x] Hover/proximity label shows object name.
-- [x] Label appears before input.
-- [x] Label disappears on exit.
-- [x] Label works for items, shelves, cashier, board, and supply boxes.
-- [x] Hover name is separate from one-time tutorial explanation.
-- [x] Label does not overlap major HUD or modal panels.
-
-### Implementation Notes
-
-- Added a separate HUD `ObjectNameLabel` above the compact interaction prompt.
-- Player hover/proximity feedback now sends object name and action prompt separately.
-- Object names are resolved from existing data: NPC display name, stocked shelf item display name, shelf type, supply box type, cashier, activity board, and door labels.
-- The object name label hides when no target is in range, when actions are locked, or when cashier/activity board overlays are open.
+- [ ] Hover/proximity label shows object name.
+- [ ] Label appears before input.
+- [ ] Label disappears on exit.
+- [ ] Label works for items, shelves, cashier, board, and supply boxes.
+- [ ] Hover name is separate from one-time tutorial explanation.
+- [ ] Label does not overlap major HUD or modal panels.
 
 ### Codex Prompt
 
@@ -386,7 +333,7 @@ Expected output:
 - File yang dicek.
 - Cara object name ditentukan.
 - Perubahan yang dibuat.
-- Test item name, shelf name, cashier name, supply box name.
+- Test item name, shelf name, cashier name.
 ```
 
 ---
@@ -395,31 +342,25 @@ Expected output:
 
 ### Goal
 
-Shelf pickup should not require touching a tiny physical CollisionShape2D. Player should be able to pick up the shelf reliably after placing it.
+Fix shelf pickup usability after player places a shelf in the store, especially before returning to get the ghost shelf.
 
-### Requirement
+### Design Requirement
 
 ```text
 CollisionShape2D = physical blocking / body collision
 InteractionArea = detection for prompt and pickup
 ```
 
-Expand the shelf interaction area, not the physics collision.
+Do not make the physical collision huge just to make pickup easier. Expand the interaction area, not the physics collision.
 
 ### Checklist
 
-- [x] Shelf pickup detection uses a larger reachable InteractionArea.
-- [x] Physical collision remains normal size.
-- [x] Prompt appears before pressing E.
-- [x] Player can pick shelf up again after placing it.
-- [x] Ghost shelf retrieval flow is reliable.
-- [x] Enlarged interaction area does not conflict with door, cashier, board, or other interactions.
-
-### Implementation Notes
-
-- Shelf `InteractionArea` is expanded from `64x48` to `92x68` so the player can get pickup prompts from a practical standing distance.
-- Shelf `PhysicsBody/CollisionShape2D` stays at `64x32`, so this does not enlarge physical blocking or shelf placement collision.
-- Existing interaction priority remains unchanged: doors are checked first, cashier/NPC/supply targets still outrank shelves, and shelf pickup continues through existing Store/Storage request methods.
+- [ ] Shelf can still be physically blocked by its normal collision.
+- [ ] Shelf pickup detection uses larger reachable interaction area.
+- [ ] Prompt appears before pickup input.
+- [ ] Player can pick shelf up again after placing it in the store.
+- [ ] Player can continue ghost shelf flow without touching a tiny exact collision shape.
+- [ ] Enlarged area does not conflict with cashier, door, or activity board interaction.
 
 ### Codex Prompt
 
@@ -451,20 +392,13 @@ Prevent shelf placement in positions that break navigation, block doors, block c
 
 ### Checklist
 
-- [x] Shelf cannot be dropped on StorageDoor transition area.
-- [x] Shelf cannot be dropped on YardDoor transition area.
-- [x] Shelf cannot be dropped in cashier restricted area.
-- [x] Shelf cannot block main path or queue path.
-- [x] If first drop position is unsafe, fallback positions are tested.
-- [x] If all drop positions are unsafe, player keeps carrying shelf.
-- [x] Player receives clear feedback when drop is rejected.
-
-### Implementation Notes
-
-- Store shelf placement already rejects StorageDoor, YardDoor, cashier restricted area, body collision overlap, and unreachable shelf interaction positions.
-- Added customer path no-drop validation using existing `EntrancePos` and `CounterPos` markers.
-- Added checkout queue no-drop validation below `CounterPos`, matching the existing NPC queue target flow.
-- Existing fallback candidates remain active; if no candidate is valid, the shelf stays carried and the player receives rejection feedback.
+- [ ] Shelf cannot be dropped on StorageDoor transition area.
+- [ ] Shelf cannot be dropped on YardDoor transition area.
+- [ ] Shelf cannot be dropped in cashier restricted area.
+- [ ] Shelf cannot block main path or queue path.
+- [ ] If first drop position is unsafe, fallback positions are tested.
+- [ ] If all drop positions are unsafe, player keeps carrying shelf.
+- [ ] Player receives clear feedback when drop is rejected.
 
 ### Codex Prompt
 
@@ -507,23 +441,16 @@ When invalid shelf drop happens near cashier:
 
 ### Checklist
 
-- [x] Cashier restricted area exists or is clearly defined.
-- [x] Shelf drop in cashier restricted area is rejected.
-- [x] Player keeps carrying shelf after invalid drop.
-- [x] Danger line surrounds the cashier restricted area.
-- [x] Danger line is hidden by default.
-- [x] Danger line fades in/out over 2 seconds.
-- [x] Fade animation repeats 3 times.
-- [x] Danger line hides after animation.
-- [x] Animation does not block player input.
-- [x] Animation does not interfere with cashier UI or NPC queue.
-
-### Implementation Notes
-
-- Cashier restricted area uses the same `CounterPos`-based no-drop rect as shelf placement validation.
-- Added runtime `CashierRestrictedDangerLine` as a hidden `Line2D` around the cashier restricted rect.
-- Invalid cashier-area shelf drop starts a non-blocking danger-line tween: fade in 1 second, fade out 1 second, repeated 3 cycles.
-- The line is hidden again after the final fade and does not change cashier UI, NPC queue, or shelf carry state.
+- [ ] Cashier restricted area exists or is clearly defined.
+- [ ] Shelf drop in cashier restricted area is rejected.
+- [ ] Player keeps carrying shelf after invalid drop.
+- [ ] Danger line surrounds the cashier restricted area.
+- [ ] Danger line is hidden by default.
+- [ ] Danger line fades in/out over 2 seconds.
+- [ ] Fade animation repeats 3 times.
+- [ ] Danger line hides after animation.
+- [ ] Animation does not block player input.
+- [ ] Animation does not interfere with cashier UI or NPC queue.
 
 ### Codex Prompt
 
@@ -552,7 +479,181 @@ Expected output:
 
 ---
 
-## 12. Task 8 — Fix Store Door Entry Alignment
+## 12. Task 8 — Sync Cashier Restricted Area and Warning Visual
+
+### Goal
+
+Fix the mismatch between the actual cashier no-drop validation area and the visible danger-line/warning area.
+
+Current playtest issue:
+
+```text
+- If player tries to place shelf inside the visible warning line, dialog and danger line appear correctly.
+- If player tries near the cashier restricted area but outside the visible line, the restricted dialog can appear while the danger line does not visually cover the player's position.
+- This makes the warning feel inconsistent because the invisible restriction is larger than the visible warning.
+```
+
+### Likely Cause
+
+The implementation can accidentally use different concepts for restriction and visual feedback:
+
+```text
+- Cashier no-drop rect
+- Customer main path no-drop area
+- Customer queue path no-drop area
+- Candidate/fallback drop context
+- Danger line visual rect
+```
+
+If the dialog uses one area but the `Line2D` visual only draws another area, the player sees a restricted message without a matching visual boundary.
+
+### Design Decision
+
+Use **one source of truth** for cashier-related restricted feedback.
+
+Preferred rule:
+
+```text
+If the rejection message is cashier-related, the danger line must outline the full area that caused the cashier-related rejection.
+```
+
+Do not let these two things diverge:
+
+```text
+Validation area != Warning visual area
+```
+
+### Recommended Implementation Direction
+
+Create helper methods such as:
+
+```text
+_get_cashier_restricted_feedback_rect()
+_is_cashier_restricted_rejection(reason, candidate, object)
+_sync_cashier_restricted_danger_line_to_rect(rect)
+```
+
+Possible approaches:
+
+#### Option A — Single Unified Rect
+
+```text
+cashier_restricted_feedback_rect = union of:
+- cashier no-drop rect
+- checkout queue path rect, if treated as cashier restricted
+- nearby cashier/customer path segment, if its message is shown as cashier restricted
+```
+
+Then use the same rect for:
+
+```text
+- shelf drop rejection context
+- danger line points
+- warning visual placement
+```
+
+#### Option B — Separate Reasons, Separate Feedback
+
+```text
+If candidate hits exact cashier no-drop rect:
+- message: This area is reserved for the cashier.
+- show danger line around cashier rect.
+
+If candidate hits customer path / checkout line:
+- message: This blocks the customer path / checkout line.
+- do not use cashier danger line unless a separate path warning visual exists.
+```
+
+For Day 1, prefer **Option A** if the user-facing experience treats all of that area as one cashier restricted zone.
+
+### Checklist
+
+- [ ] Identify every place where shelf drop can be rejected around cashier.
+- [ ] Identify which rejection reasons currently trigger restricted dialog.
+- [ ] Identify the rect/shape used to draw `CashierRestrictedDangerLine`.
+- [ ] Make the visual warning boundary match the actual restricted validation area.
+- [ ] If the restricted area is larger than the old line, expand the line to match it.
+- [ ] If some rejection is not cashier-related, use a different message and do not show cashier warning.
+- [ ] Do not rely on exact message string equality alone to decide whether danger line should play.
+- [ ] Repeated invalid placement should replay or refresh the danger line consistently.
+- [ ] Normal valid placement outside the visual restricted area should still work.
+
+### Test Cases
+
+#### RESTRICT-SYNC-01 — Inside Visible Line
+
+```text
+Carry shelf.
+Stand inside / directly on cashier danger-line area.
+Press Q to place.
+Expected:
+Drop is rejected.
+Dialog appears.
+Danger line appears and covers the rejected area.
+```
+
+#### RESTRICT-SYNC-02 — Near Cashier Edge
+
+```text
+Carry shelf.
+Stand near cashier restricted edge where drop is rejected.
+Press Q to place.
+Expected:
+If rejected as cashier restricted, danger line appears and includes that position.
+No invisible restricted region exists without matching visual feedback.
+```
+
+#### RESTRICT-SYNC-03 — Customer Path / Queue Path
+
+```text
+Carry shelf.
+Try to drop on customer path or checkout queue path.
+Expected:
+Either:
+A) It is included in the cashier restricted danger-line boundary, or
+B) It shows a different non-cashier message and does not pretend to be cashier restricted.
+```
+
+#### RESTRICT-SYNC-04 — Valid Nearby Drop
+
+```text
+Carry shelf.
+Try to drop just outside the visible restricted boundary.
+Expected:
+Drop succeeds if no other no-drop rule is violated.
+No restricted dialog appears.
+```
+
+### Codex Prompt
+
+```text
+Analisa dan implementasikan Task 8 — Sync Cashier Restricted Area and Warning Visual dari docs/polish/day-1-mechanic-polish.md.
+
+Masalah:
+Restricted dialog dan danger-line visual tidak selalu sinkron. Ada posisi di dekat cashier yang menolak shelf drop dan menampilkan dialog, tetapi danger line tidak mencakup posisi tersebut.
+
+Batasan:
+- Jangan tambah mechanic baru.
+- Fokus sinkronisasi no-drop validation dan visual feedback.
+- Identifikasi semua area yang menolak shelf drop di sekitar cashier: cashier no-drop rect, customer path, checkout queue path, fallback candidate context.
+- Jika rejection dianggap cashier restricted, danger line harus menggambar area yang sama dengan area validasi.
+- Jika rejection bukan cashier restricted, gunakan pesan berbeda dan jangan tampilkan cashier danger line.
+- Jangan bergantung hanya pada perbandingan string message exact untuk trigger danger line.
+- Player tetap membawa shelf setelah invalid drop.
+- Jangan ganggu cashier UI, NPC queue, dan valid shelf placement di area yang benar-benar aman.
+
+Expected output:
+- File/scene yang dicek.
+- Semua sumber area no-drop dekat cashier.
+- Penyebab mismatch visual vs validation.
+- Keputusan implementasi: unified cashier restricted rect atau separate feedback per reason.
+- Perubahan helper/rect/line yang dibuat.
+- Test RESTRICT-SYNC-01, 02, 03, 04.
+```
+
+---
+
+## 13. Task 9 — Fix Store Door Entry Alignment
 
 ### Goal
 
@@ -560,41 +661,40 @@ Player entry/return position should match the actual door position.
 
 ### Checklist
 
-- [x] Returning from storage spawns player near StorageDoor.
-- [x] Returning from yard/outside spawns player near the correct door.
-- [x] Player does not spawn inside door trigger.
-- [x] Player does not instantly re-trigger transition.
-- [x] Player does not spawn inside wall/shelf/cashier restricted area.
-- [x] Door markers are visually aligned with door assets/placeholders.
-
-### Implementation Notes
-
-- `StorageReturnPos` already sits below `StorageDoor`, outside the door trigger.
-- `YardReturnPos` is aligned to `YardDoor` x-position and remains above the trigger so the player does not instantly re-enter the yard.
-- Yard return fallback position now matches the marker alignment when the marker is missing.
+- [ ] Returning from storage spawns player near StorageDoor.
+- [ ] Returning from yard/outside spawns player near the correct door.
+- [ ] Player does not spawn inside door trigger.
+- [ ] Player does not instantly re-trigger transition.
+- [ ] Player does not spawn inside wall/shelf/cashier restricted area.
+- [ ] Door markers are visually aligned with door assets/placeholders.
+- [ ] Player can use door while carrying shelf.
+- [ ] Shelf remains carried after transition.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 8 — Fix Store Door Entry Alignment dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 9 — Fix Store Door Entry Alignment dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
 - Fokus marker/position transition existing.
 - Posisi enter store harus sesuai posisi pintu.
 - Jangan spawn player di dalam trigger pintu atau collision.
+- Player harus bisa masuk/keluar door saat membawa shelf.
+- Shelf harus tetap terbawa setelah transisi.
 - Cek Store scene markers, door transition code, StorageReturnPos, YardReturnPos, PlayerSpawn.
 
 Expected output:
 - File/scene yang dicek.
 - Marker pintu yang tidak align.
+- Penyebab door terblokir saat carrying shelf jika ada.
 - Perubahan posisi marker atau transition logic.
-- Test return dari storage dan area lain.
+- Test return dari storage dan area lain sambil membawa shelf.
 ```
 
 ---
 
-## 13. Task 9 — Move Trust Display to NPC World UI
+## 14. Task 10 — Move Trust Display to NPC World UI
 
 ### Goal
 
@@ -602,24 +702,17 @@ Trust is not permanent player HUD state. Trust belongs to the relevant NPC and s
 
 ### Checklist
 
-- [x] Remove/hide permanent Gooby Trust HUD label.
-- [x] Add trust label/bar above Gooby/story NPC.
-- [x] Trust display follows NPC movement.
-- [x] Trust updates after Gooby interaction.
-- [x] Generic NPCs do not show unnecessary trust bars.
-- [x] RelationshipManager remains source of truth.
-
-### Implementation Notes
-
-- Removed the permanent `TrustLabel` from HUD and stopped HUD from subscribing to `RelationshipManager.trust_changed`.
-- Added an NPC world-space `TrustLabel` above `NameLabel`, hidden by default.
-- Story NPCs connect to `RelationshipManager.trust_changed` and show their own trust value; generic NPCs keep the trust label hidden.
-- RelationshipManager remains the source of truth for all trust values.
+- [ ] Remove/hide permanent Gooby Trust HUD label.
+- [ ] Add trust label/bar above Gooby/story NPC.
+- [ ] Trust display follows NPC movement.
+- [ ] Trust updates after Gooby interaction.
+- [ ] Generic NPCs do not show unnecessary trust bars.
+- [ ] RelationshipManager remains source of truth.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 9 — Move Trust Display to NPC World UI dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 10 — Move Trust Display to NPC World UI dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah relationship system kompleks.
@@ -638,7 +731,7 @@ Expected output:
 
 ---
 
-## 14. Task 10 — Polish Cashier Ask Again UI
+## 15. Task 11 — Polish Cashier Ask Again UI
 
 ### Goal
 
@@ -670,25 +763,18 @@ Total: 0G
 
 ### Checklist
 
-- [x] Ask Again request appears inside cashier panel.
-- [x] NPC dialogue bubble can still exist, but it is not required to read request.
-- [x] Cashier panel does not cover its own important text.
-- [x] Buttons are spaced/readable at 480x270.
-- [x] Ask Again count, if used, is visible.
-- [x] Gooby choice panel remains clear.
-- [x] Panel closes/unlocks input correctly.
-
-### Implementation Notes
-
-- Added a cashier panel `request_label` so customer request text appears inside the panel.
-- Scan panel now separates customer name, request text, selected item, total, and Ask Again count.
-- `Ask Again` still triggers the NPC bubble, but the player can read the repeated request from the panel.
-- Paid and Gooby choice panels keep request/customer context without changing checkout flow.
+- [ ] Ask Again request appears inside cashier panel.
+- [ ] NPC dialogue bubble can still exist, but it is not required to read request.
+- [ ] Cashier panel does not cover its own important text.
+- [ ] Buttons are spaced/readable at 480x270.
+- [ ] Ask Again count, if used, is visible.
+- [ ] Gooby choice panel remains clear.
+- [ ] Panel closes/unlocks input correctly.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 10 — Polish Cashier Ask Again UI dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 11 — Polish Cashier Ask Again UI dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
@@ -707,24 +793,11 @@ Expected output:
 
 ---
 
-## 15. Task 11 — Polish Cashier Panel Button Guidance
+## 16. Task 12 — Polish Cashier Panel Button Guidance
 
 ### Goal
 
 Cashier panel should communicate what each button does, at least once, so player does not need to memorize controls or guess panel behavior.
-
-### Design Requirement
-
-Button guidance can be implemented as:
-
-```text
-- Clear button labels
-- Short helper text inside panel
-- One-time cashier tutorial line
-- Tooltip-like text when hovering/focusing a button, if simple
-```
-
-Do not overbuild a full tutorial system. The goal is just to prevent confusion.
 
 ### Example Helper Text
 
@@ -743,25 +816,18 @@ Refuse Sale returns the item and continues the night event.
 
 ### Checklist
 
-- [x] Cashier panel explains core button functions at least once.
-- [x] Normal checkout button labels are clear.
-- [x] Gooby choice button labels are clear.
-- [x] Ask Again button has clear meaning.
-- [x] Guidance does not clutter panel permanently.
-- [x] Guidance does not block player control.
-- [x] Guidance follows E/Q mapping where keyboard prompts are shown.
-
-### Implementation Notes
-
-- Cashier panel keeps one-time helper text for scan, paid, and Gooby decision states.
-- Button labels were clarified for closing checkout and returning to scan item selection.
-- Cashier buttons now have tooltip guidance for selection, confirm scan, ask again, close, receive payment, Gooby gift, Gooby refusal, and back-to-scan actions.
-- Guidance stays in the panel/button UI and does not add blocking notifications or new mechanics.
+- [ ] Cashier panel explains core button functions at least once.
+- [ ] Normal checkout button labels are clear.
+- [ ] Gooby choice button labels are clear.
+- [ ] Ask Again button has clear meaning.
+- [ ] Guidance does not clutter panel permanently.
+- [ ] Guidance does not block player control.
+- [ ] Guidance follows E/Q mapping where keyboard prompts are shown.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 11 — Polish Cashier Panel Button Guidance dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 12 — Polish Cashier Panel Button Guidance dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
@@ -772,47 +838,44 @@ Batasan:
 
 Expected output:
 - File yang dicek.
-- Button yang diberi label/helper text.
-- Cara guidance dibuat agar tidak looping/mengganggu.
-- Test normal checkout, Ask Again, Gooby Give Item, Gooby Refuse Sale.
+- Button yang butuh guidance.
+- Perubahan UI/helper text.
+- Test normal checkout panel dan Gooby choice panel.
 ```
 
 ---
 
-## 16. Task 12 — Audit Objective HUD Guidance
+## 17. Task 13 — Audit Objective HUD Guidance
 
 ### Goal
 
-Clarify whether objective text should remain in HUD, move to Activity Board, or be replaced by contextual hints.
+Clarify whether objective text should exist as HUD, Activity Board content, or contextual hint.
 
-### Design Options
-
-```text
-Option A — Keep objective in HUD:
-Use one-line bottom/side objective only.
-
-Option B — Move objective into Activity Board:
-HUD stays cleaner; board stores guidance.
-
-Option C — Contextual hints only:
-No persistent objective; object prompts guide the player.
-```
-
-Recommended for Day 1:
+### Recommended Direction
 
 ```text
 Use contextual interaction hints as primary guidance.
-Use Activity Board as backup guidance.
 Keep HUD objective only if it is short, non-overlapping, and clearly useful.
+Activity Board can serve as optional backup guidance.
 ```
+
+### Checklist
+
+- [ ] Identify where objective text is created.
+- [ ] Identify which file updates the objective text.
+- [ ] Confirm whether objective belongs in HUD or board.
+- [ ] Ensure objective does not overlap HUD labels.
+- [ ] Ensure objective does not duplicate interaction hints too much.
+- [ ] If retained, objective should be one-line only.
+- [ ] If removed, board/hints must still guide the player.
 
 ### Codex Prompt
 
 ```text
-Analisa Task 12 — Audit Objective HUD Guidance dari docs/polish/day-1-mechanic-polish.md.
+Analisa Task 13 — Audit Objective HUD Guidance dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
-- Jangan edit file dulu.
+- Jangan edit file dulu kecuali sudah jelas perlu revisi kecil.
 - Jangan tambah mechanic baru.
 - Jelaskan dari mana ObjectiveLabel dibuat dan siapa yang mengubahnya.
 - Rekomendasikan apakah objective tetap di HUD, dipindah ke board, atau diganti contextual hints.
@@ -827,13 +890,13 @@ Expected output:
 
 ---
 
-## 17. Task 13 — Polish Activity Board / Action Guidance
+## 18. Task 14 — Polish Activity Board / Action Guidance
 
 ### Goal
 
-Use the activity board only as lightweight guidance for current existing actions, not as a quest system.
+Activity Board should act as a stable place to check current actions without becoming a quest system.
 
-### Example Content
+### Recommended Board Content
 
 ```text
 Today's Work
@@ -842,7 +905,7 @@ Today's Work
 - Serve customers at cashier
 ```
 
-After ghost flow:
+After ghost flow begins:
 
 ```text
 Strange Notes
@@ -852,50 +915,45 @@ Strange Notes
 - Watch the store at night
 ```
 
-Night branch:
+During Gooby branch:
 
 ```text
 Night Choice
 - Give item: Trust +, Revenue 0G
-- Refuse sale: Item remains available for another customer
+- Refuse sale: Item returns, another customer may come
 ```
 
 ### Checklist
 
-- [x] Board explains current activity clearly.
-- [x] Board does not create rewards or quest completion mechanics.
-- [x] Board UI can be closed safely.
-- [x] Board does not conflict with cashier UI.
-- [x] Board can later be replaced by final board sprite.
-
-### Implementation Notes
-
-- Activity Board content remains sourced from existing Store state and only describes current actions.
-- Board panel no longer adds a HUD action lock; it can be closed with the Close button, Escape, or right click.
-- Board refuses to open while `CashierUILayer` is visible, preventing overlap with cashier checkout.
-- Board scene structure stays placeholder/asset-ready for a future final board sprite.
+- [ ] Board explains current activity clearly.
+- [ ] Board text updates at major existing milestones if implemented.
+- [ ] Board does not introduce new gameplay requirements.
+- [ ] Board UI can be closed safely.
+- [ ] Board does not permanently lock input.
+- [ ] Board does not conflict with cashier UI.
+- [ ] Board can be replaced with final board sprite later.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 13 — Polish Activity Board / Action Guidance dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 14 — Polish Activity Board / Action Guidance dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
-- Jangan tambah quest system.
-- Board hanya menjelaskan existing actions.
-- Pastikan board bisa dibuka/tutup tanpa mengunci input.
-- Pastikan board tidak konflik dengan cashier panel.
+- Jangan tambah mechanic baru.
+- Board hanya menjelaskan existing action.
+- Jangan buat quest reward / completion system.
+- Pastikan board bisa dibuka dan ditutup tanpa mengunci player.
 
 Expected output:
-- File/scene yang dicek.
-- Konten board final.
-- Perubahan yang dibuat.
-- Test open/close board dan updated guidance.
+- File yang dicek.
+- Isi board per milestone.
+- Perubahan board/UI yang dibuat.
+- Test open/close board dan update guidance.
 ```
 
 ---
 
-## 18. Task 14 — Polish Time / Phase Split
+## 19. Task 15 — Polish Time / Phase Split
 
 ### Goal
 
@@ -910,15 +968,6 @@ Night / Strange Customers: 18:00 → 22:00
 End / Report: after 22:00
 ```
 
-Alternative if setup needs longer:
-
-```text
-Morning / Setup: 08:00 → 11:00
-Day / Store Open: 11:00 → 18:00
-Night / Strange Customers: 18:00 → 22:00
-End / Report: after 22:00
-```
-
 Preferred for Day 1:
 
 ```text
@@ -927,23 +976,16 @@ Preferred for Day 1:
 
 ### Checklist
 
-- [x] Time display matches phase.
-- [x] Night starts at 18:00.
-- [x] Gooby/Slime night logic triggers only during Night.
-- [x] Day NPC revenue pacing stops before 18:00.
-- [x] End/report timing remains clear.
-
-### Implementation Notes
-
-- Phase clock split is now Morning `08:00-10:00`, Day `10:00-18:00`, Night `18:00-22:00`.
-- Time display uses per-phase world-minute durations, so Day starts at `10:00` and Night starts at `18:00`.
-- NPCScheduler now only spawns NPCs whose `VisitPhase` matches the current TimeManager phase.
-- Day 1 Night spawning still waits for Night; normal Day 1 customer pacing is handled by Task 15.
+- [ ] Time display matches phase.
+- [ ] Night starts at 18:00.
+- [ ] Gooby/Slime night logic triggers only during Night.
+- [ ] Day NPC revenue pacing stops before 18:00.
+- [ ] End/report timing remains clear.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 14 — Polish Time / Phase Split dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 15 — Polish Time / Phase Split dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
@@ -962,7 +1004,7 @@ Expected output:
 
 ---
 
-## 19. Task 15 — Polish Day Revenue Pacing to 40G
+## 20. Task 16 — Polish Day Revenue Pacing to 40G
 
 ### Goal
 
@@ -989,44 +1031,20 @@ Normal NPC count: 4
 Spawn interval: 8 / 4 = 2 hours per NPC
 ```
 
-Another example:
-
-```text
-Player finishes shelf setup at 08:00
-Remaining time until Night: 10 hours
-Normal NPC count: 4
-Spawn interval: 10 / 4 = 2.5 hours per NPC
-```
-
-Expected result:
-
-```text
-By 18:00, normal NPC sales should total 40G.
-Then Gooby/Slime branch decides whether final target reaches 50G.
-```
-
 ### Checklist
 
-- [x] Normal Day NPC revenue target is 40G.
-- [x] Normal Day NPC count or purchase value reliably reaches 40G.
-- [x] Spawn schedule considers remaining Day time until 18:00.
-- [x] Day NPCs do not continue generating revenue after Night begins.
-- [x] Slime remains the final 10G opportunity.
-- [x] Gift Gooby path can leave revenue at 40/50.
-- [x] Refuse Gooby path can allow Slime to reach 50/50.
-
-### Implementation Notes
-
-- Day 1 normal customers remain four scripted Day customers with checkout totals `10G + 5G + 15G + 10G = 40G`.
-- Day 1 Day spawn interval is now calculated from the remaining time between shelf setup completion and the 18:00 Night phase.
-- Scheduler keeps a small guard before Night so Day NPCs are not intentionally queued at the exact 18:00 phase transition.
-- If setup completes very late, Day 1 customer pacing can rush within the remaining Day window instead of continuing into Night.
-- Phantom Ice Cream remains `10G`, so Slime stays the final 10G opportunity after the Gooby branch.
+- [ ] Normal Day NPC revenue target is 40G.
+- [ ] Normal Day NPC count or purchase value reliably reaches 40G.
+- [ ] Spawn schedule considers remaining Day time until 18:00.
+- [ ] Day NPCs do not continue generating revenue after Night begins.
+- [ ] Slime remains the final 10G opportunity.
+- [ ] Gift Gooby path can leave revenue at 40/50.
+- [ ] Refuse Gooby path can allow Slime to reach 50/50.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 15 — Polish Day Revenue Pacing to 40G dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 16 — Polish Day Revenue Pacing to 40G dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
@@ -1046,7 +1064,7 @@ Expected output:
 
 ---
 
-## 20. Task 16 — Revise Gooby / Slime Follow-Up Logic
+## 21. Task 17 — Revise Gooby / Slime Follow-Up Logic
 
 ### Goal
 
@@ -1093,8 +1111,6 @@ Player refuses to give Phantom Ice Cream to Gooby
 
 ### Design Rule
 
-This should preserve the core trade-off:
-
 ```text
 Give Gooby = trust path, daily target missed
 Refuse Gooby = revenue path, daily target achieved through Slime
@@ -1107,58 +1123,23 @@ Give Gooby = Trust +20
 Refuse Gooby = Trust +0
 ```
 
-Optional softer variant if desired later:
-
-```text
-Give Gooby = Trust +20
-Refuse politely = Trust +5
-```
-
-For Day 1, prefer the clear version:
-
-```text
-Trust path vs Revenue path
-```
-
-### Timing Recommendation
-
-Slime should arrive **after Gooby checkout/outcome is resolved**, with a short delay.
-
-Reason:
-
-```text
-- Prevents cashier queue confusion.
-- Makes cause/effect readable.
-- Keeps Gooby choice clear.
-- Makes Slime feel like a follow-up event.
-```
-
 ### Checklist
 
-- [x] Slime is scheduled as a night follow-up after Gooby outcome.
-- [x] Slime can come after both Gooby gift and Gooby refusal.
-- [x] If Gooby received the item, Slime finds item unavailable.
-- [x] If Gooby was refused, item remains available / returns to shelf for Slime sale.
-- [x] Slime does not duplicate spawn.
-- [x] Slime does not buy unavailable item.
-- [x] Slime sale is the final 10G opportunity.
-- [x] Gift path ends at 40/50 revenue.
-- [x] Refuse path can reach 50/50 revenue.
-- [x] Notifications/panel text explain why Slime can or cannot buy.
-
-### Implementation Notes
-
-- Gooby gift now schedules the Slime follow-up, consumes Phantom Ice Cream through the existing NPC cart flow, grants Trust +20, and adds 0G.
-- Gooby refusal now schedules the same Slime follow-up, returns Phantom Ice Cream to the ghost shelf, grants Trust +0, and adds 0G.
-- NPCScheduler delays the Slime follow-up by a short timer and blocks duplicate Slime spawns.
-- Slime uses the existing Night NPC checkout flow for Phantom Ice Cream at 10G.
-- If Phantom Ice Cream is gone, Slime uses the existing no-item leave behavior and cannot generate revenue.
-- Store objective changes to "Wait for the next strange customer." after either Gooby outcome.
+- [ ] Slime is scheduled as a night follow-up after Gooby outcome.
+- [ ] Slime can come after both Gooby gift and Gooby refusal.
+- [ ] If Gooby received the item, Slime finds item unavailable.
+- [ ] If Gooby was refused, item remains available / returns to shelf for Slime sale.
+- [ ] Slime does not duplicate spawn.
+- [ ] Slime does not buy unavailable item.
+- [ ] Slime sale is the final 10G opportunity.
+- [ ] Gift path ends at 40/50 revenue.
+- [ ] Refuse path can reach 50/50 revenue.
+- [ ] Notifications/panel text explain why Slime can or cannot buy.
 
 ### Codex Prompt
 
 ```text
-Analisa dan implementasikan Task 16 — Revise Gooby / Slime Follow-Up Logic dari docs/polish/day-1-mechanic-polish.md.
+Analisa dan implementasikan Task 17 — Revise Gooby / Slime Follow-Up Logic dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah story branch baru di luar Gooby/Slime Day 1 night branch.
@@ -1181,7 +1162,7 @@ Expected output:
 
 ---
 
-## 21. Task 17 — Validate Gooby Night Choice
+## 22. Task 18 — Validate Gooby Night Choice
 
 ### Goal
 
@@ -1204,7 +1185,7 @@ Validate the complete night branch after Time, Revenue Pacing, and Gooby/Slime f
 ### Codex Prompt
 
 ```text
-Validate Task 17 — Gooby Night Choice from docs/polish/day-1-mechanic-polish.md.
+Validate Task 18 — Gooby Night Choice from docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan tambah mechanic baru.
@@ -1224,7 +1205,7 @@ Expected output:
 
 ---
 
-## 22. Task 18 — Review Full Core Loop
+## 23. Task 19 — Review Full Core Loop
 
 ### Goal
 
@@ -1240,6 +1221,7 @@ Review the full playable Day 1 loop after all focused polish tasks.
 - [ ] Door return positions are correct.
 - [ ] Player can place and pick up shelves reliably.
 - [ ] Cashier restricted danger line works.
+- [ ] Cashier restricted visual boundary matches actual no-drop validation area.
 - [ ] Cashier panel and Ask Again UI are readable.
 - [ ] Trust display is above relevant NPC.
 - [ ] Time phase split is readable.
@@ -1251,16 +1233,16 @@ Review the full playable Day 1 loop after all focused polish tasks.
 ### Codex Prompt
 
 ```text
-Review Task 18 — Review Full Core Loop dari docs/polish/day-1-mechanic-polish.md.
+Review Task 19 — Review Full Core Loop dari docs/polish/day-1-mechanic-polish.md.
 
 Batasan:
 - Jangan edit file dulu.
 - Jangan tambah mechanic baru.
 - Jalankan review berdasarkan mechanic yang sudah ada.
-- Fokus menemukan friction point, UI overlap, input confusion, atau branch bug.
+- Fokus menemukan friction point, UI overlap, restricted area mismatch, atau bug.
 
 Expected output:
-- Status core loop dari setup sampai laporan malam.
+- Status core loop dari awal sampai transaksi malam.
 - Bagian yang sudah stabil.
 - Bagian yang masih rawan.
 - Rekomendasi task kecil berikutnya.
@@ -1268,25 +1250,27 @@ Expected output:
 
 ---
 
-## 23. Task 19 — Prepare Asset-Ready Node Structure
+## 24. Task 20 — Prepare Asset-Ready Node Structure
 
 ### Goal
 
-Prepare scenes so placeholder visuals can be replaced with Aseprite assets later without breaking mechanics.
+Prepare scenes so placeholder visuals can be swapped with Aseprite assets later without breaking mechanics.
 
-Recommended object pattern:
+### Checklist
 
-```text
-Object
-├── VisualRoot
-│   ├── PlaceholderRect
-│   └── AssetSprite / AnimatedSprite2D
-├── CollisionShape2D
-├── InteractionArea
-└── Labels / UI anchors
-```
+- [ ] Visual nodes are separated from logic nodes.
+- [ ] Placeholder visuals are grouped under a stable visual root where possible.
+- [ ] Collision shapes do not depend directly on placeholder size.
+- [ ] Interaction areas remain stable when sprite changes.
+- [ ] Scene node names are stable.
+- [ ] Script does not depend directly on `ColorRect` for gameplay logic.
+- [ ] `Sprite2D` or `AnimatedSprite2D` replacement path is clear.
+- [ ] Temporary UI / board / HUD layout can later be replaced by final UI assets.
+- [ ] NPC trust world UI can later be replaced with final trust bar art.
+- [ ] Interaction hint UI can later be replaced with final prompt art.
+- [ ] Restricted danger line can later be replaced with final warning art.
 
-Recommended NPC pattern:
+Recommended pattern:
 
 ```text
 NPC
@@ -1300,71 +1284,92 @@ NPC
 └── InteractionArea
 ```
 
-Checklist:
+### Codex Prompt
 
-- [ ] Visual nodes are separated from logic/collision nodes.
-- [ ] Interaction areas remain stable when sprite changes.
-- [ ] Scene node names are stable.
-- [ ] Script does not depend directly on `ColorRect` for gameplay logic.
-- [ ] Trust UI and interaction hint UI can later be replaced by final UI art.
-- [ ] Danger line can later be replaced by final restricted-area sprite/tiles.
+```text
+Analisa dan implementasikan Task 20 — Prepare Asset-Ready Node Structure dari docs/polish/day-1-mechanic-polish.md.
+
+Batasan:
+- Jangan replace final assets dulu.
+- Fokus struktur node agar sprite/UI final bisa masuk tanpa merusak gameplay.
+- Jangan ubah behavior kecuali diperlukan untuk memisahkan visual dan logic.
+
+Expected output:
+- Scene yang dicek.
+- Node visual yang masih bercampur dengan logic/collision.
+- Perubahan struktur node yang dibuat.
+- Risiko path script yang perlu diperhatikan.
+```
 
 ---
 
-## 24. Task 20 — Documentation Update
+## 25. Task 21 — Documentation Update
 
 ### Goal
 
 Keep this file useful as an AI Agent task spec.
 
-Checklist:
+### Checklist
 
-- [ ] Mark tasks as done / partially done / pending after Codex implementation.
-- [ ] Add discovered bugs to relevant sections.
+- [ ] Mark tasks as done / partially done / pending when appropriate.
+- [ ] Add discovered bugs to the relevant task section.
 - [ ] Add new test cases if playtest reveals missing cases.
 - [ ] Keep Day 1 scope focused on polish, not feature expansion.
 - [ ] Keep implementation notes aligned with actual behavior.
 
+### Codex Prompt
+
+```text
+Update Task 21 — Documentation Update dari docs/polish/day-1-mechanic-polish.md.
+
+Batasan:
+- Jangan ubah mechanic.
+- Update dokumentasi berdasarkan hasil validasi terakhir.
+- Tandai task yang sudah done, partially done, dan pending.
+- Tambahkan catatan bug/follow-up jika ada.
+```
+
 ---
 
-## 25. Definition of Done — Day 1
+## 26. Definition of Done — Day 1
 
 Day 1 can be considered done when:
 
-- [ ] E/Q input mapping is consistent.
+- [ ] No new major mechanic was added.
+- [ ] Core shop loop can be played from setup to checkout.
+- [ ] Input mapping is consistent: E for interact/get, Q for put/place.
 - [ ] Interaction prompts appear before input.
-- [ ] Button/click guidance appears at least once and does not loop.
+- [ ] First-time button/click guidance appears once and does not loop.
 - [ ] Hover/object name feedback works.
-- [ ] Shelf pickup and placement are reliable.
-- [ ] No-drop zones prevent broken placement.
-- [ ] Cashier restricted danger line works.
-- [ ] Door entry positions align with doors.
+- [ ] Player can reliably pick up and place shelves.
+- [ ] Shelf no-drop validation prevents stuck/path-blocking placement.
+- [ ] Cashier danger line matches actual restricted validation area.
+- [ ] Door transitions align with door positions and work while carrying shelf.
+- [ ] Cashier Ask Again and button guidance are readable.
 - [ ] Trust display appears on relevant NPC, not as permanent player HUD stat.
-- [ ] Cashier Ask Again and panel button guidance are readable.
-- [ ] Objective/board guidance source is clear.
 - [ ] 18:00 is Night.
 - [ ] Normal Day revenue reaches 40G.
-- [ ] Gooby gift path gives trust and misses target.
-- [ ] Slime comes after Gooby gift but cannot buy if item is gone.
-- [ ] Gooby refusal path lets Slime buy and reach 50G.
-- [ ] No duplicate Slime or duplicate revenue.
+- [ ] Gooby gift path gives trust without revenue and leaves target missed.
+- [ ] Gooby refuse path enables Slime revenue to reach target.
+- [ ] Slime follow-up works after both Gooby outcomes.
 - [ ] Temporary UI is readable at 480x270.
 - [ ] Project remains ready for Aseprite asset integration.
 
 ---
 
-## 26. Suggested Trello / Branch Naming
+## 27. Suggested Trello / Branch Naming
 
 Trello activities:
 
 ```text
 standardize_input_mapping_e_get_q_put_day_1
 revise_interaction_prompt_timing_day_1
-add_one_time_button_click_guidance_day_1
+add_one_time_button_guidance_day_1
 add_hover_object_name_feedback_day_1
 polish_shelf_pickup_reachability_day_1
-polish_shelf_placement_no_drop_zones_day_1
+polish_shelf_no_drop_zones_day_1
 polish_cashier_restricted_danger_line_day_1
+sync_cashier_restricted_warning_visual_day_1
 fix_store_door_entry_alignment_day_1
 move_trust_display_to_npc_world_ui_day_1
 polish_cashier_ask_again_ui_day_1
@@ -1372,10 +1377,10 @@ polish_cashier_panel_button_guidance_day_1
 audit_objective_hud_guidance_day_1
 polish_activity_board_guidance_day_1
 polish_time_phase_split_day_1
-polish_day_revenue_pacing_to_40g_day_1
+polish_day_revenue_pacing_40g_day_1
 revise_gooby_slime_follow_up_logic_day_1
 validate_gooby_night_choice_day_1
-review_full_core_loop_day_1
+review_core_loop_day_1
 prepare_asset_ready_node_structure_day_1
 ```
 
@@ -1388,10 +1393,8 @@ polish/day-1-mechanic-polish
 Suggested commit messages:
 
 ```text
-docs: revise day 1 mechanic polish tasks
-fix: standardize E and Q interaction prompts
-feat: add one-time cashier button guidance
-fix: improve cashier ask again readability
-fix: revise Gooby Slime follow-up branch
-chore: document day revenue pacing target
+docs: add cashier restricted sync task
+fix: sync cashier restricted visual with no drop validation
+fix: standardize shelf placement rejection feedback
+refactor: use shared cashier restricted rect for warning line
 ```
