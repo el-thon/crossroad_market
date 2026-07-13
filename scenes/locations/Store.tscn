@@ -88,7 +88,7 @@ color = Color(0.18, 0.36, 0.28, 1)
 shape = SubResource("RectangleShape2D_storage_door")
 
 [node name="YardReturnPos" type="Marker2D" parent="." unique_id=585886703]
-position = Vector2(420, 210)
+position = Vector2(432, 210)
 
 [node name="CounterPos" type="Marker2D" parent="." unique_id=1063289569]
 position = Vector2(95, 160)

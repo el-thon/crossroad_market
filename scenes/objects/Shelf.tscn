@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://byjnuw3njeetx" path="res://scripts/objects/Shelf.gd" id="1_nf23d"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_interact"]
-size = Vector2(64, 48)
+size = Vector2(92, 68)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(64, 32)

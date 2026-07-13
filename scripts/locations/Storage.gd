@@ -29,7 +29,7 @@ const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 @export var pickup_distance: float = 70.0
 @export var carry_offset: Vector2 = Vector2(0, -34)
 @export var drop_offset: Vector2 = Vector2(0, 28)
-@export var carry_action: StringName = &"carry"
+@export var put_action: StringName = &"put"
 
 @onready var return_door: Area2D = get_node_or_null("ReturnDoor") as Area2D
 @onready var player_spawn: Marker2D = get_node_or_null("PlayerSpawn") as Marker2D
@@ -230,10 +230,10 @@ func _handle_carry_input() -> void:
 	if _is_action_locked():
 		return
 
-	if not InputMap.has_action(carry_action):
+	if not InputMap.has_action(put_action):
 		return
 
-	if not Input.is_action_just_pressed(carry_action):
+	if not Input.is_action_just_pressed(put_action):
 		return
 
 	if _player == null:
@@ -241,12 +241,6 @@ func _handle_carry_input() -> void:
 
 	if _carried_object != null:
 		_drop_carried_object()
-		return
-
-	var nearest_object := _get_nearest_carryable_shelf()
-
-	if nearest_object != null:
-		_pickup_object(nearest_object)
 
 
 func _find_player_if_needed() -> void:
@@ -342,6 +336,42 @@ func _pickup_object(object: Node2D) -> void:
 	object.set_meta("is_carried_storage_object", true)
 	object.set_meta("is_installed_in_store", false)
 	_set_node_enabled_recursive(object, false)
+
+
+func request_pickup_shelf(shelf: Shelf) -> bool:
+	_find_player_if_needed()
+
+	if _player == null:
+		return false
+
+	if _carried_object != null:
+		return false
+
+	if shelf == null or not (shelf in [shelf_human, shelf_ghost]):
+		return false
+
+	if not shelf.visible:
+		return false
+
+	if shelf.has_meta("is_carryable_storage_object") and not bool(shelf.get_meta("is_carryable_storage_object")):
+		return false
+
+	if _player.global_position.distance_to(shelf.global_position) > pickup_distance:
+		return false
+
+	_pickup_object(shelf)
+	_show_notification("Shelf picked up. Press Q to place it.")
+	return true
+
+
+func request_drop_carried_object() -> bool:
+	_find_player_if_needed()
+
+	if _player == null or _carried_object == null:
+		return false
+
+	_drop_carried_object()
+	return true
 
 
 func _drop_carried_object() -> void:

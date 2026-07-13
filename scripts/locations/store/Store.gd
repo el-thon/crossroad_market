@@ -7,7 +7,7 @@ const StoreShelfController = preload("res://scripts/locations/store/StoreShelfCo
 const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
 
 const NORMAL_STOCK_REQUIRED: int = 4
-const CARRY_ACTION: StringName = &"carry"
+const PUT_ACTION: StringName = &"put"
 const STORE_DROP_OFFSET := Vector2(0, 24)
 const CASHIER_DEPTH_HALF_WIDTH: float = 48.0
 const CASHIER_DEPTH_BACK_OFFSET: float = 64.0
@@ -20,9 +20,17 @@ const CARRY_SHELF_CASHIER_BLOCKER_OFFSET := Vector2(0, -10)
 const STORE_SHELF_PICKUP_DISTANCE: float = 76.0
 const DOOR_NO_DROP_MARGIN: float = 34.0
 const CASHIER_NO_DROP_MARGIN: float = 10.0
+const CUSTOMER_MAIN_PATH_CHECKPOINTS: int = 6
+const CUSTOMER_MAIN_PATH_RADIUS: float = 26.0
+const CUSTOMER_QUEUE_PATH_SIZE := Vector2(88, 128)
+const CUSTOMER_QUEUE_PATH_OFFSET := Vector2(0, 48)
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
+const RESTRICTED_DANGER_LINE_CYCLES: int = 3
+const RESTRICTED_DANGER_LINE_CYCLE_DURATION: float = 2.0
+const RESTRICTED_DANGER_LINE_WIDTH: float = 3.0
+const RESTRICTED_DANGER_LINE_COLOR := Color(1.0, 0.16, 0.08, 1.0)
 const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 	Vector2(0, 56),
 	Vector2(56, 0),
@@ -53,6 +61,8 @@ var _fade_layer: CanvasLayer = null
 var _fade_rect: ColorRect = null
 var _carry_shelf_blocker: StaticBody2D = null
 var _carry_shelf_blocker_shape: CollisionShape2D = null
+var _cashier_restricted_danger_line: Line2D = null
+var _cashier_restricted_danger_tween: Tween = null
 var _is_transitioning: bool = false
 
 var _normal_items_taken: int = 0
@@ -68,7 +78,7 @@ var _customer_open_notification_shown: bool = false
 var _suppress_next_day_open_notification: bool = false
 var _intro_shown: bool = false
 var _ghost_shelf_lesson_shown: bool = false
-var _gooby_refused: bool = false
+var _gooby_resolved: bool = false
 var _last_objective_text: String = ""
 var _restricted_drop_feedback_running: bool = false
 
@@ -83,6 +93,7 @@ func _ready() -> void:
 	_connect_scene_signals()
 	_create_fade_layer()
 	_create_carry_shelf_blocker()
+	_create_cashier_restricted_danger_line()
 	_setup_npc_static_data()
 	NPC.current_queue.clear()
 	NPCScheduler.lock_spawning_until_ready()
@@ -103,17 +114,11 @@ func _process(_delta: float) -> void:
 	if _is_action_locked():
 		return
 
-	if _is_carry_pressed():
+	if _is_put_pressed():
 		var carried_object := _get_carried_object_from_player()
 
 		if carried_object != null:
 			_drop_carried_shelf_in_store(carried_object)
-			return
-
-		var installed_shelf := _get_nearest_installed_shelf()
-
-		if installed_shelf != null:
-			_pickup_installed_shelf(installed_shelf)
 
 
 func request_enter_storage(_door_type: String = "storage") -> void:
@@ -163,7 +168,7 @@ func get_activity_board_guidance() -> Dictionary:
 			"lines": [
 				"Watch the store at night.",
 				"Gooby may ask for Phantom Ice Cream.",
-				"Give item: Trust +, Revenue 0G.",
+				"Give item: gain trust, Revenue 0G.",
 				"Refuse sale: item returns, another customer may come."
 			]
 		}
@@ -173,7 +178,8 @@ func get_activity_board_guidance() -> Dictionary:
 			"title": "Today's Work",
 			"lines": [
 				"Go to storage.",
-				"Carry the human shelf with F.",
+				"Press E to pick up the human shelf.",
+				"Press Q to place carried shelves.",
 				"Return and place it in the store."
 			]
 		}
@@ -183,7 +189,7 @@ func get_activity_board_guidance() -> Dictionary:
 			"title": "Today's Work",
 			"lines": [
 				"Take stock from the normal box.",
-				"Place human items on the human shelf.",
+				"Press Q at the human shelf to stock items.",
 				"%d/%d human stock ready." % [_human_items_placed, NORMAL_STOCK_REQUIRED]
 			]
 		}
@@ -202,8 +208,8 @@ func get_activity_board_guidance() -> Dictionary:
 		return {
 			"title": "Strange Notes",
 			"lines": [
-				"Carry the ghost shelf to the store.",
-				"Place it on the shop floor.",
+				"Press E to pick up the ghost shelf.",
+				"Press Q to place it on clear shop floor.",
 				"Keep normal and ghost items separate."
 			]
 		}
@@ -213,7 +219,7 @@ func get_activity_board_guidance() -> Dictionary:
 			"title": "Strange Notes",
 			"lines": [
 				"Take Phantom Ice Cream from storage.",
-				"Stock it on the ghost shelf.",
+				"Press Q at the ghost shelf to stock it.",
 				"Watch the store at night."
 			]
 		}
@@ -221,15 +227,15 @@ func get_activity_board_guidance() -> Dictionary:
 	return {
 		"title": "Today's Work",
 		"lines": [
-			"Serve customers at the cashier.",
+			"Press E at the cashier to serve customers.",
 			"Scan the item they are buying.",
 			"Reach the daily revenue target."
 		]
 	}
 
 
-func on_gooby_refused() -> void:
-	_gooby_refused = true
+func on_gooby_resolved() -> void:
+	_gooby_resolved = true
 	_update_objective()
 
 
@@ -496,13 +502,13 @@ func _get_yard_return_position() -> Vector2:
 		return yard_return_pos.global_position
 
 	if yard_door != null:
-		return yard_door.global_position + Vector2(0, -44)
+		return yard_door.global_position + Vector2(0, -32)
 
-	return Vector2(420, 210)
+	return Vector2(432, 210)
 
 
-func _is_carry_pressed() -> bool:
-	return InputMap.has_action(CARRY_ACTION) and Input.is_action_just_pressed(CARRY_ACTION)
+func _is_put_pressed() -> bool:
+	return InputMap.has_action(PUT_ACTION) and Input.is_action_just_pressed(PUT_ACTION)
 
 
 func _is_action_locked() -> bool:
@@ -516,6 +522,33 @@ func _is_action_locked() -> bool:
 
 func _get_carried_object_from_player() -> Node2D:
 	return StoreShelfController.get_carried_object_from_player(player)
+
+
+func request_drop_carried_shelf() -> bool:
+	var carried_object := _get_carried_object_from_player()
+
+	if carried_object == null:
+		return false
+
+	_drop_carried_shelf_in_store(carried_object)
+	return true
+
+
+func request_pickup_shelf(shelf: Shelf) -> bool:
+	if shelf == null or player == null:
+		return false
+
+	if not _is_descendant_of(shelf, self):
+		return false
+
+	if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
+		return false
+
+	if player.global_position.distance_to(shelf.global_position) > STORE_SHELF_PICKUP_DISTANCE:
+		return false
+
+	_pickup_installed_shelf(shelf)
+	return true
 
 
 func _is_player_carrying_shelf_named(shelf_name: String) -> bool:
@@ -566,6 +599,19 @@ func _create_carry_shelf_blocker() -> void:
 	_carry_shelf_blocker.add_child(_carry_shelf_blocker_shape)
 
 	_set_carry_shelf_blocker_enabled(false)
+
+
+func _create_cashier_restricted_danger_line() -> void:
+	_cashier_restricted_danger_line = Line2D.new()
+	_cashier_restricted_danger_line.name = "CashierRestrictedDangerLine"
+	_cashier_restricted_danger_line.width = RESTRICTED_DANGER_LINE_WIDTH
+	_cashier_restricted_danger_line.default_color = RESTRICTED_DANGER_LINE_COLOR
+	_cashier_restricted_danger_line.closed = true
+	_cashier_restricted_danger_line.z_index = 90
+	_cashier_restricted_danger_line.visible = false
+	_cashier_restricted_danger_line.modulate.a = 0.0
+	add_child(_cashier_restricted_danger_line)
+	_sync_cashier_restricted_danger_line()
 
 
 func _update_carry_shelf_blocker() -> void:
@@ -663,6 +709,12 @@ func _get_drop_rejection_reason(object: Node2D, candidate: Vector2) -> String:
 	if object_rect.intersects(_get_cashier_no_drop_rect()):
 		return "This area is reserved for the cashier."
 
+	if _intersects_customer_main_path(object_rect):
+		return "This blocks the customer path."
+
+	if object_rect.intersects(_get_customer_queue_path_rect()):
+		return "This blocks the checkout line."
+
 	if not _is_drop_position_clear(object, candidate):
 		return "I can't place the shelf here."
 
@@ -724,6 +776,36 @@ func _get_cashier_no_drop_rect() -> Rect2:
 	)
 
 	return rect.grow(CASHIER_NO_DROP_MARGIN)
+
+
+func _intersects_customer_main_path(object_rect: Rect2) -> bool:
+	if counter_pos == null or entrance_pos == null:
+		return false
+
+	var start: Vector2 = entrance_pos.global_position
+	var end: Vector2 = counter_pos.global_position
+	var steps: int = maxi(1, CUSTOMER_MAIN_PATH_CHECKPOINTS - 1)
+
+	for index in CUSTOMER_MAIN_PATH_CHECKPOINTS:
+		var t: float = float(index) / float(steps)
+		var center: Vector2 = start.lerp(end, t)
+		var checkpoint_rect: Rect2 = Rect2(
+			center - Vector2.ONE * CUSTOMER_MAIN_PATH_RADIUS,
+			Vector2.ONE * CUSTOMER_MAIN_PATH_RADIUS * 2.0
+		)
+
+		if object_rect.intersects(checkpoint_rect):
+			return true
+
+	return false
+
+
+func _get_customer_queue_path_rect() -> Rect2:
+	if counter_pos == null:
+		return Rect2()
+
+	var center := counter_pos.global_position + CUSTOMER_QUEUE_PATH_OFFSET
+	return Rect2(center - CUSTOMER_QUEUE_PATH_SIZE * 0.5, CUSTOMER_QUEUE_PATH_SIZE)
 
 
 func _has_clear_standing_spot_near_shelf(object: Node2D, candidate: Vector2) -> bool:
@@ -837,7 +919,7 @@ func _pickup_installed_shelf(object: Node2D) -> void:
 	object.set_meta("is_installed_in_store", false)
 	_set_node_enabled_recursive(object, false)
 	_update_objective()
-	_show_notification("Shelf picked up. Press F to place it.")
+	_show_notification("Shelf picked up. Press Q to place it.")
 
 
 func _show_drop_rejection_feedback(message: String) -> void:
@@ -853,12 +935,65 @@ func _show_restricted_drop_feedback(message: String) -> void:
 		return
 
 	_restricted_drop_feedback_running = true
+	_play_cashier_restricted_danger_line()
 
 	for i in RESTRICTED_DROP_MESSAGE_COUNT:
 		_show_notification(message, RESTRICTED_DROP_MESSAGE_DURATION)
 		await get_tree().create_timer(2.0 / float(RESTRICTED_DROP_MESSAGE_COUNT)).timeout
 
 	_restricted_drop_feedback_running = false
+
+
+func _play_cashier_restricted_danger_line() -> void:
+	if _cashier_restricted_danger_line == null:
+		return
+
+	if _cashier_restricted_danger_tween != null and _cashier_restricted_danger_tween.is_valid():
+		_cashier_restricted_danger_tween.kill()
+
+	_sync_cashier_restricted_danger_line()
+	_cashier_restricted_danger_line.visible = true
+	_cashier_restricted_danger_line.modulate.a = 0.0
+
+	_cashier_restricted_danger_tween = create_tween()
+
+	for i in RESTRICTED_DANGER_LINE_CYCLES:
+		_cashier_restricted_danger_tween.tween_property(
+			_cashier_restricted_danger_line,
+			"modulate:a",
+			1.0,
+			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
+		)
+		_cashier_restricted_danger_tween.tween_property(
+			_cashier_restricted_danger_line,
+			"modulate:a",
+			0.0,
+			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
+		)
+
+	_cashier_restricted_danger_tween.tween_callback(_hide_cashier_restricted_danger_line)
+
+
+func _hide_cashier_restricted_danger_line() -> void:
+	if _cashier_restricted_danger_line == null:
+		return
+
+	_cashier_restricted_danger_line.visible = false
+	_cashier_restricted_danger_line.modulate.a = 0.0
+
+
+func _sync_cashier_restricted_danger_line() -> void:
+	if _cashier_restricted_danger_line == null:
+		return
+
+	var rect := _get_cashier_no_drop_rect()
+	var points := PackedVector2Array([
+		to_local(rect.position),
+		to_local(rect.position + Vector2(rect.size.x, 0.0)),
+		to_local(rect.position + rect.size),
+		to_local(rect.position + Vector2(0.0, rect.size.y))
+	])
+	_cashier_restricted_danger_line.points = points
 
 
 func _get_carry_shelf_blocker_position() -> Vector2:
@@ -1152,7 +1287,7 @@ func _check_customer_spawning_ready(show_notice: bool = true) -> bool:
 		return true
 
 	_customer_spawning_unlocked = true
-	_gooby_refused = false
+	_gooby_resolved = false
 
 	var should_start_day_one_customers_now := StoreProgressionController.should_start_day_one_customers_now()
 
@@ -1190,7 +1325,7 @@ func _update_objective() -> void:
 
 
 func _get_current_objective_text() -> String:
-	if _gooby_refused:
+	if _gooby_resolved:
 		return "Wait for the next strange customer."
 
 	if TimeManager.current_phase == TimeManager.Phase.NIGHT and _customer_spawning_unlocked:

@@ -102,6 +102,13 @@ func has_stock() -> bool:
 
 	return false
 
+func get_first_stocked_item_id() -> String:
+	for item_id in _slots:
+		if item_id != null:
+			return item_id
+
+	return ""
+
 func get_slot_content(slot_index: int) -> String:
 	if slot_index < 0 or slot_index >= _slots.size():
 		return ""

@@ -9,15 +9,17 @@ const DEFAULT_LINES: Array[String] = [
 
 var _board_layer: CanvasLayer = null
 var _board_panel: ColorRect = null
-var _board_lock_active: bool = false
 
 
 func _exit_tree() -> void:
-	_unlock_player_actions()
+	pass
 
 
 func open_board() -> void:
 	if _board_panel != null and _board_panel.visible:
+		return
+
+	if _has_visible_overlay_named("CashierUILayer"):
 		return
 
 	var guidance := _get_guidance()
@@ -62,7 +64,6 @@ func _get_guidance() -> Dictionary:
 
 func _show_board_panel(title: String, lines_variant: Variant) -> void:
 	_ensure_board_panel()
-	_lock_player_actions()
 
 	var content := _board_panel.get_node("Content") as VBoxContainer
 	_clear_container(content)
@@ -128,32 +129,27 @@ func _hide_board_panel() -> void:
 	if _board_panel != null:
 		_board_panel.visible = false
 
-	_unlock_player_actions()
-
 
 func _clear_container(container: Container) -> void:
 	for child in container.get_children():
 		child.queue_free()
 
 
-func _lock_player_actions() -> void:
-	if _board_lock_active:
-		return
+func _has_visible_overlay_named(node_name: String) -> bool:
+	var root := get_tree().root
 
-	var hud := get_tree().get_first_node_in_group("hud")
+	if root == null:
+		return false
 
-	if hud != null and hud.has_method("begin_action_lock"):
-		hud.call("begin_action_lock")
-		_board_lock_active = true
+	return _find_visible_overlay_named(root, node_name)
 
 
-func _unlock_player_actions() -> void:
-	if not _board_lock_active:
-		return
+func _find_visible_overlay_named(node: Node, node_name: String) -> bool:
+	if node.name == node_name and node is CanvasItem and (node as CanvasItem).visible:
+		return true
 
-	var hud := get_tree().get_first_node_in_group("hud")
+	for child in node.get_children():
+		if _find_visible_overlay_named(child, node_name):
+			return true
 
-	if hud != null and hud.has_method("end_action_lock"):
-		hud.call("end_action_lock")
-
-	_board_lock_active = false
+	return false
