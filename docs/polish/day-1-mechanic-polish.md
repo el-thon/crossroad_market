@@ -568,15 +568,15 @@ For Day 1, prefer **Option A** if the user-facing experience treats all of that 
 
 ### Checklist
 
-- [ ] Identify every place where shelf drop can be rejected around cashier.
-- [ ] Identify which rejection reasons currently trigger restricted dialog.
-- [ ] Identify the rect/shape used to draw `CashierRestrictedDangerLine`.
-- [ ] Make the visual warning boundary match the actual restricted validation area.
-- [ ] If the restricted area is larger than the old line, expand the line to match it.
-- [ ] If some rejection is not cashier-related, use a different message and do not show cashier warning.
-- [ ] Do not rely on exact message string equality alone to decide whether danger line should play.
-- [ ] Repeated invalid placement should replay or refresh the danger line consistently.
-- [ ] Normal valid placement outside the visual restricted area should still work.
+- [x] Identify every place where shelf drop can be rejected around cashier.
+- [x] Identify which rejection reasons currently trigger restricted dialog.
+- [x] Identify the rect/shape used to draw `CashierRestrictedDangerLine`.
+- [x] Make the visual warning boundary match the actual restricted validation area.
+- [x] If the restricted area is larger than the old line, expand the line to match it.
+- [x] If some rejection is not cashier-related, use a different message and do not show cashier warning.
+- [x] Do not rely on exact message string equality alone to decide whether danger line should play.
+- [x] Repeated invalid placement should replay or refresh the danger line consistently.
+- [x] Normal valid placement outside the visual restricted area should still work.
 
 ### Test Cases
 
