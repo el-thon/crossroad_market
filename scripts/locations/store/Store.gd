@@ -123,6 +123,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _current_storage != null or _current_yard != null or _is_transitioning:
 		_set_carry_shelf_blocker_enabled(false)
+		_hide_restricted_placement_warning()
 		return
 
 	_update_carry_shelf_blocker()
@@ -339,6 +340,7 @@ func _enter_storage() -> void:
 		return
 
 	_is_transitioning = true
+	_cancel_restricted_drop_feedback()
 	await _fade_to_black()
 
 	_current_storage = storage_scene.instantiate() as Node2D
@@ -447,6 +449,7 @@ func _enter_yard() -> void:
 		return
 
 	_is_transitioning = true
+	_cancel_restricted_drop_feedback()
 	_close_cashier_runtime_ui()
 	await _fade_to_black()
 
@@ -1026,11 +1029,16 @@ func _get_warning_rect_from_restriction(restriction: Dictionary) -> Rect2:
 
 
 func _play_restricted_placement_warning(rect: Rect2) -> void:
+	if _current_storage != null or _current_yard != null or _is_transitioning:
+		_hide_restricted_placement_warning()
+		return
+
 	if _restricted_placement_warning == null:
 		return
 
 	if _restricted_placement_warning_tween != null and _restricted_placement_warning_tween.is_valid():
 		_restricted_placement_warning_tween.kill()
+	_restricted_placement_warning_tween = null
 
 	if not _rect_has_area(rect):
 		_hide_restricted_placement_warning()
@@ -1056,7 +1064,10 @@ func _play_restricted_placement_warning(rect: Rect2) -> void:
 			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
 		)
 
-	_restricted_placement_warning_tween.tween_callback(_hide_restricted_placement_warning)
+	_restricted_placement_warning_tween.tween_callback(func() -> void:
+		_restricted_placement_warning_tween = null
+		_hide_restricted_placement_warning()
+	)
 
 
 func _sync_restricted_placement_warning(rect: Rect2) -> void:
@@ -1067,6 +1078,10 @@ func _sync_restricted_placement_warning(rect: Rect2) -> void:
 
 
 func _hide_restricted_placement_warning() -> void:
+	if _restricted_placement_warning_tween != null and _restricted_placement_warning_tween.is_valid():
+		_restricted_placement_warning_tween.kill()
+	_restricted_placement_warning_tween = null
+
 	if _restricted_placement_warning == null:
 		return
 
@@ -1075,6 +1090,11 @@ func _hide_restricted_placement_warning() -> void:
 
 	if _restricted_placement_warning_line != null:
 		_restricted_placement_warning_line.visible = false
+
+
+func _cancel_restricted_drop_feedback() -> void:
+	_restricted_drop_feedback_token += 1
+	_hide_restricted_placement_warning()
 
 
 func _sync_restricted_warning_line_to_rect(line: Line2D, rect: Rect2) -> void:
@@ -1223,6 +1243,7 @@ func _set_human_stock_count(stock_count: int) -> void:
 
 func _set_store_world_active(is_active: bool) -> void:
 	if not is_active:
+		_cancel_restricted_drop_feedback()
 		_close_cashier_runtime_ui()
 
 	for child in get_children():
