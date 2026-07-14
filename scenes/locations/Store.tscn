@@ -14,13 +14,13 @@ size = Vector2(480, 49)
 size = Vector2(16, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door"]
-size = Vector2(44, 28)
+size = Vector2(40, 22)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door_body"]
 size = Vector2(44, 12)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door"]
-size = Vector2(64, 28)
+size = Vector2(52, 24)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door_body"]
 size = Vector2(64, 12)
@@ -87,7 +87,7 @@ position = Vector2(0, 14)
 shape = SubResource("RectangleShape2D_storage_door_body")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor" unique_id=1207501204]
-position = Vector2(0, 30)
+position = Vector2(0, -8)
 shape = SubResource("RectangleShape2D_storage_door")
 
 [node name="StorageReturnPos" type="Marker2D" parent="." unique_id=979609029]
@@ -113,7 +113,7 @@ position = Vector2(0, -42)
 shape = SubResource("RectangleShape2D_yard_door_body")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="YardDoor" unique_id=1576413889]
-position = Vector2(0, -14)
+position = Vector2(0, -44)
 shape = SubResource("RectangleShape2D_yard_door")
 
 [node name="YardReturnPos" type="Marker2D" parent="." unique_id=585886703]
