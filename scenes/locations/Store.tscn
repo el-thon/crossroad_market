@@ -16,8 +16,14 @@ size = Vector2(16, 270)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door"]
 size = Vector2(44, 28)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door_body"]
+size = Vector2(44, 12)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door"]
 size = Vector2(64, 28)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door_body"]
+size = Vector2(64, 12)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_activity_board_body"]
 size = Vector2(72, 20)
@@ -64,13 +70,21 @@ shape = SubResource("RectangleShape2D_wall_vertical")
 position = Vector2(288, 44)
 z_index = -1
 
-[node name="DoorVisual" type="Polygon2D" parent="StorageDoor" unique_id=2088798962]
+[node name="VisualRoot" type="Node2D" parent="StorageDoor"]
+
+[node name="DoorVisual" type="Polygon2D" parent="StorageDoor/VisualRoot" unique_id=2088798962]
 color = Color(0.32, 0.22, 0.13, 1)
 polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
 
-[node name="DoorKnob" type="Polygon2D" parent="StorageDoor" unique_id=2119551295]
+[node name="DoorKnob" type="Polygon2D" parent="StorageDoor/VisualRoot" unique_id=2119551295]
 color = Color(0.95, 0.75, 0.25, 1)
 polygon = PackedVector2Array(10, -2, 14, -2, 14, 2, 10, 2)
+
+[node name="DoorBody" type="StaticBody2D" parent="StorageDoor"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor/DoorBody"]
+position = Vector2(0, 14)
+shape = SubResource("RectangleShape2D_storage_door_body")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor" unique_id=1207501204]
 position = Vector2(0, 30)
@@ -83,12 +97,20 @@ position = Vector2(288, 92)
 position = Vector2(432, 242)
 z_index = -1
 
-[node name="DoorVisual" type="ColorRect" parent="YardDoor" unique_id=1382336787]
+[node name="VisualRoot" type="Node2D" parent="YardDoor"]
+
+[node name="DoorVisual" type="ColorRect" parent="YardDoor/VisualRoot" unique_id=1382336787]
 offset_left = -30.0
 offset_top = -52.0
 offset_right = 30.0
 offset_bottom = 24.0
 color = Color(0.18, 0.36, 0.28, 1)
+
+[node name="DoorBody" type="StaticBody2D" parent="YardDoor"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="YardDoor/DoorBody"]
+position = Vector2(0, -42)
+shape = SubResource("RectangleShape2D_yard_door_body")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="YardDoor" unique_id=1576413889]
 position = Vector2(0, -14)
