@@ -21,6 +21,8 @@ const STORE_SHELF_PICKUP_DISTANCE: float = 76.0
 const DOOR_NO_DROP_MARGIN: float = 8.0
 const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
 const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
+const CUSTOMER_PATH_NO_DROP_WIDTH: float = 28.0
+const PATH_REJECTION_ALERT_COOLDOWN_MS: int = 1000
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
@@ -32,6 +34,7 @@ const LOCATION_TITLE_DURATION: float = 1.25
 const DROP_REJECTION_NONE: StringName = &"none"
 const DROP_REJECTION_STORAGE_DOOR: StringName = &"storage_door"
 const DROP_REJECTION_YARD_DOOR: StringName = &"yard_door"
+const DROP_REJECTION_CUSTOMER_PATH: StringName = &"customer_path"
 const DROP_REJECTION_CASHIER_FLOW: StringName = &"cashier_flow"
 const DROP_REJECTION_COLLISION: StringName = &"collision"
 const DROP_REJECTION_REACHABILITY: StringName = &"reachability"
@@ -96,6 +99,7 @@ var _ghost_shelf_lesson_shown: bool = false
 var _gooby_resolved: bool = false
 var _last_objective_text: String = ""
 var _restricted_drop_feedback_token: int = 0
+var _last_path_rejection_time_msec: int = 0
 
 var human_shelf: Shelf = null
 var ghost_shelf: Shelf = null
@@ -759,6 +763,15 @@ func _evaluate_shelf_drop_restriction(object: Node2D, candidate: Vector2) -> Dic
 			false
 		)
 
+	if _object_rect_intersects_customer_path(object_rect):
+		return _make_drop_restriction(
+			true,
+			DROP_REJECTION_CUSTOMER_PATH,
+			"Keep the customer path clear.",
+			object_rect,
+			false
+		)
+
 	var cashier_flow_rect := _get_cashier_flow_restricted_rect()
 
 	if _rect_has_area(cashier_flow_rect) and object_rect.intersects(cashier_flow_rect):
@@ -866,6 +879,85 @@ func _get_cashier_flow_restricted_rect() -> Rect2:
 
 	center += CASHIER_FLOW_RESTRICTED_OFFSET
 	return Rect2(center - CASHIER_FLOW_RESTRICTED_SIZE * 0.5, CASHIER_FLOW_RESTRICTED_SIZE)
+
+
+func _object_rect_intersects_customer_path(object_rect: Rect2) -> bool:
+	if not _rect_has_area(object_rect):
+		return false
+
+	for segment in _get_customer_path_segments():
+		var start := segment[0]
+		var end := segment[1]
+
+		if _rect_intersects_path_segment(object_rect, start, end, CUSTOMER_PATH_NO_DROP_WIDTH):
+			return true
+
+	return false
+
+
+func _get_customer_path_segments() -> Array[PackedVector2Array]:
+	var entry := _get_marker_position_or(npc_entry_marker, Vector2(432, 224))
+	var path := _get_marker_position_or(npc_store_path_marker, Vector2(360, 214))
+	var queue := _get_marker_position_or(npc_queue_marker, Vector2(96, 160))
+	var counter := _get_marker_position_or(counter_pos, Vector2(95, 160))
+	var exit := _get_marker_position_or(npc_exit_marker, entry)
+	var segments: Array[PackedVector2Array] = []
+
+	segments.append(PackedVector2Array([entry, path]))
+	segments.append(PackedVector2Array([path, queue]))
+
+	if queue.distance_squared_to(counter) > 1.0:
+		segments.append(PackedVector2Array([queue, counter]))
+
+	segments.append(PackedVector2Array([counter, path]))
+	segments.append(PackedVector2Array([path, exit]))
+	return segments
+
+
+func _get_marker_position_or(marker: Marker2D, fallback: Vector2) -> Vector2:
+	if marker == null:
+		return fallback
+
+	return marker.global_position
+
+
+func _rect_intersects_path_segment(rect: Rect2, start: Vector2, end: Vector2, width: float) -> bool:
+	if rect.has_point(start) or rect.has_point(end):
+		return true
+
+	var rect_points := PackedVector2Array([
+		rect.position,
+		rect.position + Vector2(rect.size.x, 0.0),
+		rect.position + rect.size,
+		rect.position + Vector2(0.0, rect.size.y)
+	])
+
+	for i in range(rect_points.size()):
+		var edge_start := rect_points[i]
+		var edge_end := rect_points[(i + 1) % rect_points.size()]
+
+		if Geometry2D.segment_intersects_segment(start, end, edge_start, edge_end) != null:
+			return true
+
+	var half_width := width * 0.5
+
+	for point in rect_points:
+		if _distance_to_segment(point, start, end) <= half_width:
+			return true
+
+	return _distance_to_segment(rect.get_center(), start, end) <= half_width
+
+
+func _distance_to_segment(point: Vector2, start: Vector2, end: Vector2) -> float:
+	var segment := end - start
+	var length_squared := segment.length_squared()
+
+	if length_squared <= 0.001:
+		return point.distance_to(start)
+
+	var projection := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0)
+	var closest := start + segment * projection
+	return point.distance_to(closest)
 
 
 func _has_clear_standing_spot_near_shelf(object: Node2D, candidate: Vector2) -> bool:
@@ -995,11 +1087,26 @@ func _set_shelf_carried_state(object: Node2D, is_carried: bool) -> void:
 
 func _show_drop_restriction_feedback(restriction: Dictionary) -> void:
 	var message := str(restriction.get("message", "I can't place the shelf here."))
+	var rejection_type := restriction.get("type", DROP_REJECTION_NONE) as StringName
+
+	if rejection_type == DROP_REJECTION_CUSTOMER_PATH:
+		_show_customer_path_rejection_alert(message)
+		return
 
 	if bool(restriction.get("show_warning", false)):
 		_show_restricted_drop_feedback(restriction)
 		return
 
+	_show_notification(message, 0.9)
+
+
+func _show_customer_path_rejection_alert(message: String) -> void:
+	var now := int(Time.get_ticks_msec())
+
+	if now - _last_path_rejection_time_msec < PATH_REJECTION_ALERT_COOLDOWN_MS:
+		return
+
+	_last_path_rejection_time_msec = now
 	_show_notification(message, 0.9)
 
 
