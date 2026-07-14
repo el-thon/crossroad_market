@@ -34,14 +34,18 @@ Berikut ringkasan perubahan yang ditemukan setelah re-analisis codebase:
 | `scripts/locations/Store.gd` stub | 49 bytes | **1 line** (`extends "res://scripts/locations/store/Store.gd"`) |
 | `scripts/ui/Cashier.gd` stub | 65 bytes | **2 lines** (`class_name Cashier extends ...`) |
 | `Cashier.gd` (ui/cashier/) | ~18 KB | **~878 lines** — +POS tab +Restock tab + 3 service class |
-| `Storage.gd` | ~15 KB | **575 lines** — proper state setters, animated ghost section reveal |
-| `Player.gd` | ~19 KB | **~680 lines** — confirmed new/modified |
-| `HUD.gd` | ~7.4 KB | **~425 lines** — confirmed new/modified |
+| `CashierCheckoutHistory.gd` | Tidak ada | **16 lines — BARU** |
+| `CashierCheckoutService.gd` | Tidak ada | **39 lines — BARU** |
+| `CashierPanel.gd` | Tidak ada | **166 lines — BARU** |
+| `Storage.gd` | Baseline | **575 lines** — proper state setters, animated ghost section reveal, physics drop |
+| `Player.gd` | Baseline | **~680 lines** — confirmed new/modified |
+| `HUD.gd` | Baseline | **~425 lines** — confirmed new/modified |
 | `TimeManager` | Basic | ✅ **+Phase enum** |
 | `RelationshipManager` | Basic | ✅ **+MIN_TRUST/MAX_TRUST constants + clampi** |
 | `NPCScheduler` | Basic | ✅ **+Named constants** (SPAWN_INTERVAL, DAY_ONE_NIGHT_SPAWN_INTERVAL, dll.) |
 | `EconomyManager` | Basic | ✅ **Proper autoload** |
 | `Inventory` | Basic | ✅ **+Defensive duplicate()** |
+| `ItemDatabase` | Basic | ✅ **+Typed Dictionary[StringName, ItemData] + lambda filter** |
 | `data/schedules/` | Kosong | ❌ **Masih kosong** |
 | `data/dialogues/generic/` | Kosong | ❌ **Masih kosong** |
 | `data/dialogues/story/` | Kosong | ❌ **Masih kosong** |
