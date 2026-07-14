@@ -70,7 +70,15 @@ func try_checkout() -> void:
 	if first_npc == null:
 		if _has_customer_approaching_counter():
 			_show_notification("Customer is still walking to the counter.", 1.2)
-		_render_store_os_home()
+			_render_store_os_home(
+				"Customer is walking to counter.",
+				"Use POS when they reach checkout."
+			)
+		else:
+			_render_store_os_home(
+				"No customer at checkout.",
+				"Use POS when a customer arrives."
+			)
 		return
 
 	_process_scan(first_npc)
@@ -304,7 +312,10 @@ func get_checkout_history() -> Array[Dictionary]:
 	return _checkout_history.duplicate(true)
 
 
-func _render_store_os_home() -> void:
+func _render_store_os_home(
+	status_text: String = "No customer at checkout.",
+	guide_text: String = "Use POS when a customer arrives."
+) -> void:
 	_ensure_cashier_panel()
 	_set_store_os_app(STORE_OS_APP_HOME)
 	_clear_container(_item_list)
@@ -315,13 +326,13 @@ func _render_store_os_home() -> void:
 	_panel_title.text = "STORE OS HOME"
 	_set_item_title("APPS")
 	_customer_label.text = "Apps"
-	_request_label.text = "Open an app from the launcher."
+	_request_label.text = status_text
 	_selected_label.text = "Income %dG | Outcome 0G | Profit %dG" % [
 		EconomyManager.daily_revenue,
 		EconomyManager.daily_revenue
 	]
-	_guide_label.visible = false
-	_guide_label.text = ""
+	_guide_label.visible = true
+	_guide_label.text = guide_text
 
 	var pos_button := Button.new()
 	pos_button.text = "POS App"
