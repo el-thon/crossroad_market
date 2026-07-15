@@ -412,14 +412,113 @@ func _should_rebuild_movement_route(target: Vector2) -> bool:
 
 
 func _build_movement_route(destination: Vector2) -> Array[Vector2]:
-	var route: Array[Vector2] = []
+	var route := _get_store_route_for_current_state(destination)
+
+	if not route.is_empty():
+		return _append_destination_to_route(route, destination)
+
+	route = []
 	var path_position := _get_store_path_position()
 
 	if _should_use_store_path(destination, path_position):
-		route.append(path_position)
+		route.append_array(_make_orthogonal_route(global_position, path_position, true))
+		route.append_array(_make_orthogonal_route(path_position, destination, true))
+	else:
+		route.append_array(_make_orthogonal_route(global_position, destination, true))
 
-	route.append(destination)
+	return _dedupe_route_points(route)
+
+
+func _get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
+	var store := _get_store_route_provider()
+
+	if store == null:
+		return []
+
+	match current_state:
+		State.WALK_TO_SHELF:
+			return _call_store_route(store, &"get_npc_entry_route_to_shelf", [destination])
+		State.WAIT_IN_QUEUE:
+			return _call_store_route(store, &"get_npc_route_to_cashier_from", [global_position])
+		State.EXIT:
+			return _call_store_route(store, &"get_npc_exit_route_from", [global_position])
+
+	return []
+
+
+func _get_store_route_provider() -> Node:
+	var tree := get_tree()
+
+	if tree == null:
+		return null
+
+	var store := tree.get_first_node_in_group("store")
+
+	if store == null:
+		return null
+
+	return store
+
+
+func _call_store_route(store: Node, method_name: StringName, args: Array) -> Array[Vector2]:
+	if store == null or not store.has_method(method_name):
+		return []
+
+	var result: Variant = store.callv(method_name, args)
+	var route: Array[Vector2] = []
+
+	if not (result is Array):
+		return route
+
+	for point_variant in result:
+		if point_variant is Vector2:
+			route.append(point_variant as Vector2)
+
+	return _dedupe_route_points(route)
+
+
+func _append_destination_to_route(route: Array[Vector2], destination: Vector2) -> Array[Vector2]:
+	if route.is_empty():
+		return _make_orthogonal_route(global_position, destination, true)
+
+	var last_point := route[route.size() - 1]
+
+	if last_point.distance_to(destination) > ARRIVAL_THRESHOLD:
+		route.append_array(_make_orthogonal_route(last_point, destination, true))
+
+	return _dedupe_route_points(route)
+
+
+func _make_orthogonal_route(from_pos: Vector2, to_pos: Vector2, horizontal_first: bool = true) -> Array[Vector2]:
+	var route: Array[Vector2] = []
+
+	if from_pos.distance_to(to_pos) <= 2.0:
+		return route
+
+	var corner := Vector2(to_pos.x, from_pos.y) if horizontal_first else Vector2(from_pos.x, to_pos.y)
+
+	if from_pos.distance_to(corner) > 2.0:
+		route.append(corner)
+
+	if corner.distance_to(to_pos) > 2.0:
+		route.append(to_pos)
+
 	return route
+
+
+func _dedupe_route_points(route: Array[Vector2]) -> Array[Vector2]:
+	var deduped: Array[Vector2] = []
+
+	for point in route:
+		if not point.is_finite():
+			continue
+
+		if not deduped.is_empty() and deduped[deduped.size() - 1].distance_to(point) <= 2.0:
+			continue
+
+		deduped.append(point)
+
+	return deduped
 
 
 func _should_use_store_path(destination: Vector2, path_position: Vector2) -> bool:

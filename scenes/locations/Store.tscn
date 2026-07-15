@@ -26,6 +26,15 @@ size = Vector2(64, 12)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door"]
 size = Vector2(52, 24)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_entry_to_aisle"]
+size = Vector2(72, 36)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_aisle_to_cashier"]
+size = Vector2(264, 36)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_cashier_to_queue"]
+size = Vector2(36, 64)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_activity_board_body"]
 size = Vector2(72, 20)
 
@@ -126,26 +135,62 @@ position = Vector2(95, 160)
 [node name="EntrancePos" type="Marker2D" parent="." unique_id=1239426469]
 position = Vector2(432, 242)
 
-[node name="NPCEntryMarker" type="Marker2D" parent="." unique_id=971356701]
+[node name="NPCPathMarkers" type="Node2D" parent="." unique_id=971356701]
+
+[node name="NPCPathEntry" type="Marker2D" parent="NPCPathMarkers" unique_id=1066596933]
 position = Vector2(432, 224)
+
+[node name="NPCPathAisle" type="Marker2D" parent="NPCPathMarkers" unique_id=490125028]
+position = Vector2(360, 224)
+
+[node name="NPCPathCashier" type="Marker2D" parent="NPCPathMarkers" unique_id=2106467302]
+position = Vector2(96, 224)
+
+[node name="NPCQueueMarker" type="Marker2D" parent="NPCPathMarkers" unique_id=1532996586]
+position = Vector2(96, 160)
 
 [node name="NPCExitMarker" type="Marker2D" parent="." unique_id=1436277798]
 position = Vector2(432, 248)
 
-[node name="NPCStorePathMarker" type="Marker2D" parent="." unique_id=490125028]
-position = Vector2(360, 214)
-
-[node name="NPCQueueMarker" type="Marker2D" parent="." unique_id=1532996586]
-position = Vector2(96, 160)
-
-[node name="CustomerPathVisual" type="Line2D" parent="." unique_id=1702022746]
+[node name="CustomerPathZones" type="Node2D" parent="." unique_id=1702022746]
+visible = false
 z_index = -2
-points = PackedVector2Array(432, 224, 360, 214, 96, 160, 95, 160, 360, 214, 432, 248)
-width = 8.0
-default_color = Color(0.45, 0.72, 1, 0.18)
-joint_mode = 2
-begin_cap_mode = 2
-end_cap_mode = 2
+
+[node name="EntryToAisle" type="Area2D" parent="CustomerPathZones" unique_id=1588983548]
+position = Vector2(396, 224)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="CustomerPathZones/EntryToAisle" unique_id=1485818361]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-36, -18, 36, -18, 36, 18, -36, 18)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CustomerPathZones/EntryToAisle" unique_id=1517911680]
+shape = SubResource("RectangleShape2D_customer_path_entry_to_aisle")
+
+[node name="AisleToCashier" type="Area2D" parent="CustomerPathZones" unique_id=1254246748]
+position = Vector2(228, 224)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="CustomerPathZones/AisleToCashier" unique_id=795342657]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-132, -18, 132, -18, 132, 18, -132, 18)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CustomerPathZones/AisleToCashier" unique_id=1075194093]
+shape = SubResource("RectangleShape2D_customer_path_aisle_to_cashier")
+
+[node name="CashierToQueue" type="Area2D" parent="CustomerPathZones" unique_id=1242549929]
+position = Vector2(96, 192)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="CustomerPathZones/CashierToQueue" unique_id=228264580]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-18, -32, 18, -32, 18, 32, -18, 32)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CustomerPathZones/CashierToQueue" unique_id=490775035]
+shape = SubResource("RectangleShape2D_customer_path_cashier_to_queue")
 
 [node name="Cashier" parent="." unique_id=1316385707 instance=ExtResource("3_cashier")]
 position = Vector2(95, 122)
