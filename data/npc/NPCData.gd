@@ -29,3 +29,4 @@ enum NPCCategory { STORY, GENERIC }
 
 # --- Visuals ---
 @export var portrait: Texture2D = null
+@export var assets_path: String = ""

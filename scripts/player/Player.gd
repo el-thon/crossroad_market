@@ -10,13 +10,15 @@ const PlayerShelfInteraction = preload("res://scripts/player/PlayerShelfInteract
 @export var interaction_distance: float = 20.0
 
 @onready var interaction_area: Area2D = $InteractionArea
-@onready var character_sprite: Node = $VisualRoot/AssetSprite
+@onready var sprite_move: AnimatedSprite2D = $VisualRoot/SpriteMove
+@onready var sprite_idle: AnimatedSprite2D = $VisualRoot/SpriteIdle
 
 var facing_direction: Vector2 = Vector2.DOWN
 var _supply_box_cursor: int = 0
 var _wrong_shelf_attempts: Dictionary = {}
 var _seen_item_ids: Dictionary = {}
 var _seen_guidance_keys: Dictionary = {}
+var _move_direction: CharacterSprite.Direction = CharacterSprite.Direction.DOWN
 
 const MAX_WRONG_ATTEMPTS: int = 1
 const STORY_INTERACTION_TRUST_GAIN: int = 20
@@ -27,6 +29,7 @@ func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	add_to_group("player")
 	_update_interaction_area_position()
+	sprite_move.visible = false
 
 
 func _physics_process(_delta: float) -> void:
@@ -46,6 +49,11 @@ func _physics_process(_delta: float) -> void:
 	if input_dir != Vector2.ZERO:
 		facing_direction = input_dir.normalized()
 		_update_interaction_area_position()
+		sprite_idle.visible = false
+		sprite_move.visible = true
+	else:
+		sprite_move.visible = false
+		sprite_idle.visible = true
 
 	velocity = input_dir * speed
 	move_and_slide()
@@ -73,11 +81,26 @@ func _update_interaction_area_position() -> void:
 
 
 func _update_character_sprite(motion: Vector2) -> void:
-	if character_sprite == null:
+	if sprite_move == null && sprite_idle == null:
 		return
+	
+	if motion == Vector2.ZERO:
+		if sprite_idle.has_method("play_direction_loop"):	
+			sprite_idle.call("play_direction_loop", _move_direction)
+	else:
+		if sprite_move.has_method("apply_motion_vector"):
+			sprite_move.call("apply_motion_vector", motion)
+			_move_direction = _get_direction(motion)
 
-	if character_sprite.has_method("apply_motion_vector"):
-		character_sprite.call("apply_motion_vector", motion)
+
+func _get_direction(motion: Vector2) -> CharacterSprite.Direction:
+	if motion == Vector2.ZERO:
+		return CharacterSprite.Direction.DOWN
+
+	if abs(motion.x) > abs(motion.y):
+		return CharacterSprite.Direction.RIGHT if motion.x > 0 else CharacterSprite.Direction.LEFT
+	else:
+		return CharacterSprite.Direction.DOWN if motion.y > 0 else CharacterSprite.Direction.UP
 
 
 func _try_interact() -> void:

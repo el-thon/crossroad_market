@@ -1,16 +1,12 @@
-[gd_resource type="Resource" script_class="NPCData" format=3]
+[gd_resource type="Resource" script_class="NPCData" format=3 uid="uid://boshxad4t3eau"]
 
-[ext_resource type="Script" path="res://data/npc/NPCData.gd" id="1"]
+[ext_resource type="Script" uid="uid://bn3774x1uxfq7" path="res://data/npc/NPCData.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
 npc_id = "human_2"
 display_name = "Customer"
-npc_category = 1
-visit_phase = 1
-patience_type = 1
-favorite_items = PackedStringArray("water", "bandage")
-visit_days = PackedInt32Array(1, 2, 4)
 spawn_order = 3
 behavior_profile_id = "bargain_hunter"
 spawn_chance = 0.6
+assets_path = "humans/human2"
