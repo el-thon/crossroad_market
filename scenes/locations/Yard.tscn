@@ -1,12 +1,19 @@
 [gd_scene format=3 uid="uid://b3lvay4upsxqy"]
 
-[ext_resource type="Script" uid="uid://dbej24xib71dn" path="res://scripts/locations/Yard.gd" id="1_yard"]
+[ext_resource type="Script" uid="uid://cla6db5iibcno" path="res://scripts/locations/Yard.gd" id="1_yard"]
+[ext_resource type="Script" uid="uid://bo6xe1yfdwqhh" path="res://scripts/objects/OpenCloseBoard.gd" id="2_open_close_board"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_door"]
 size = Vector2(48, 28)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1lpbb"]
 size = Vector2(48, 28)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_open_close_board_body"]
+size = Vector2(78, 18)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_open_close_board_area"]
+size = Vector2(107, 50)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
 size = Vector2(480, 16)
@@ -72,6 +79,41 @@ shape = SubResource("RectangleShape2D_door")
 [node name="NotPassable" type="CollisionShape2D" parent="ReturnDoor/StaticBody2D" unique_id=1463384097]
 position = Vector2(0, -14)
 shape = SubResource("RectangleShape2D_1lpbb")
+
+[node name="OpenCloseBoard" type="StaticBody2D" parent="." unique_id=826491342]
+position = Vector2(299, 84)
+scale = Vector2(0.5, 0.5)
+script = ExtResource("2_open_close_board")
+
+[node name="VisualRoot" type="Node2D" parent="OpenCloseBoard" unique_id=665968225]
+
+[node name="BoardBase" type="Polygon2D" parent="OpenCloseBoard/VisualRoot" unique_id=1193915372]
+color = Color(0.18, 0.11, 0.06, 1)
+polygon = PackedVector2Array(-39, -28, 39, -28, 39, 0, -39, 0)
+
+[node name="StatusPanel" type="Polygon2D" parent="OpenCloseBoard/VisualRoot" unique_id=1397638412]
+color = Color(0.36, 0.1, 0.06, 1)
+polygon = PackedVector2Array(-32, -23, 32, -23, 32, -5, -32, -5)
+
+[node name="StatusLabel" type="Label" parent="OpenCloseBoard/VisualRoot" unique_id=593656285]
+offset_left = -30.0
+offset_top = -25.0
+offset_right = 30.0
+offset_bottom = -4.0
+theme_type_variation = &"SmallLabel"
+text = "CLOSED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="OpenCloseBoard" unique_id=1376479872]
+position = Vector2(0, -14)
+shape = SubResource("RectangleShape2D_open_close_board_body")
+
+[node name="InteractionArea" type="Area2D" parent="OpenCloseBoard" unique_id=213861113]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="OpenCloseBoard/InteractionArea" unique_id=52015257]
+position = Vector2(0.5, -11)
+shape = SubResource("RectangleShape2D_open_close_board_area")
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=1621017233]
 position = Vector2(240, 136)
