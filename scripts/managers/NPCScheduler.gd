@@ -175,12 +175,7 @@ func _generate_daily_customer_schedule(day: int) -> void:
 
 	var blueprint := _get_daily_customer_blueprint(day)
 	_daily_customer_pool = _build_daily_customer_pool(day, blueprint)
-	var customer_count: int = mini(
-		int(blueprint.get("customer_count", _daily_customer_pool.size())),
-		_daily_customer_pool.size()
-	)
-	_daily_customer_pool = _daily_customer_pool.slice(0, customer_count)
-	_daily_customer_slots = _build_daily_customer_slots(blueprint, customer_count)
+	_daily_customer_slots = _build_daily_customer_slots(blueprint, _daily_customer_pool.size())
 
 
 func _get_daily_customer_blueprint(day: int) -> Dictionary:
@@ -217,6 +212,7 @@ func _get_daily_customer_blueprint(day: int) -> Dictionary:
 func _build_daily_customer_pool(day: int, blueprint: Dictionary) -> Array[NPCData]:
 	if str(blueprint.get("customer_pool", "")) == "day_one":
 		var human_customers := _get_customer_npc_data(day, "npcs/humans/", false)
+		var monster_customers := _get_customer_npc_data(day, "npcs/monsters/", false)
 		human_customers.shuffle()
 
 		var day_one_pool: Array[NPCData] = []
@@ -224,14 +220,16 @@ func _build_daily_customer_pool(day: int, blueprint: Dictionary) -> Array[NPCDat
 			day_one_pool.append(_make_day_one_customer_from_data(human_customers[0], "water"))
 		if human_customers.size() > 1:
 			day_one_pool.append(_make_day_one_customer_from_data(human_customers[1], "bandage"))
+		if monster_customers.size() > 0:
+			day_one_pool.append(_make_day_one_customer_from_data(human_customers[2], "water"))
 
 		var irene := _npc_database.get("irene") as NPCData
 		if irene != null:
 			day_one_pool.append(_make_day_one_customer_from_data(irene, "painkiller"))
 
-		var gooby := _npc_database.get("gooby") as NPCData
-		if gooby != null:
-			day_one_pool.append(_make_day_one_customer_from_data(gooby, "phantom_ice_cream"))
+		#var gooby := _npc_database.get("gooby") as NPCData
+		#if gooby != null:
+			#day_one_pool.append(_make_day_one_customer_from_data(gooby, "phantom_ice_cream"))
 
 		return day_one_pool
 
@@ -392,16 +390,10 @@ func _process_day_one_night_monster_follow_up(delta: float) -> void:
 
 	_day_one_night_monster_follow_up_requested = false
 	_day_one_night_monster_spawned = true
-	npc_spawn_requested.emit(_make_day_one_customer(
-		"day1_slime",
-		"Slime Customer",
-		["phantom_ice_cream"],
-		10,
-		NPCData.VisitPhase.NIGHT,
-		NPCData.NPCCategory.GENERIC,
-		"paid",
-		NPCData.PatienceType.IMPATIENT
-	))
+	var gooby := _npc_database.get("gooby") as NPCData
+	if gooby == null:
+		return
+	npc_spawn_requested.emit(_make_day_one_customer_from_data(gooby, "phantom_ice_cream"))
 
 func _stop_spawning() -> void:
 	_is_spawning = false
