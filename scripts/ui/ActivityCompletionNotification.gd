@@ -4,8 +4,21 @@ extends Control
 
 
 func _ready() -> void:
-	if not ActivityCompletionManager.activity_completion.is_connected(_show_message):
-		ActivityCompletionManager.activity_completion.connect(_show_message)
+	_connect_activity_completion_manager()
+
+
+func _connect_activity_completion_manager() -> void:
+	var manager := get_node_or_null("/root/ActivityCompletionManager")
+
+	if manager == null:
+		call_deferred("_connect_activity_completion_manager")
+		return
+
+	if manager.has_signal("activity_completion"):
+		var show_callable := Callable(self, "_show_message")
+
+		if not manager.activity_completion.is_connected(show_callable):
+			manager.activity_completion.connect(show_callable)
 
 
 func _show_message(msg: String) -> void:

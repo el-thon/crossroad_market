@@ -3,7 +3,6 @@ extends StaticBody2D
 const CashierCheckoutHistory = preload("res://scripts/ui/cashier/CashierCheckoutHistory.gd")
 const CashierCheckoutService = preload("res://scripts/ui/cashier/CashierCheckoutService.gd")
 const CashierPanel = preload("res://scripts/ui/cashier/CashierPanel.gd")
-const NPCQueueSystem = preload("res://scripts/npc/behavior/NPCQueueSystem.gd")
 
 const GOOBY_ID: String = "gooby"
 const STORY_INTERACTION_TRUST_GAIN: int = 20

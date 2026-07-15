@@ -6,7 +6,6 @@ const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.g
 const StoreProgressionController = preload("res://scripts/locations/store/StoreProgressionController.gd")
 const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
 const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
-const StoreNPCPathGraph = preload("res://scripts/locations/store/StoreNPCPathGraph.gd")
 
 const NORMAL_STOCK_REQUIRED: int = 4
 const PUT_ACTION: StringName = &"put"
@@ -817,11 +816,11 @@ func _update_customer_path_visual() -> void:
 	_set_customer_path_visual_visible(_get_carried_object_from_player() != null)
 
 
-func _set_customer_path_visual_visible(is_visible: bool) -> void:
+func _set_customer_path_visual_visible(should_show: bool) -> void:
 	if customer_path_zones == null:
 		return
 
-	customer_path_zones.visible = is_visible
+	customer_path_zones.visible = should_show
 
 
 func _set_carry_shelf_blocker_enabled(_enabled: bool) -> void:

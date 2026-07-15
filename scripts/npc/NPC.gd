@@ -1,10 +1,6 @@
 class_name NPC
 extends CharacterBody2D
 
-const NPCMovement = preload("res://scripts/npc/NPCMovement.gd")
-const NPCCheckoutBehavior = preload("res://scripts/npc/behavior/NPCCheckoutBehavior.gd")
-const NPCQueueSystem = preload("res://scripts/npc/behavior/NPCQueueSystem.gd")
-const NPCShoppingBehavior = preload("res://scripts/npc/behavior/NPCShoppingBehavior.gd")
 const NPCDialogController = preload("res://scripts/npc/presentation/NPCDialogController.gd")
 const NPCVisualController = preload("res://scripts/npc/presentation/NPCVisualController.gd")
 

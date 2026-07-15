@@ -85,7 +85,7 @@ func get_time_display() -> String:
 
 func get_clock_display() -> String:
 	var minutes: int = get_world_minutes()
-	var hour: int = int(minutes / 60) % 24
+	var hour: int = floori(minutes / 60.0) % 24
 	var minute: int = minutes % 60
 
 	return "%02d:%02d" % [hour, minute]

@@ -27,7 +27,7 @@ NPCScheduler="*res://scripts/managers/NPCScheduler.gd"
 EconomyManager="*res://scripts/managers/EconomyManager.gd"
 RelationshipManager="*res://scripts/managers/RelationshipManager.gd"
 BlueprintManager="*res://scripts/managers/BlueprintManager.gd"
-ActivityCompletionManager="*uid://dpipkroklo0em"
+ActivityCompletionManager="*res://scripts/managers/ActivityCompletionManager.gd"
 
 [display]
 
