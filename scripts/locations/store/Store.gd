@@ -26,9 +26,6 @@ const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
 const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
 const CUSTOMER_PATH_ALERT_COOLDOWN_MS: int = 1000
 const STORE_CLOSE_MINUTES: int = 18 * 60
-const BASE_DAY_CUSTOMER_TARGET: int = 6
-const MIN_CUSTOMER_INTERVAL_MINUTES: int = 20
-const MAX_CUSTOMER_INTERVAL_MINUTES: int = 120
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
@@ -210,11 +207,6 @@ func request_toggle_store_open() -> void:
 		_update_store_status_board()
 		return
 
-	if _store_opened_today:
-		_show_notification("The store has already opened today.", 1.2)
-		_update_store_status_board()
-		return
-
 	if not _is_day_setup_complete():
 		_show_notification("Set up the shelf and stock items before opening.", 1.5)
 		_update_store_status_board()
@@ -235,53 +227,12 @@ func _is_day_setup_complete() -> bool:
 	return _human_shelf_installed and _human_items_placed >= NORMAL_STOCK_REQUIRED
 
 
-func _calculate_customer_pacing(open_minutes: int) -> Dictionary:
-	var remaining_minutes: int = maxi(0, STORE_CLOSE_MINUTES - open_minutes)
-	var possible_customers: int = int(floor(float(remaining_minutes) / float(MIN_CUSTOMER_INTERVAL_MINUTES)))
-	var customer_target: int = mini(BASE_DAY_CUSTOMER_TARGET, possible_customers)
-
-	if customer_target <= 0:
-		return {
-			"customer_target": 0,
-			"interval_minutes": 0.0
-		}
-
-	var interval_minutes := float(remaining_minutes) / float(customer_target)
-	interval_minutes = clampf(
-		interval_minutes,
-		float(MIN_CUSTOMER_INTERVAL_MINUTES),
-		float(MAX_CUSTOMER_INTERVAL_MINUTES)
-	)
-
-	return {
-		"customer_target": customer_target,
-		"interval_minutes": interval_minutes
-	}
-
-
-func _open_store_at(open_minutes: int) -> void:
-	var pacing := _calculate_customer_pacing(open_minutes)
-	var customer_target := int(pacing.get("customer_target", 0))
-	var interval_minutes := float(pacing.get("interval_minutes", 0.0))
-
-	if customer_target <= 0:
-		_show_notification("Not enough time left for customers today.", 1.4)
-		_store_open = false
-		_store_closed_for_day = true
-		_update_store_status_board()
-		return
-
+func _open_store_at(_open_minutes: int) -> void:
 	_store_open = true
 	_store_opened_today = true
 	_store_closed_for_day = false
 
-	NPCScheduler.configure_dynamic_day_pacing(
-		customer_target,
-		interval_minutes,
-		STORE_CLOSE_MINUTES
-	)
 	NPCScheduler.set_store_open(true)
-	NPCScheduler.unlock_normal_day_spawning_now()
 	_update_store_status_board()
 	_show_status_notification("Store is OPEN.", 1.0)
 	_update_objective()
@@ -289,9 +240,7 @@ func _open_store_at(open_minutes: int) -> void:
 
 func _manual_close_store() -> void:
 	_store_open = false
-	_store_closed_for_day = true
 	NPCScheduler.set_store_open(false)
-	NPCScheduler.stop_normal_customer_spawning()
 	_update_store_status_board()
 	_show_status_notification("Store is CLOSED.", 1.0)
 	_update_objective()
@@ -304,7 +253,7 @@ func _close_store_for_day() -> void:
 	_store_open = false
 	_store_closed_for_day = true
 	NPCScheduler.set_store_open(false)
-	NPCScheduler.stop_normal_customer_spawning()
+	NPCScheduler.close_normal_customer_schedule_for_day()
 	_update_store_status_board()
 	_update_objective()
 
