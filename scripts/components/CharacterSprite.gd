@@ -11,6 +11,7 @@ enum Direction {
 
 var _animation_fps: float = 5.0
 var _default_direction: Direction = Direction.DOWN
+var _animate_idle: bool = true
 
 var _down_texture: Texture2D
 var _down_rows: int = 1
@@ -69,6 +70,13 @@ var _up_margin: Vector2i = Vector2i.ZERO
 	set(value):
 		_default_direction = value
 		_current_direction = value
+		_apply_motion_state()
+
+@export var animate_idle: bool:
+	get:
+		return _animate_idle
+	set(value):
+		_animate_idle = value
 		_apply_motion_state()
 
 @export var down_texture: Texture2D:
@@ -333,6 +341,7 @@ var _up_margin: Vector2i = Vector2i.ZERO
 
 var _current_direction: Direction = Direction.DOWN
 var _is_moving: bool = false
+var _is_direction_loop_forced: bool = false
 var _is_ready: bool = false
 var _needs_refresh: bool = true
 
@@ -366,6 +375,18 @@ func set_direction(direction: Direction) -> void:
 
 func set_moving(moving: bool) -> void:
 	_is_moving = moving
+	_apply_motion_state()
+
+
+func play_direction_loop(direction: Direction) -> void:
+	_current_direction = direction
+	_is_moving = false
+	_is_direction_loop_forced = true
+	_apply_motion_state()
+
+
+func stop_direction_loop() -> void:
+	_is_direction_loop_forced = false
 	_apply_motion_state()
 
 
@@ -439,7 +460,19 @@ func _apply_motion_state() -> void:
 	if not sprite_frames.has_animation(animation_name):
 		return
 
-	if _is_moving:
+	if _is_direction_loop_forced:
+		if animation != animation_name:
+			play(animation_name)
+			frame = 0
+		elif not is_playing():
+			play(animation_name)
+	elif _is_moving:
+		if animation != animation_name:
+			play(animation_name)
+			frame = 0
+		elif not is_playing():
+			play(animation_name)
+	elif _animate_idle:
 		if animation != animation_name:
 			play(animation_name)
 			frame = 0
@@ -484,22 +517,38 @@ func _add_frames_for_texture(
 
 	var cell_size := Vector2(available_width / float(columns), available_height / float(rows))
 	var total_frames := 0
-	var clamped_end_row := rows - 1 if end_row < 0 else mini(end_row, rows - 1)
-	var clamped_end_column := columns - 1 if end_column < 0 else mini(end_column, columns - 1)
+	var clamped_start_column := clampi(start_column, 0, columns - 1)
+	var clamped_end_row := clampi(start_row, 0, rows - 1) if end_row < 0 else mini(end_row, rows - 1)
+	var clamped_end_column := mini(clamped_start_column + frames_per_row - 1, columns - 1) if end_column < 0 else mini(end_column, columns - 1)
 	var clamped_start_row := clampi(start_row, 0, clamped_end_row)
-	var clamped_start_column := clampi(start_column, 0, clamped_end_column)
-	var frames_in_row := mini(frames_per_row, clamped_end_column - clamped_start_column + 1)
-	var rows_to_use := clamped_end_row - clamped_start_row + 1
+
+	if clamped_start_row == clamped_end_row:
+		clamped_start_column = mini(clamped_start_column, clamped_end_column)
 
 	frames.add_animation(animation_name)
 	frames.set_animation_loop(animation_name, true)
 	frames.set_animation_speed(animation_name, animation_fps)
 
-	for row in range(rows_to_use):
-		for column in range(frames_in_row):
+	for row in range(clamped_start_row, clamped_end_row + 1):
+		var row_start_column := 0
+		var row_end_column := columns - 1
+
+		if row == clamped_start_row:
+			row_start_column = clamped_start_column
+		if row == clamped_end_row:
+			row_end_column = clamped_end_column
+
+		if row_end_column < row_start_column:
+			continue
+
+		var columns_to_use := row_end_column - row_start_column + 1
+		var frames_in_this_row := mini(frames_per_row, columns_to_use)
+
+		for column_offset in range(frames_in_this_row):
+			var column := row_start_column + column_offset
 			var region_position := Vector2(
-				float(margin.x) + float(clamped_start_column + column) * (cell_size.x + float(spacing.x)),
-				float(margin.y) + float(clamped_start_row + row) * (cell_size.y + float(spacing.y))
+				float(margin.x) + float(column) * (cell_size.x + float(spacing.x)),
+				float(margin.y) + float(row) * (cell_size.y + float(spacing.y))
 			)
 			var atlas := AtlasTexture.new()
 			atlas.atlas = texture
