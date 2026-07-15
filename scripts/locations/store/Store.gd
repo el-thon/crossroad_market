@@ -8,6 +8,7 @@ const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.g
 const StoreProgressionController = preload("res://scripts/locations/store/StoreProgressionController.gd")
 const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
 const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
+const StoreNPCPathGraph = preload("res://scripts/locations/store/StoreNPCPathGraph.gd")
 
 const NORMAL_STOCK_REQUIRED: int = 4
 const PUT_ACTION: StringName = &"put"
@@ -26,15 +27,6 @@ const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
 const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
 const CUSTOMER_PATH_ALERT_COOLDOWN_MS: int = 1000
 const HUMAN_CUSTOMER_END_MINUTES: int = TimeManager.NIGHT_START_MINUTES
-const NPC_SHELF_EXIT_OFFSET := Vector2(0, 72)
-const NPC_SHELF_VISIT_OFFSETS: Array[Vector2] = [
-	Vector2(0, 56),
-	Vector2(-64, 0),
-	Vector2(64, 0),
-	Vector2(0, -56)
-]
-const NPC_STANDING_SHAPE_SIZE := Vector2(28, 12)
-const NPC_STANDING_SHAPE_OFFSET := Vector2(0, -8)
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
@@ -69,10 +61,10 @@ var yard_scene: PackedScene = preload("res://scenes/locations/Yard.tscn")
 @onready var entrance_pos: Marker2D = get_node_or_null("EntrancePos") as Marker2D
 @onready var npc_path_markers: Node2D = get_node_or_null("NPCPathMarkers") as Node2D
 @onready var npc_entry_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCPathEntry"), NodePath("NPCEntryMarker"))
-@onready var npc_exit_marker: Marker2D = get_node_or_null("NPCExitMarker") as Marker2D
-@onready var npc_store_path_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCPathAisle"), NodePath("NPCStorePathMarker"))
+@onready var npc_exit_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCPathExit"), NodePath("NPCExitMarker"))
+@onready var npc_store_path_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCPathAisleRight"), NodePath("NPCStorePathMarker"))
 @onready var npc_path_cashier_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCPathCashier"), NodePath("NPCPathCashier"))
-@onready var npc_queue_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCQueueMarker"), NodePath("NPCQueueMarker"))
+@onready var npc_queue_marker: Marker2D = _get_marker2d(NodePath("NPCPathMarkers/NPCQueueFront"), NodePath("NPCQueueMarker"))
 @onready var customer_path_zones: Node2D = get_node_or_null("CustomerPathZones") as Node2D
 @onready var storage_door: Area2D = get_node_or_null("StorageDoor") as Area2D
 @onready var storage_return_pos: Marker2D = get_node_or_null("StorageReturnPos") as Marker2D
@@ -94,6 +86,7 @@ var _carry_shelf_blocker_shape: CollisionShape2D = null
 var _restricted_placement_warning: Node2D = null
 var _restricted_placement_warning_line: Line2D = null
 var _restricted_placement_warning_tween: Tween = null
+var _npc_path_graph: StoreNPCPathGraph = null
 var _is_transitioning: bool = false
 var _shown_location_titles: Dictionary = {}
 var _completed_task_notices: Dictionary = {}
@@ -128,6 +121,7 @@ var ghost_shelf: Shelf = null
 
 func _ready() -> void:
 	add_to_group("store")
+	_npc_path_graph = StoreNPCPathGraph.new(self, npc_path_markers)
 
 	_connect_manager_signals()
 	_connect_scene_signals()
@@ -268,97 +262,59 @@ func _close_store_for_day() -> void:
 
 
 func _update_store_status_board(animated: bool = true) -> void:
-	if open_close_board == null:
-		open_close_board = get_node_or_null("OpenCloseBoard")
+	open_close_board = _get_open_close_board()
 
 	if open_close_board != null and open_close_board.has_method("set_open_state"):
 		open_close_board.call("set_open_state", _store_open, animated)
 
 
+func _get_open_close_board() -> Node:
+	if open_close_board != null and is_instance_valid(open_close_board):
+		return open_close_board
+
+	var yard_board: Node = null
+
+	if _current_yard != null and is_instance_valid(_current_yard):
+		yard_board = _current_yard.get_node_or_null("OpenCloseBoard")
+
+	if yard_board != null:
+		return yard_board
+
+	var group_board := get_tree().get_first_node_in_group("open_close_board")
+
+	if group_board != null:
+		return group_board
+
+	return get_node_or_null("OpenCloseBoard")
+
+
 func get_npc_entry_route_to_shelf(shelf_position: Vector2, from_position: Vector2 = Vector2.INF) -> Array[Vector2]:
-	var route: Array[Vector2] = []
-
-	if from_position.is_finite():
-		if npc_store_path_marker != null:
-			_append_orthogonal_route_to(route, npc_store_path_marker.global_position, true, from_position)
-		else:
-			_append_orthogonal_route_to(route, shelf_position, true, from_position)
-			return _dedupe_route_points(route)
-	elif npc_entry_marker != null:
-		route.append(npc_entry_marker.global_position)
-
-	if npc_store_path_marker != null:
-		_append_orthogonal_route_to(route, npc_store_path_marker.global_position, true)
-
-	_append_orthogonal_route_to(route, shelf_position, true)
-	return _dedupe_route_points(route)
+	return _get_npc_path_graph().get_entry_route_to_shelf(shelf_position, from_position)
 
 
-func get_npc_shelf_visit_position(shelf: Shelf, npc: Node = null) -> Vector2:
-	if shelf == null:
-		return Vector2.INF
+func get_npc_shelf_access_position(shelf: Shelf) -> Vector2:
+	return _get_npc_path_graph().get_shelf_access_position(shelf)
 
-	return _get_npc_shelf_visit_position_at(shelf, shelf.global_position, npc)
+
+func get_npc_shelf_visit_position(shelf: Shelf, _npc: Node = null) -> Vector2:
+	return get_npc_shelf_access_position(shelf)
+
+
+func get_npc_route_to_shelf_access(shelf: Shelf) -> Array[Vector2]:
+	return _get_npc_path_graph().get_route_to_shelf_access(shelf)
 
 
 func get_npc_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
-	var route: Array[Vector2] = []
-	var useful_markers: Array[Marker2D] = []
-
-	if npc_store_path_marker != null:
-		useful_markers.append(npc_store_path_marker)
-
-	if npc_path_cashier_marker != null:
-		useful_markers.append(npc_path_cashier_marker)
-
-	var nearest := _get_nearest_npc_path_marker(from_position, useful_markers)
-
-	if nearest != null:
-		route.append_array(_make_orthogonal_route(from_position, nearest.global_position, true))
-
-	if npc_path_cashier_marker != null and nearest != npc_path_cashier_marker:
-		_append_orthogonal_route_to(route, npc_path_cashier_marker.global_position, true, from_position)
-
-	if npc_queue_marker != null:
-		_append_orthogonal_route_to(route, npc_queue_marker.global_position, false, from_position)
-
-	return _dedupe_route_points(route)
+	return _get_npc_path_graph().get_route_to_cashier_from(from_position)
 
 
-func get_npc_route_from_shelf_to_cashier(from_position: Vector2, shelf_position: Vector2) -> Array[Vector2]:
-	var route: Array[Vector2] = []
-	var shelf_exit := shelf_position + NPC_SHELF_EXIT_OFFSET
-
-	_append_orthogonal_route_to(route, shelf_exit, false, from_position)
-
-	if npc_store_path_marker != null:
-		_append_orthogonal_route_to(route, npc_store_path_marker.global_position, true, from_position)
-
-	if npc_path_cashier_marker != null:
-		_append_orthogonal_route_to(route, npc_path_cashier_marker.global_position, true, from_position)
-
-	if npc_queue_marker != null:
-		_append_orthogonal_route_to(route, npc_queue_marker.global_position, false, from_position)
-
-	return _dedupe_route_points(route)
+func get_npc_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
+	return _get_npc_path_graph().get_route_from_shelf_to_cashier(shelf)
 
 
 func get_npc_exit_route_from(from_position: Vector2) -> Array[Vector2]:
-	var route: Array[Vector2] = []
-
-	if npc_path_cashier_marker != null:
-		route.append_array(_make_orthogonal_route(from_position, npc_path_cashier_marker.global_position, false))
-
-	if npc_store_path_marker != null:
-		_append_orthogonal_route_to(route, npc_store_path_marker.global_position, true, from_position)
-
-	if npc_entry_marker != null:
-		_append_orthogonal_route_to(route, npc_entry_marker.global_position, true, from_position)
-
-	if npc_exit_marker != null:
-		_append_orthogonal_route_to(route, npc_exit_marker.global_position, false, from_position)
-
-	return _dedupe_route_points(route)
+	var exit_position := _get_marker_position_or(npc_exit_marker, Vector2(392, 248))
+	return _get_npc_path_graph().get_exit_route_from(from_position, exit_position)
 
 
 func get_npc_exit_route_from_cashier() -> Array[Vector2]:
@@ -549,6 +505,8 @@ func _start_game_in_yard() -> void:
 	_current_yard.position = Vector2.ZERO
 	_current_yard.z_index = 100
 	_connect_yard_return_signal()
+	open_close_board = null
+	_update_store_status_board(false)
 
 	var spawn_marker := _current_yard.get_node_or_null("PlayerSpawn") as Node2D
 	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 136)
@@ -715,6 +673,8 @@ func _enter_yard() -> void:
 	_current_yard.position = Vector2.ZERO
 	_current_yard.z_index = 100
 	_connect_yard_return_signal()
+	open_close_board = null
+	_update_store_status_board(false)
 
 	var spawn_marker := _current_yard.get_node_or_null("PlayerSpawn") as Node2D
 	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 136)
@@ -749,6 +709,7 @@ func _on_yard_return(_door_type: String) -> void:
 
 	_set_store_world_active(true)
 	_current_yard = null
+	open_close_board = null
 	_setup_npc_static_data()
 	_update_objective()
 
@@ -869,6 +830,7 @@ func _drop_carried_shelf_in_store(object: Node2D) -> void:
 	object.global_position = drop_position
 	object.z_index = 0
 	_set_shelf_carried_state(object, false)
+	_store_shelf_access_metadata(object, drop_position)
 	_register_installed_shelf(object)
 	_set_customer_path_visual_visible(false)
 
@@ -1194,103 +1156,17 @@ func _get_marker2d(primary_path: NodePath, fallback_path: NodePath = NodePath(""
 	return null
 
 
-func _append_orthogonal_route_to(
-	route: Array[Vector2],
-	to_pos: Vector2,
-	horizontal_first: bool = true,
-	fallback_from_pos: Vector2 = Vector2.INF
-) -> void:
-	var from_pos := fallback_from_pos
+func _get_npc_path_graph() -> StoreNPCPathGraph:
+	if _npc_path_graph == null:
+		_npc_path_graph = StoreNPCPathGraph.new(self, npc_path_markers)
+	else:
+		_npc_path_graph.setup(self, npc_path_markers)
 
-	if not route.is_empty():
-		from_pos = route[route.size() - 1]
-
-	if not from_pos.is_finite():
-		route.append(to_pos)
-		return
-
-	route.append_array(_make_orthogonal_route(from_pos, to_pos, horizontal_first))
-
-
-func _make_orthogonal_route(from_pos: Vector2, to_pos: Vector2, horizontal_first: bool = true) -> Array[Vector2]:
-	var route: Array[Vector2] = []
-
-	if from_pos.distance_to(to_pos) <= 2.0:
-		return route
-
-	var corner := Vector2(to_pos.x, from_pos.y) if horizontal_first else Vector2(from_pos.x, to_pos.y)
-
-	if from_pos.distance_to(corner) > 2.0:
-		route.append(corner)
-
-	if corner.distance_to(to_pos) > 2.0:
-		route.append(to_pos)
-
-	return route
-
-
-func _dedupe_route_points(route: Array[Vector2]) -> Array[Vector2]:
-	var deduped: Array[Vector2] = []
-
-	for point in route:
-		if not point.is_finite():
-			continue
-
-		if not deduped.is_empty() and deduped[deduped.size() - 1].distance_to(point) <= 2.0:
-			continue
-
-		deduped.append(point)
-
-	return deduped
-
-
-func _get_nearest_npc_path_marker(position: Vector2, markers: Array[Marker2D]) -> Marker2D:
-	var nearest: Marker2D = null
-	var nearest_distance := INF
-
-	for marker in markers:
-		if marker == null:
-			continue
-
-		var distance := position.distance_squared_to(marker.global_position)
-
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest = marker
-
-	return nearest
+	return _npc_path_graph
 
 
 func _has_reachable_npc_shelf_visit_position(object: Node2D, candidate: Vector2) -> bool:
-	return _get_npc_shelf_visit_position_at(object, candidate).is_finite()
-
-
-func _get_npc_shelf_visit_position_at(shelf_object: Node2D, shelf_position: Vector2, npc: Node = null) -> Vector2:
-	for offset in NPC_SHELF_VISIT_OFFSETS:
-		var candidate := shelf_position + offset
-
-		if _is_npc_standing_position_clear(candidate, npc):
-			return candidate
-
-	return Vector2.INF
-
-
-func _is_npc_standing_position_clear(position: Vector2, npc: Node = null) -> bool:
-	var shape := RectangleShape2D.new()
-	shape.size = NPC_STANDING_SHAPE_SIZE
-
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = shape
-	query.transform = Transform2D(0.0, position + NPC_STANDING_SHAPE_OFFSET)
-	query.collide_with_bodies = true
-	query.collide_with_areas = false
-	query.collision_mask = 1
-
-	if npc is CollisionObject2D:
-		query.exclude = [(npc as CollisionObject2D).get_rid()]
-
-	var hits := get_world_2d().direct_space_state.intersect_shape(query, 16)
-	return hits.is_empty()
+	return _get_npc_path_graph().has_reachable_shelf_access(object, candidate)
 
 
 func _get_object_collision_shape(object: Node2D) -> CollisionShape2D:
@@ -1341,6 +1217,7 @@ func _pickup_installed_shelf(object: Node2D) -> void:
 	object.position = Vector2(0, -34)
 	object.z_index = 80
 	_set_shelf_carried_state(object, true)
+	_clear_shelf_access_metadata(object)
 	_set_customer_path_visual_visible(true)
 	_update_objective()
 	_show_notification("Shelf picked up. Press Q to place it.")
@@ -1358,6 +1235,14 @@ func _set_shelf_carried_state(object: Node2D, is_carried: bool) -> void:
 		_set_node_enabled_recursive(object, false)
 	else:
 		_set_node_enabled_recursive(object, true)
+
+
+func _store_shelf_access_metadata(object: Node2D, drop_position: Vector2) -> void:
+	_get_npc_path_graph().store_shelf_access_metadata(object, drop_position)
+
+
+func _clear_shelf_access_metadata(object: Node2D) -> void:
+	_get_npc_path_graph().clear_shelf_access_metadata(object)
 
 
 func _show_drop_restriction_feedback(restriction: Dictionary) -> void:

@@ -25,7 +25,7 @@ const ENTER_PAUSE: float = 1.5
 const DIALOG_DURATION: float = 2.5
 const CHECKOUT_PATIENCE: float = 20.0
 const SEARCH_PATIENCE: float = 15.0
-const SHELF_SEARCH_MIN_TIME: float = 0.7
+const SHELF_SEARCH_MIN_TIME: float = 1.0
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
 const SHELF_ACTION_DISTANCE: float = 56.0
 const QUEUE_ACTION_DISTANCE: float = 14.0
@@ -452,6 +452,14 @@ func _update_stuck_watchdog(delta: float) -> void:
 			"NPC route watchdog giving up: state=%s pos=%s target=%s route=%s" %
 			[str(current_state), str(global_position), str(target_position), str(_movement_route)]
 		)
+		if current_state == State.EXIT:
+			# Use direct orthogonal path as last resort for EXIT
+			var fallback := _make_orthogonal_route(global_position, exit_position, true)
+			fallback.append(exit_position)
+			_movement_route = _dedupe_route_points(fallback)
+			_movement_route_destination = exit_position
+			_stuck_watchdog_rebuilds = 0
+			return
 		target_position = _get_exit_position()
 		_set_state(State.EXIT)
 		return
@@ -515,18 +523,18 @@ func _get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 
 	match current_state:
 		State.WALK_TO_SHELF:
-			# Rebuild shelf routes from the NPC's current position after watchdog recovery.
+			if _target_shelf != null and is_instance_valid(_target_shelf):
+				return _call_store_route(store, &"get_npc_route_to_shelf_access", [_target_shelf])
+
 			return _call_store_route(store, &"get_npc_entry_route_to_shelf", [destination, global_position])
 		State.WAIT_IN_QUEUE:
 			if _target_shelf != null and is_instance_valid(_target_shelf):
-				return _call_store_route(
-					store,
-					&"get_npc_route_from_shelf_to_cashier",
-					[global_position, _target_shelf.global_position]
-				)
+				return _call_store_route(store, &"get_npc_route_from_shelf_to_cashier", [_target_shelf])
 
 			return _call_store_route(store, &"get_npc_route_to_cashier_from", [global_position])
 		State.EXIT:
+			if _is_near_cashier_area():
+				return _call_store_route(store, &"get_npc_exit_route_from_cashier", [])
 			return _call_store_route(store, &"get_npc_exit_route_from", [global_position])
 
 	return []
@@ -622,6 +630,14 @@ func _should_use_store_path(destination: Vector2, path_position: Vector2) -> boo
 
 func _is_valid_route_point(point: Vector2) -> bool:
 	return point.is_finite()
+
+
+func _is_near_cashier_area() -> bool:
+	var cashier_threshold: float = 160.0
+	return (
+		counter_position != Vector2.ZERO
+		and global_position.distance_to(counter_position) <= cashier_threshold
+	)
 
 
 func _get_store_path_position() -> Vector2:
