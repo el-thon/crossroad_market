@@ -26,6 +26,7 @@ const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
 const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
 const CUSTOMER_PATH_ALERT_COOLDOWN_MS: int = 1000
 const HUMAN_CUSTOMER_END_MINUTES: int = TimeManager.NIGHT_START_MINUTES
+const NPC_SHELF_EXIT_OFFSET := Vector2(0, 72)
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
@@ -295,6 +296,24 @@ func get_npc_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
 		route.append_array(_make_orthogonal_route(from_position, nearest.global_position, true))
 
 	if npc_path_cashier_marker != null and nearest != npc_path_cashier_marker:
+		_append_orthogonal_route_to(route, npc_path_cashier_marker.global_position, true, from_position)
+
+	if npc_queue_marker != null:
+		_append_orthogonal_route_to(route, npc_queue_marker.global_position, false, from_position)
+
+	return _dedupe_route_points(route)
+
+
+func get_npc_route_from_shelf_to_cashier(from_position: Vector2, shelf_position: Vector2) -> Array[Vector2]:
+	var route: Array[Vector2] = []
+	var shelf_exit := shelf_position + NPC_SHELF_EXIT_OFFSET
+
+	_append_orthogonal_route_to(route, shelf_exit, false, from_position)
+
+	if npc_store_path_marker != null:
+		_append_orthogonal_route_to(route, npc_store_path_marker.global_position, true, from_position)
+
+	if npc_path_cashier_marker != null:
 		_append_orthogonal_route_to(route, npc_path_cashier_marker.global_position, true, from_position)
 
 	if npc_queue_marker != null:

@@ -29,6 +29,8 @@ const SHELF_SEARCH_MIN_TIME: float = 0.7
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
 const SHELF_ACTION_DISTANCE: float = 56.0
 const QUEUE_ACTION_DISTANCE: float = 14.0
+const STUCK_WATCHDOG_SECONDS: float = 1.5
+const STUCK_MIN_MOVE_DISTANCE: float = 1.0
 
 static var current_queue: Array[NPC] = []
 static var counter_position: Vector2 = Vector2.ZERO
@@ -59,6 +61,9 @@ var _search_announced: bool = false
 var _trust_label: Label = null
 var _movement_route: Array[Vector2] = []
 var _movement_route_destination: Vector2 = Vector2.INF
+var _target_shelf: Shelf = null
+var _last_watchdog_position: Vector2 = Vector2.INF
+var _stuck_watchdog_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -85,6 +90,8 @@ func setup(data: NPCData) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_update_stuck_watchdog(delta)
+
 	match current_state:
 		State.ENTER:
 			_process_enter()
@@ -239,6 +246,7 @@ func _process_enter() -> void:
 		_set_state(State.EXIT)
 		return
 
+	_target_shelf = target_shelf
 	target_position = _get_shelf_visit_position(target_shelf)
 	_set_state(State.WALK_TO_SHELF)
 
@@ -404,6 +412,50 @@ func _move_to(target: Vector2) -> bool:
 	return _movement_route.is_empty()
 
 
+func _update_stuck_watchdog(delta: float) -> void:
+	if not _is_movement_state():
+		_reset_stuck_watchdog()
+		return
+
+	if not _last_watchdog_position.is_finite():
+		_last_watchdog_position = global_position
+		_stuck_watchdog_timer = 0.0
+		return
+
+	if global_position.distance_to(_last_watchdog_position) > STUCK_MIN_MOVE_DISTANCE:
+		_last_watchdog_position = global_position
+		_stuck_watchdog_timer = 0.0
+		return
+
+	_stuck_watchdog_timer += delta
+
+	if _stuck_watchdog_timer < STUCK_WATCHDOG_SECONDS:
+		return
+
+	print(
+		"NPC route watchdog: state=%s pos=%s target=%s route=%s" %
+		[str(current_state), str(global_position), str(target_position), str(_movement_route)]
+	)
+	_movement_route.clear()
+	_movement_route_destination = Vector2.INF
+	_last_watchdog_position = global_position
+	_stuck_watchdog_timer = 0.0
+
+
+func _is_movement_state() -> bool:
+	return current_state in [
+		State.WALK_TO_SHELF,
+		State.TAKE_ITEM,
+		State.WAIT_IN_QUEUE,
+		State.EXIT
+	]
+
+
+func _reset_stuck_watchdog() -> void:
+	_last_watchdog_position = Vector2.INF
+	_stuck_watchdog_timer = 0.0
+
+
 func _should_rebuild_movement_route(target: Vector2) -> bool:
 	if _movement_route.is_empty():
 		return true
@@ -439,6 +491,13 @@ func _get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 		State.WALK_TO_SHELF:
 			return _call_store_route(store, &"get_npc_entry_route_to_shelf", [destination])
 		State.WAIT_IN_QUEUE:
+			if _target_shelf != null and is_instance_valid(_target_shelf):
+				return _call_store_route(
+					store,
+					&"get_npc_route_from_shelf_to_cashier",
+					[global_position, _target_shelf.global_position]
+				)
+
 			return _call_store_route(store, &"get_npc_route_to_cashier_from", [global_position])
 		State.EXIT:
 			return _call_store_route(store, &"get_npc_exit_route_from", [global_position])
@@ -728,6 +787,7 @@ func _return_cart_items_to_shelf() -> void:
 func _finish_checkout_and_exit() -> void:
 	_dialog_timer = DIALOG_DURATION
 	_leave_queue()
+	_target_shelf = null
 	target_position = _get_exit_position()
 	_set_state(State.EXIT)
 
@@ -745,9 +805,11 @@ func _set_state(new_state: State) -> void:
 
 	if new_state == State.EXIT:
 		_leave_queue()
+		_target_shelf = null
 
 	_movement_route.clear()
 	_movement_route_destination = Vector2.INF
+	_reset_stuck_watchdog()
 	current_state = new_state
 
 
