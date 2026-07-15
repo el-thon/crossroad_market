@@ -27,7 +27,7 @@ const CHECKOUT_PATIENCE: float = 20.0
 const SEARCH_PATIENCE: float = 15.0
 const SHELF_SEARCH_MIN_TIME: float = 0.7
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
-const SHELF_ACTION_DISTANCE: float = 28.0
+const SHELF_ACTION_DISTANCE: float = 56.0
 const QUEUE_ACTION_DISTANCE: float = 14.0
 
 static var current_queue: Array[NPC] = []
@@ -567,16 +567,21 @@ func _choose_available_item_to_buy() -> void:
 
 	for shopping_item_id in shopping_list:
 		if _find_shelf_with_item(shopping_item_id) != null:
-			item_to_buy = shopping_item_id
-			item_to_buy_original = item_to_buy
+			_set_requested_item(shopping_item_id)
 			return
 
 	for favorite_item_id in npc_data.favorite_items:
 		var item_id := str(favorite_item_id)
 
 		if _find_shelf_with_item(item_id) != null:
-			item_to_buy = item_id
-			item_to_buy_original = item_to_buy
+			_set_requested_item(item_id)
+			return
+
+	if _can_substitute_available_stock():
+		var fallback_item_id := _find_available_stock_substitute()
+
+		if fallback_item_id != "":
+			_set_requested_item(fallback_item_id)
 			return
 
 	if item_to_buy == "":
@@ -585,6 +590,35 @@ func _choose_available_item_to_buy() -> void:
 
 func _find_alternative_item() -> String:
 	return NPCShoppingBehavior.find_alternative_item(get_tree(), item_to_buy, item_to_buy_original)
+
+
+func _set_requested_item(item_id: String) -> void:
+	item_to_buy = item_id
+	item_to_buy_original = item_id
+	shopping_list.clear()
+	shopping_list.append(item_id)
+
+
+func _can_substitute_available_stock() -> bool:
+	return (
+		npc_data != null
+		and npc_data.npc_category == NPCData.NPCCategory.GENERIC
+		and npc_data.visit_phase != NPCData.VisitPhase.NIGHT
+	)
+
+
+func _find_available_stock_substitute() -> String:
+	var shelf_type := ItemData.ShelfType.HUMAN
+	var requested_items := _get_requested_items()
+
+	for requested_item_id in requested_items:
+		var item := ItemDatabase.get_item(requested_item_id)
+
+		if item != null:
+			shelf_type = item.shelf_type
+			break
+
+	return NPCShoppingBehavior.find_first_stocked_item_for_shelf_type(get_tree(), shelf_type)
 
 
 func _join_queue() -> void:

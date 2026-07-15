@@ -78,5 +78,24 @@ static func find_alternative_item(tree: SceneTree, item_id: String, original_ite
 	return ""
 
 
+static func find_first_stocked_item_for_shelf_type(tree: SceneTree, shelf_type: ItemData.ShelfType) -> String:
+	if tree == null:
+		return ""
+
+	for shelf in tree.get_nodes_in_group("shelves"):
+		if not shelf is Shelf:
+			continue
+
+		if shelf.shelf_type != shelf_type:
+			continue
+
+		var item_id: String = shelf.get_first_stocked_item_id()
+
+		if item_id != "":
+			return item_id
+
+	return ""
+
+
 static func get_shelf_visit_position(shelf: Shelf, visit_offset: Vector2) -> Vector2:
 	return shelf.global_position + visit_offset

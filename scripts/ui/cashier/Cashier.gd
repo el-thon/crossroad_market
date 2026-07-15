@@ -9,6 +9,7 @@ const GOOBY_ID: String = "gooby"
 const STORY_INTERACTION_TRUST_GAIN: int = 20
 const CASHIER_BUTTON_FONT_SIZE: int = 8
 const CASHIER_BUTTON_MIN_HEIGHT: float = 20.0
+const ITEM_SWATCH_SIZE := Vector2(10, 16)
 const STORE_OS_APP_HOME: StringName = &"home"
 const STORE_OS_APP_POS: StringName = &"pos"
 const STORE_OS_APP_RESTOCK: StringName = &"restock"
@@ -384,21 +385,13 @@ func _show_scan_panel() -> void:
 		"Select an item, add it to cart, then confirm."
 	)
 
-	var store_items: Array[ItemData] = ItemDatabase.get_all_items()
+	var store_items: Array[ItemData] = _get_store_items()
 
 	for item in store_items:
 		if item == null:
 			continue
 
-		var button := Button.new()
-		button.text = "%s  %dG" % [item.display_name, item.sell_price]
-		button.custom_minimum_size = Vector2(0, CASHIER_BUTTON_MIN_HEIGHT)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_configure_button_guidance(button, "Select this item before adding it to the cart.")
-		button.toggle_mode = true
-		button.button_pressed = item.item_id == _pending_item_id
-		button.pressed.connect(Callable(self, "_on_scan_item_pressed").bind(item.item_id))
-		_item_list.add_child(button)
+		_item_list.add_child(_create_scan_item_row(item))
 
 	var add_button := Button.new()
 	add_button.text = "Add Item"
@@ -708,7 +701,7 @@ func _render_restock_app() -> void:
 	_guide_label.visible = true
 	_guide_label.text = "Supplier/restock economy is placeholder."
 
-	var store_items: Array[ItemData] = ItemDatabase.get_all_items()
+	var store_items: Array[ItemData] = _get_store_items()
 
 	for item in store_items:
 		if item == null:
@@ -752,7 +745,56 @@ func _render_empty_pos_app() -> void:
 	_selected_label.text = "Cart: - | Total 0G"
 	_guide_label.visible = true
 	_guide_label.text = "Wait for a customer, then press E at the cashier."
+
+	for item in _get_store_items():
+		if item != null:
+			_item_list.add_child(_create_catalog_item_row(item))
+
 	_add_app_navigation_buttons()
+
+
+func _create_scan_item_row(item: ItemData) -> Control:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 4)
+
+	var swatch := ColorRect.new()
+	swatch.custom_minimum_size = ITEM_SWATCH_SIZE
+	swatch.color = _get_item_shelf_color(item)
+	row.add_child(swatch)
+
+	var button := Button.new()
+	button.text = "%s  %dG" % [item.display_name, item.sell_price]
+	button.custom_minimum_size = Vector2(0, CASHIER_BUTTON_MIN_HEIGHT)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_configure_button_guidance(button, "Select this item before adding it to the cart.")
+	button.toggle_mode = true
+	button.button_pressed = item.item_id == _pending_item_id
+	button.pressed.connect(Callable(self, "_on_scan_item_pressed").bind(item.item_id))
+	row.add_child(button)
+
+	return row
+
+
+func _create_catalog_item_row(item: ItemData) -> Control:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 4)
+
+	var swatch := ColorRect.new()
+	swatch.custom_minimum_size = ITEM_SWATCH_SIZE
+	swatch.color = _get_item_shelf_color(item)
+	row.add_child(swatch)
+
+	var label := Label.new()
+	label.text = "%s  %dG" % [item.display_name, item.sell_price]
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.add_theme_font_size_override("font_size", CASHIER_BUTTON_FONT_SIZE)
+	row.add_child(label)
+
+	return row
 
 
 func _create_restock_item_card(item: ItemData) -> Control:
@@ -761,8 +803,8 @@ func _create_restock_item_card(item: ItemData) -> Control:
 	card.add_theme_constant_override("separation", 5)
 
 	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(18, 14)
-	swatch.color = Color(0.66, 0.48, 0.26, 1.0) if item.shelf_type == ItemData.ShelfType.HUMAN else Color(0.43, 0.32, 0.78, 1.0)
+	swatch.custom_minimum_size = ITEM_SWATCH_SIZE
+	swatch.color = _get_item_shelf_color(item)
 	card.add_child(swatch)
 
 	var label := Label.new()
@@ -828,6 +870,43 @@ func _get_item_display_label(item_id: String) -> String:
 	return "%s %dG" % [item.display_name, item.sell_price]
 
 
+func _get_store_items() -> Array[ItemData]:
+	var items: Array[ItemData] = ItemDatabase.get_all_items()
+
+	if not items.is_empty():
+		return items
+
+	var fallback_items: Array[ItemData] = []
+	var dir := DirAccess.open("res://data/items")
+
+	if dir == null:
+		return fallback_items
+
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+
+	while file_name != "":
+		if file_name.ends_with(".tres"):
+			var item := load("res://data/items/" + file_name) as ItemData
+
+			if item != null and item.item_id != "":
+				fallback_items.append(item)
+
+		file_name = dir.get_next()
+
+	fallback_items.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+		return a.display_name < b.display_name
+	)
+	return fallback_items
+
+
+func _get_item_shelf_color(item: ItemData) -> Color:
+	if item != null and item.shelf_type == ItemData.ShelfType.GHOST:
+		return Color(0.43, 0.32, 0.78, 1.0)
+
+	return Color(0.66, 0.48, 0.26, 1.0)
+
+
 func _get_item_name(item_id: String) -> String:
 	var item := ItemDatabase.get_item(item_id)
 
@@ -849,7 +928,7 @@ func _get_item_unit_price(item_id: String) -> int:
 func _get_cart_item_ids_ordered() -> Array[String]:
 	var ordered: Array[String] = []
 
-	for item in ItemDatabase.get_all_items():
+	for item in _get_store_items():
 		if item == null:
 			continue
 
