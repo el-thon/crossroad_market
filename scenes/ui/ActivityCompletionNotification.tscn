@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://br1sgb3dkgi8i"]
 
-[ext_resource type="Script" uid="uid://b8imjflmkncbb" path="res://scripts/ui/ActivityCompletionNotification.gd" id="1_3goof"]
+[ext_resource type="Script" path="res://scripts/ui/ActivityCompletionNotification.gd" id="1_3goof"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_due37"]
 font_size = 10

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dauvgwqeqn80k"]
 
-[ext_resource type="Script" uid="uid://dwm4go4nyknla" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://cnvnuy02s2gg3" path="res://scenes/ui/InventoryUI.tscn" id="2"]
 
 [node name="HUD" type="CanvasLayer" unique_id=162570791 groups=["hud"]]
