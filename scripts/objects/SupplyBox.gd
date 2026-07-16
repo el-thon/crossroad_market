@@ -63,6 +63,13 @@ func collect_one(item_id: String) -> bool:
 
 	return true
 
+
+func mark_item_taken_without_inventory(item_id: String) -> void:
+	if item_id not in items_to_give:
+		return
+
+	_collected_items[item_id] = _collected_items.get(item_id, 0) + 1
+
 func is_empty() -> bool:
 	if not one_time_only:
 		return false
@@ -78,7 +85,7 @@ func is_all_taken() -> bool:
 
 func mark_all_taken_without_inventory() -> void:
 	for item_id in items_to_give:
-		_collected_items[item_id] = _collected_items.get(item_id, 0) + 1
+		mark_item_taken_without_inventory(item_id)
 
 	if one_time_only:
 		_already_collected = true
