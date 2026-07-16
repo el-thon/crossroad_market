@@ -6,7 +6,8 @@ extends Node2D
 
 signal return_to_store(door_type: String)
 signal mystery_discovered()
-signal mystery_item_taken()
+signal mystery_item_taken(item_id: String)
+signal mystery_supply_depleted()
 signal ghost_shelf_item_placed(slot_index: int, item_id: String)
 
 const SUPPLY_BOX_DEPTH_HALF_WIDTH: float = 34.0
@@ -101,6 +102,15 @@ func set_mystery_discovered(is_discovered: bool) -> void:
 func set_mystery_supply_depleted(is_depleted: bool) -> void:
 	_mystery_supply_depleted = is_depleted
 	_apply_mystery_box_item_state()
+
+
+func set_mystery_items_taken(item_ids: Array[String]) -> void:
+	if mystery_box == null:
+		return
+
+	for item_id in item_ids:
+		if mystery_box.has_method("mark_item_taken_without_inventory"):
+			mystery_box.mark_item_taken_without_inventory(item_id)
 
 
 func unlock_locked_half() -> void:
@@ -539,9 +549,12 @@ func _on_mystery_box_discovered() -> void:
 	mystery_discovered.emit()
 
 
-func _on_mystery_box_item_taken(_item_id: String) -> void:
-	_mystery_supply_depleted = true
-	mystery_item_taken.emit()
+func _on_mystery_box_item_taken(item_id: String) -> void:
+	mystery_item_taken.emit(item_id)
+
+	if mystery_box != null and mystery_box.is_empty():
+		_mystery_supply_depleted = true
+		mystery_supply_depleted.emit()
 
 
 func _on_ghost_shelf_item_placed(slot_index: int, item_id: String) -> void:
