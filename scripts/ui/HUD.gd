@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 signal notification_finished()
+signal tax_payment_requested()
 
 @onready var gold_label: Label = $TopLeftHUD/GoldLabel
 @onready var target_label: Label = $TopLeftHUD/TargetLabel
@@ -42,6 +43,11 @@ var _cursor_tooltip_text: String = ""
 var _objective_tween: Tween = null
 var _objective_timer: float = 0.0
 var _objective_base_position: Vector2 = Vector2.ZERO
+var _tax_layer: CanvasLayer = null
+var _tax_panel: ColorRect = null
+var _tax_title_label: Label = null
+var _tax_report_label: Label = null
+var _tax_warning_label: Label = null
 
 func _ready() -> void:
 	add_to_group("hud")
@@ -155,6 +161,7 @@ func _has_interactive_overlay_open() -> bool:
 		_has_visible_overlay_named("CashierUILayer")
 		or _has_visible_overlay_named("ActivityBoardLayer")
 		or _has_visible_overlay_named("StorageRestockLayer")
+		or _has_visible_overlay_named("TaxReportLayer")
 	)
 
 
@@ -190,6 +197,36 @@ func show_notification(text: String, duration: float = NOTIFY_DURATION, blocks_a
 
 	if blocks_actions:
 		_action_lock_timer = _notify_duration
+
+
+func show_tax_report(report: Dictionary) -> void:
+	_ensure_tax_panel()
+	_render_tax_report(report, "")
+	_tax_layer.visible = true
+	_tax_panel.visible = true
+	begin_action_lock()
+
+
+func show_tax_warning(message: String, report: Dictionary = {}) -> void:
+	_ensure_tax_panel()
+
+	if not report.is_empty():
+		_render_tax_report(report, message)
+	elif _tax_warning_label != null:
+		_tax_warning_label.text = message
+
+	_tax_layer.visible = true
+	_tax_panel.visible = true
+
+
+func hide_tax_report() -> void:
+	if _tax_panel != null:
+		_tax_panel.visible = false
+
+	if _tax_layer != null:
+		_tax_layer.visible = false
+
+	end_action_lock()
 
 
 func show_hint_dialog(_key: String, text: String) -> void:
@@ -512,6 +549,10 @@ func is_action_locked() -> bool:
 	return _action_lock_sessions > 0 or _action_lock_timer > 0.0
 
 
+func has_interactive_overlay_open() -> bool:
+	return _has_interactive_overlay_open()
+
+
 func _finish_notification() -> void:
 	_notify_timer = 0.0
 	_action_lock_timer = 0.0
@@ -571,6 +612,86 @@ func _create_cursor_tooltip() -> void:
 	_cursor_tooltip_label.add_theme_font_size_override("font_size", 9)
 	_cursor_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cursor_tooltip.add_child(_cursor_tooltip_label)
+
+
+func _ensure_tax_panel() -> void:
+	if _tax_layer != null and is_instance_valid(_tax_layer):
+		return
+
+	_tax_layer = CanvasLayer.new()
+	_tax_layer.name = "TaxReportLayer"
+	_tax_layer.layer = 30
+	_tax_layer.visible = false
+	add_child(_tax_layer)
+
+	_tax_panel = ColorRect.new()
+	_tax_panel.name = "TaxReportPanel"
+	_tax_panel.color = Color(0.08, 0.065, 0.045, 0.96)
+	_tax_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tax_panel.offset_left = 84.0
+	_tax_panel.offset_top = 54.0
+	_tax_panel.offset_right = -84.0
+	_tax_panel.offset_bottom = -42.0
+	_tax_panel.clip_contents = true
+	_tax_layer.add_child(_tax_panel)
+
+	var root := VBoxContainer.new()
+	root.name = "Content"
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.offset_left = 12.0
+	root.offset_top = 10.0
+	root.offset_right = -12.0
+	root.offset_bottom = -10.0
+	root.add_theme_constant_override("separation", 5)
+	_tax_panel.add_child(root)
+
+	_tax_title_label = Label.new()
+	_tax_title_label.text = "DAY REPORT"
+	_tax_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tax_title_label.add_theme_font_size_override("font_size", 11)
+	root.add_child(_tax_title_label)
+
+	_tax_report_label = Label.new()
+	_tax_report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tax_report_label.add_theme_font_size_override("font_size", 9)
+	root.add_child(_tax_report_label)
+
+	_tax_warning_label = Label.new()
+	_tax_warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tax_warning_label.add_theme_color_override("font_color", Color(1.0, 0.72, 0.45, 1.0))
+	_tax_warning_label.add_theme_font_size_override("font_size", 8)
+	root.add_child(_tax_warning_label)
+
+	var pay_button := Button.new()
+	pay_button.text = "Pay Tax"
+	pay_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pay_button.pressed.connect(func() -> void:
+		tax_payment_requested.emit()
+	)
+	root.add_child(pay_button)
+
+
+func _render_tax_report(report: Dictionary, warning: String) -> void:
+	_ensure_tax_panel()
+
+	var day := int(report.get("day", TimeManager.current_day))
+	var revenue := int(report.get("revenue", EconomyManager.daily_revenue))
+	var expenses := int(report.get("expenses", EconomyManager.daily_expenses))
+	var tax := int(report.get("tax", EconomyManager.get_daily_tax()))
+	var net_profit := int(report.get("net_profit", revenue - expenses - tax))
+	var total_gold := int(report.get("total_gold", EconomyManager.gold))
+	var target_reached := bool(report.get("target_reached", revenue >= EconomyManager.daily_target))
+
+	_tax_title_label.text = "DAY %d REPORT" % day
+	_tax_report_label.text = "Revenue: %dG\nExpenses: %dG\nTax: %dG\nNet Profit: %dG\nWallet: %dG\nTarget: %s" % [
+		revenue,
+		expenses,
+		tax,
+		net_profit,
+		total_gold,
+		"REACHED" if target_reached else "MISSED"
+	]
+	_tax_warning_label.text = warning
 
 
 func _update_cursor_tooltip_position() -> void:

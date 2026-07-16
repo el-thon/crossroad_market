@@ -10,12 +10,14 @@ signal mystery_item_taken(item_id: String)
 signal mystery_supply_depleted()
 signal ghost_shelf_item_placed(slot_index: int, item_id: String)
 signal restock_item_purchased(item_id: String, quantity: int)
+signal restock_order_purchased(order_items: Array)
 
 const StorageRestockPanel = preload("res://scripts/ui/storage/StorageRestockPanel.gd")
 
 const SUPPLY_BOX_DEPTH_HALF_WIDTH: float = 34.0
 const SUPPLY_BOX_DEPTH_BACK_OFFSET: float = 48.0
 const SUPPLY_BOX_DEPTH_FRONT_OFFSET: float = 8.0
+const RESTOCK_SCROLL_STEP: int = 28
 const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 	Vector2(0, 56),
 	Vector2(56, 0),
@@ -60,6 +62,7 @@ var _restock_selected_label: Label = null
 var _restock_guide_label: Label = null
 var _restock_action_row: Container = null
 var _selected_restock_item_id: String = ""
+var _restock_cart: Dictionary = {}
 
 
 func _ready() -> void:
@@ -217,14 +220,67 @@ func _render_restock_panel() -> void:
 
 
 func _create_restock_item_row(item: ItemData) -> Control:
-	var button := Button.new()
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.text = "%s  %dG" % [item.display_name, _get_item_buy_cost(item)]
-	button.pressed.connect(func() -> void:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 19)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_theme_constant_override("separation", 1)
+
+	var select_button := Button.new()
+	select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	select_button.custom_minimum_size = Vector2(82, 19)
+	select_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	select_button.focus_mode = Control.FOCUS_ALL
+	select_button.clip_text = true
+	select_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	select_button.text = "%s  %dG" % [item.display_name, _get_item_buy_cost(item)]
+	select_button.add_theme_font_size_override("font_size", 7)
+	select_button.pressed.connect(func() -> void:
 		_selected_restock_item_id = item.item_id
 		_render_restock_panel()
 	)
-	return button
+	_connect_restock_scroll_forwarding(select_button)
+	row.add_child(select_button)
+
+	var quantity_controls := HBoxContainer.new()
+	quantity_controls.custom_minimum_size = Vector2(68, 19)
+	quantity_controls.size_flags_horizontal = Control.SIZE_SHRINK_END
+	quantity_controls.add_theme_constant_override("separation", 1)
+	row.add_child(quantity_controls)
+
+	var minus_button := Button.new()
+	minus_button.text = "-"
+	minus_button.custom_minimum_size = Vector2(19, 19)
+	minus_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	minus_button.focus_mode = Control.FOCUS_ALL
+	minus_button.add_theme_font_size_override("font_size", 7)
+	minus_button.pressed.connect(func() -> void:
+		_add_restock_cart_quantity(item.item_id, -1)
+	)
+	_connect_restock_scroll_forwarding(minus_button)
+	quantity_controls.add_child(minus_button)
+
+	var qty_label := Label.new()
+	qty_label.custom_minimum_size = Vector2(26, 19)
+	qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	qty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	qty_label.text = str(_get_restock_cart_quantity(item.item_id))
+	qty_label.add_theme_font_size_override("font_size", 7)
+	quantity_controls.add_child(qty_label)
+
+	var plus_button := Button.new()
+	plus_button.text = "+"
+	plus_button.custom_minimum_size = Vector2(19, 19)
+	plus_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	plus_button.focus_mode = Control.FOCUS_ALL
+	plus_button.add_theme_font_size_override("font_size", 7)
+	plus_button.pressed.connect(func() -> void:
+		_add_restock_cart_quantity(item.item_id, 1)
+	)
+	_connect_restock_scroll_forwarding(plus_button)
+	quantity_controls.add_child(plus_button)
+
+	return row
 
 
 func _render_restock_detail() -> void:
@@ -240,21 +296,39 @@ func _render_restock_detail() -> void:
 
 	var buy_cost := _get_item_buy_cost(item)
 	var shelf_label := "Ghost" if item.shelf_type == ItemData.ShelfType.GHOST else "Human"
-	_restock_selected_label.text = "%s\nShelf: %s\nBuy: %dG | In bag: %d" % [
+	var cart_qty := _get_restock_cart_quantity(item.item_id)
+	_restock_selected_label.text = "%s\nShelf: %s\nBuy: %dG | In bag: %d\nCart: x%d | Subtotal: %dG" % [
 		item.display_name,
 		shelf_label,
 		buy_cost,
-		Inventory.get_quantity(item.item_id)
+		Inventory.get_quantity(item.item_id),
+		cart_qty,
+		cart_qty * buy_cost
 	]
-	_restock_guide_label.text = "Purchases are delivered outside in the yard."
+	_restock_guide_label.text = "Checkout sends one delivery box outside in the yard."
 
-	var buy_button := Button.new()
-	buy_button.text = "Buy 1"
-	buy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buy_button.pressed.connect(func() -> void:
-		_purchase_restock_item(item.item_id)
-	)
-	_restock_action_row.add_child(buy_button)
+	var summary_label := Label.new()
+	summary_label.text = _format_restock_cart_summary()
+	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	summary_label.max_lines_visible = 2
+	summary_label.add_theme_font_size_override("font_size", 7)
+	_restock_action_row.add_child(summary_label)
+
+	var total_label := Label.new()
+	total_label.text = "Cart Total: %dG" % _get_restock_cart_total()
+	total_label.add_theme_font_size_override("font_size", 8)
+	_restock_action_row.add_child(total_label)
+
+	var checkout_button := Button.new()
+	checkout_button.text = "Checkout"
+	checkout_button.custom_minimum_size = Vector2(0, 22)
+	checkout_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	checkout_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	checkout_button.focus_mode = Control.FOCUS_ALL
+	checkout_button.disabled = not _has_restock_cart_items()
+	checkout_button.pressed.connect(_checkout_restock_cart)
+	_connect_restock_scroll_forwarding(checkout_button)
+	_restock_action_row.add_child(checkout_button)
 
 	_add_restock_close_button()
 
@@ -262,27 +336,164 @@ func _render_restock_detail() -> void:
 func _add_restock_close_button() -> void:
 	var close_button := Button.new()
 	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(0, 22)
 	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	close_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	close_button.focus_mode = Control.FOCUS_ALL
 	close_button.pressed.connect(_hide_restock_panel)
+	_connect_restock_scroll_forwarding(close_button)
 	_restock_action_row.add_child(close_button)
 
 
-func _purchase_restock_item(item_id: String) -> void:
-	var item := ItemDatabase.get_item(item_id)
-
-	if item == null:
+func _add_restock_cart_quantity(item_id: String, delta: int) -> void:
+	if item_id == "" or delta == 0:
 		return
 
-	var buy_cost := _get_item_buy_cost(item)
+	var quantity := _get_restock_cart_quantity(item_id) + delta
 
-	if not EconomyManager.spend_gold(buy_cost):
+	if quantity <= 0:
+		_restock_cart.erase(item_id)
+	else:
+		_restock_cart[item_id] = quantity
+
+	_selected_restock_item_id = item_id
+	_render_restock_panel()
+
+
+func _checkout_restock_cart() -> void:
+	if not _has_restock_cart_items():
+		_show_notification("Add items to the cart first.", 0.9)
+		return
+
+	var total := _get_restock_cart_total()
+
+	if total <= 0:
+		_show_notification("Add items to the cart first.", 0.9)
+		return
+
+	if not EconomyManager.spend_gold(total):
 		_show_notification("Not enough gold.", 0.9)
 		_render_restock_panel()
 		return
 
-	restock_item_purchased.emit(item_id, 1)
-	_show_notification("%s ordered. Pick it up in the yard." % item.display_name, 1.2)
+	var order_items := _get_restock_cart_order_items()
+	_restock_cart.clear()
+	restock_order_purchased.emit(order_items)
+	_show_notification("Restock ordered. Pick it up in the yard.", 1.2)
 	_render_restock_panel()
+
+
+func _get_restock_cart_quantity(item_id: String) -> int:
+	return int(_restock_cart.get(item_id, 0))
+
+
+func _connect_restock_scroll_forwarding(control: Control) -> void:
+	control.gui_input.connect(func(event: InputEvent) -> void:
+		_forward_restock_scroll_input(event, control)
+	)
+
+
+func _forward_restock_scroll_input(event: InputEvent, from_control: Control) -> void:
+	if not (event is InputEventMouseButton):
+		return
+
+	var mouse_event := event as InputEventMouseButton
+
+	if not mouse_event.pressed:
+		return
+
+	var direction := 0
+
+	if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		direction = -1
+	elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		direction = 1
+
+	if direction == 0:
+		return
+
+	var scroll := _find_parent_scroll_container(from_control)
+
+	if scroll == null:
+		return
+
+	scroll.scroll_vertical += direction * RESTOCK_SCROLL_STEP
+	get_viewport().set_input_as_handled()
+
+
+func _find_parent_scroll_container(from_control: Control) -> ScrollContainer:
+	var node: Node = from_control
+
+	while node != null:
+		if node is ScrollContainer:
+			return node as ScrollContainer
+
+		node = node.get_parent()
+
+	return null
+
+
+func _has_restock_cart_items() -> bool:
+	for item_id in _restock_cart.keys():
+		if int(_restock_cart[item_id]) > 0:
+			return true
+
+	return false
+
+
+func _format_restock_cart_summary() -> String:
+	if not _has_restock_cart_items():
+		return "Cart: empty"
+
+	var parts: Array[String] = []
+
+	for item_id in _restock_cart.keys():
+		var quantity := int(_restock_cart[item_id])
+
+		if quantity <= 0:
+			continue
+
+		var item := ItemDatabase.get_item(str(item_id))
+		var item_name := str(item_id)
+
+		if item != null:
+			item_name = item.display_name
+
+		parts.append("%s x%d" % [item_name, quantity])
+
+	var packed_parts := PackedStringArray(parts)
+	return "Cart: %s" % ", ".join(packed_parts)
+
+
+func _get_restock_cart_total() -> int:
+	var total := 0
+
+	for item_id in _restock_cart.keys():
+		var item := ItemDatabase.get_item(str(item_id))
+
+		if item == null:
+			continue
+
+		total += _get_item_buy_cost(item) * int(_restock_cart[item_id])
+
+	return total
+
+
+func _get_restock_cart_order_items() -> Array[Dictionary]:
+	var order_items: Array[Dictionary] = []
+
+	for item_id in _restock_cart.keys():
+		var quantity := int(_restock_cart[item_id])
+
+		if quantity <= 0:
+			continue
+
+		order_items.append({
+			"item_id": str(item_id),
+			"quantity": quantity
+		})
+
+	return order_items
 
 
 func _hide_restock_panel() -> void:

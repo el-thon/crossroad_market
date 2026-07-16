@@ -24,7 +24,7 @@ const SEARCH_PATIENCE: float = 15.0
 const SHELF_SEARCH_MIN_TIME: float = 1.0
 const SHELF_TAKE_PAUSE_TIME: float = 1.25
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
-const SHELF_ACTION_DISTANCE: float = 56.0
+const SHELF_ACTION_DISTANCE: float = 28.0
 const SHELF_VISIT_ARRIVAL_DISTANCE: float = 8.0
 const QUEUE_ACTION_DISTANCE: float = 14.0
 const STUCK_WATCHDOG_SECONDS: float = 1.5
@@ -75,6 +75,7 @@ var _move_direction: CharacterSprite.Direction = CharacterSprite.Direction.DOWN
 
 
 func _ready() -> void:
+	add_to_group("npcs")
 	add_to_group("dialog_skip_target")
 	_trust_label = get_node_or_null("TrustLabel") as Label
 	_update_trust_display()
@@ -291,10 +292,6 @@ func _process_search_item(delta: float) -> void:
 	_search_timer += delta
 
 	if _has_any_requested_item_available():
-		if not _search_announced:
-			_show_dialog(BlueprintManager.get_item_found_dialog(self))
-			_search_announced = true
-
 		if _search_timer < SHELF_SEARCH_MIN_TIME:
 			return
 

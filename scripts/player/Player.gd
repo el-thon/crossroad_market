@@ -455,7 +455,7 @@ func _trigger_interaction_guidance(areas: Array[Area2D]) -> void:
 	if best_target is RestockPackage:
 		_show_guided_hint_once(
 			"restock_package",
-			"Restock Package. Press E to pick it up."
+			"Restock Supply Box. Press E to pick it up."
 		)
 		return
 

@@ -10,9 +10,7 @@ const STORY_INTERACTION_TRUST_GAIN: int = 20
 const CASHIER_BUTTON_FONT_SIZE: int = 8
 const CASHIER_BUTTON_MIN_HEIGHT: float = 20.0
 const ITEM_SWATCH_SIZE := Vector2(10, 16)
-const STORE_OS_APP_HOME: StringName = &"home"
 const STORE_OS_APP_POS: StringName = &"pos"
-const STORE_OS_APP_RESTOCK: StringName = &"restock"
 
 @onready var interaction_area: Area2D = $InteractionArea
 
@@ -40,7 +38,7 @@ var _item_scroll: ScrollContainer = null
 var _action_row: Container = null
 var _cashier_lock_active: bool = false
 var _seen_panel_guidance: Dictionary = {}
-var _active_store_os_app: StringName = STORE_OS_APP_HOME
+var _active_store_os_app: StringName = STORE_OS_APP_POS
 
 
 func _ready() -> void:
@@ -72,15 +70,10 @@ func try_checkout() -> void:
 	if first_npc == null:
 		if _has_customer_approaching_counter():
 			_show_notification("Customer is still walking to the counter.", 1.2)
-			_render_store_os_home(
-				"Customer is walking to counter.",
-				"Use POS when they reach checkout."
-			)
 		else:
-			_render_store_os_home(
-				"No customer at checkout.",
-				"Use POS when a customer arrives."
-			)
+			_show_notification("No customer at checkout.", 0.9)
+
+		_render_empty_pos_app()
 		return
 
 	_process_scan(first_npc)
@@ -319,38 +312,23 @@ func _render_store_os_home(
 	guide_text: String = "Use POS when a customer arrives."
 ) -> void:
 	_ensure_cashier_panel()
-	_set_store_os_app(STORE_OS_APP_HOME)
+	_set_store_os_app(STORE_OS_APP_POS)
 	_clear_container(_item_list)
 	_clear_container(_action_row)
 	_lock_player_actions()
 
 	_cashier_panel.visible = true
-	_panel_title.text = "STORE OS HOME"
-	_set_item_title("APPS")
-	_customer_label.text = "Apps"
+	_panel_title.text = "POS APP"
+	_set_item_title("ITEM LIST")
+	_customer_label.text = "Customer: -"
 	_request_label.text = status_text
-	_selected_label.text = "Income %dG | Outcome 0G | Profit %dG" % [
-		EconomyManager.daily_revenue,
-		EconomyManager.daily_revenue
-	]
+	_selected_label.text = "Cart: - | Total 0G"
 	_guide_label.visible = true
 	_guide_label.text = guide_text
 
-	var pos_button := Button.new()
-	pos_button.text = "POS App"
-	pos_button.custom_minimum_size = Vector2(0, 34)
-	pos_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(pos_button, "Open cashier checkout tools.")
-	pos_button.pressed.connect(_render_pos_app)
-	_item_list.add_child(pos_button)
-
-	var restock_button := Button.new()
-	restock_button.text = "Restock App"
-	restock_button.custom_minimum_size = Vector2(0, 34)
-	restock_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(restock_button, "Open restock draft tools.")
-	restock_button.pressed.connect(_render_restock_app)
-	_item_list.add_child(restock_button)
+	for item in _get_store_items():
+		if item != null:
+			_item_list.add_child(_create_catalog_item_row(item))
 
 	var close_button := Button.new()
 	close_button.text = "Close OS"
@@ -694,43 +672,6 @@ func _show_customer_request_bubble() -> void:
 		_scanned_npc.repeat_checkout_request()
 
 
-func _render_restock_app() -> void:
-	_set_store_os_app(STORE_OS_APP_RESTOCK)
-	_ensure_cashier_panel()
-	_clear_container(_item_list)
-	_clear_container(_action_row)
-	_lock_player_actions()
-
-	_cashier_panel.visible = true
-	_panel_title.text = "RESTOCK APP"
-	_set_item_title("RESTOCK LIST")
-	_customer_label.text = "Restock system draft"
-	_request_label.text = "Default prices remain active for checkout."
-	_selected_label.text = "Income %dG | Outcome 0G | Profit %dG" % [
-		EconomyManager.daily_revenue,
-		EconomyManager.daily_revenue
-	]
-	_guide_label.visible = true
-	_guide_label.text = "Supplier/restock economy is placeholder."
-
-	var store_items: Array[ItemData] = _get_store_items()
-
-	for item in store_items:
-		if item == null:
-			continue
-
-		_item_list.add_child(_create_restock_item_card(item))
-
-	var disabled_button := Button.new()
-	disabled_button.text = "Restock Draft"
-	disabled_button.disabled = true
-	disabled_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(disabled_button, "Restock economy is not implemented yet.")
-	_action_row.add_child(disabled_button)
-
-	_add_app_navigation_buttons()
-
-
 func _set_store_os_app(app_id: StringName) -> void:
 	_active_store_os_app = app_id
 
@@ -820,45 +761,13 @@ func _create_catalog_item_row(item: ItemData) -> Control:
 	return row
 
 
-func _create_restock_item_card(item: ItemData) -> Control:
-	var card := HBoxContainer.new()
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_constant_override("separation", 5)
-
-	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = ITEM_SWATCH_SIZE
-	swatch.color = _get_item_shelf_color(item)
-	card.add_child(swatch)
-
-	var label := Label.new()
-	label.text = "%s  %dG" % [item.display_name, item.sell_price]
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.clip_text = true
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	label.add_theme_font_size_override("font_size", CASHIER_BUTTON_FONT_SIZE)
-	card.add_child(label)
-
-	return card
-
-
 func _add_app_navigation_buttons() -> void:
-	var exit_button := Button.new()
-	exit_button.text = "Exit App"
-	exit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(exit_button, "Return to Store OS Home.")
-	exit_button.pressed.connect(_exit_current_app_to_home)
-	_action_row.add_child(exit_button)
-
 	var close_button := Button.new()
 	close_button.text = "Close OS"
 	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_configure_button_guidance(close_button, "Close Store OS.")
 	close_button.pressed.connect(_close_store_os)
 	_action_row.add_child(close_button)
-
-
-func _exit_current_app_to_home() -> void:
-	_render_store_os_home()
 
 
 func _close_store_os() -> void:

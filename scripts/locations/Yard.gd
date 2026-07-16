@@ -72,29 +72,25 @@ func _refresh_restock_packages() -> void:
 		if child is RestockPackage:
 			child.queue_free()
 
+	if _restock_deliveries.is_empty():
+		return
+
 	var markers := _get_restock_drop_markers()
 	var marker_count := markers.size()
+	var package := RestockPackage.new()
+	package.name = "RestockSupplyBox"
+	restock_drop_zone.add_child(package)
+	package.setup_deliveries(_restock_deliveries)
 
-	for i in range(_restock_deliveries.size()):
-		var delivery := _restock_deliveries[i]
-		var package := RestockPackage.new()
-		package.name = "RestockPackage%d" % int(delivery.get("id", i))
-		restock_drop_zone.add_child(package)
-		package.setup(
-			int(delivery.get("id", i)),
-			str(delivery.get("item_id", "")),
-			int(delivery.get("quantity", 1))
-		)
+	if marker_count > 0:
+		package.global_position = markers[0].global_position
+	else:
+		package.position = Vector2(80, 220)
 
-		if marker_count > 0:
-			package.global_position = markers[i % marker_count].global_position
-		else:
-			package.position = Vector2(80 + 36 * i, 220)
+	var collected_callable := Callable(self, "_on_restock_package_collected")
 
-		var collected_callable := Callable(self, "_on_restock_package_collected")
-
-		if not package.collected.is_connected(collected_callable):
-			package.collected.connect(collected_callable)
+	if not package.collected.is_connected(collected_callable):
+		package.collected.connect(collected_callable)
 
 
 func _get_restock_drop_markers() -> Array[Marker2D]:
@@ -114,9 +110,12 @@ func _get_restock_drop_markers() -> Array[Marker2D]:
 
 
 func _on_restock_package_collected(delivery_id: int) -> void:
-	for i in range(_restock_deliveries.size() - 1, -1, -1):
-		if int(_restock_deliveries[i].get("id", -1)) == delivery_id:
-			_restock_deliveries.remove_at(i)
-			break
+	if delivery_id < 0:
+		_restock_deliveries.clear()
+	else:
+		for i in range(_restock_deliveries.size() - 1, -1, -1):
+			if int(_restock_deliveries[i].get("id", -1)) == delivery_id:
+				_restock_deliveries.remove_at(i)
+				break
 
 	restock_delivery_collected.emit(delivery_id)

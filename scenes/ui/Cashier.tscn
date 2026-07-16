@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://c3jpds51r7i41"]
 
-[ext_resource type="Script" uid="uid://cm4oac04u08if" path="res://scripts/ui/Cashier.gd" id="1"]
+[ext_resource type="Script" uid="uid://dibcopjn4fbly" path="res://scripts/ui/Cashier.gd" id="1"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(65, 31)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_back_counter"]
-size = Vector2(136, 78)
+size = Vector2(136, 72)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_area"]
 size = Vector2(75, 43.5)
@@ -32,7 +32,7 @@ position = Vector2(-12.5, -14.5)
 shape = SubResource("RectangleShape2D_body")
 
 [node name="BackCounterCollision" type="CollisionShape2D" parent="." unique_id=991886323]
-position = Vector2(-16, -27)
+position = Vector2(-13, -30)
 shape = SubResource("RectangleShape2D_back_counter")
 disabled = true
 

@@ -11,7 +11,8 @@ var daily_target: int = 50
 var _daily_target_reached: bool = false
 
 # tax increases per day (index = day - 1)
-var _tax_per_day: Array[int] = [10, 10, 15, 15, 20, 25]
+const BASE_DAILY_TAX: int = 20
+const DAILY_TAX_INCREASE: int = 5
 
 func _ready() -> void:
 	TimeManager.day_started.connect(_on_day_started)
@@ -35,14 +36,16 @@ func spend_gold(amount: int) -> bool:
 	return true
 
 func get_daily_tax() -> int:
-	var day_index: int = TimeManager.current_day - 1
-	if day_index >= 0 and day_index < _tax_per_day.size():
-		return _tax_per_day[day_index]
-	return _tax_per_day[-1]
+	return BASE_DAILY_TAX + max(0, TimeManager.current_day - 1) * DAILY_TAX_INCREASE
 
 func pay_tax() -> bool:
 	var tax := get_daily_tax()
-	return spend_gold(tax)
+	if gold < tax:
+		return false
+
+	gold -= tax
+	gold_changed.emit(gold)
+	return true
 
 func get_daily_report() -> Dictionary:
 	return {

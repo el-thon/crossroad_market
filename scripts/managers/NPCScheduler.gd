@@ -139,6 +139,24 @@ func set_store_open(is_open: bool) -> void:
 	_store_open = is_open
 
 
+func are_customer_sessions_complete_for_day() -> bool:
+	if _customer_sessions.is_empty():
+		return true
+
+	for session in _customer_sessions.values():
+		if not (session is Dictionary):
+			continue
+
+		var data := session as Dictionary
+		var pool := data.get("pool", []) as Array[NPCData]
+		var index := int(data.get("index", 0))
+
+		if index < pool.size() and not bool(data.get("closed", false)):
+			return false
+
+	return true
+
+
 func start_night_customer_session() -> void:
 	if _active_customer_session == SESSION_NIGHT:
 		return
