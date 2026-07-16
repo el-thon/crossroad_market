@@ -40,6 +40,13 @@ func open_board() -> void:
 	)
 
 
+func request_interaction() -> void:
+	if TimeManager.has_method("start_clock"):
+		TimeManager.start_clock()
+
+	open_board()
+
+
 func play_completion_glow() -> void:
 	if _glow_line == null:
 		_setup_completion_glow()

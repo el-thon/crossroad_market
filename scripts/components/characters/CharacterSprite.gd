@@ -13,6 +13,7 @@ var _animation_fps: float = 5.0
 var _default_direction: Direction = Direction.DOWN
 var _animate_idle: bool = true
 var _direction_config: AnimatedCharacterSpriteConfig
+var _idle_direction_config: AnimatedCharacterSpriteConfig
 var _current_direction: Direction = Direction.DOWN
 var _is_moving: bool = false
 var _is_direction_loop_forced: bool = false
@@ -52,6 +53,19 @@ var _needs_refresh: bool = true
 		_direction_config = value
 		if _direction_config != null:
 			_direction_config.changed.connect(_queue_refresh)
+		_queue_refresh()
+
+@export var idle_direction_config: AnimatedCharacterSpriteConfig:
+	get:
+		return _idle_direction_config
+	set(value):
+		if _idle_direction_config == value:
+			return
+		if _idle_direction_config != null and _idle_direction_config.changed.is_connected(_queue_refresh):
+			_idle_direction_config.changed.disconnect(_queue_refresh)
+		_idle_direction_config = value
+		if _idle_direction_config != null:
+			_idle_direction_config.changed.connect(_queue_refresh)
 		_queue_refresh()
 
 
@@ -115,18 +129,25 @@ func _refresh_sprite_frames() -> void:
 
 	var frames := SpriteFrames.new()
 	var has_any_animation := false
-	if _direction_config == null:
+	if _direction_config == null and _idle_direction_config == null:
 		sprite_frames = frames
 		stop()
 		return
 
 	for direction in [Direction.DOWN, Direction.LEFT, Direction.RIGHT, Direction.UP]:
-		var settings := _direction_config.get_direction_settings(direction)
-		var texture: Texture2D = settings.get("texture")
-		if texture == null:
-			continue
-		var created_frames := _add_frames_for_texture(frames, _get_animation_name(direction), texture, settings.get("rows"), settings.get("columns"), settings.get("frames_per_row"), settings.get("start_row"), settings.get("start_column"), settings.get("end_row"), settings.get("end_column"), settings.get("spacing"), settings.get("margin"))
-		has_any_animation = has_any_animation or created_frames > 0
+		if _direction_config != null:
+			var settings := _direction_config.get_direction_settings(direction)
+			var texture: Texture2D = settings.get("texture")
+			if texture != null:
+				var created_frames := _add_frames_for_texture(frames, _get_animation_name(direction), texture, settings.get("rows"), settings.get("columns"), settings.get("frames_per_row"), settings.get("start_row"), settings.get("start_column"), settings.get("end_row"), settings.get("end_column"), settings.get("spacing"), settings.get("margin"))
+				has_any_animation = has_any_animation or created_frames > 0
+
+		if _idle_direction_config != null:
+			var idle_settings := _idle_direction_config.get_direction_settings(direction)
+			var idle_texture: Texture2D = idle_settings.get("texture")
+			if idle_texture != null:
+				var created_idle_frames := _add_frames_for_texture(frames, _get_idle_animation_name(direction), idle_texture, idle_settings.get("rows"), idle_settings.get("columns"), idle_settings.get("frames_per_row"), idle_settings.get("start_row"), idle_settings.get("start_column"), idle_settings.get("end_row"), idle_settings.get("end_column"), idle_settings.get("spacing"), idle_settings.get("margin"))
+				has_any_animation = has_any_animation or created_idle_frames > 0
 
 	sprite_frames = frames
 	speed_scale = 1.0
@@ -139,7 +160,7 @@ func _refresh_sprite_frames() -> void:
 func _apply_motion_state() -> void:
 	if sprite_frames == null:
 		return
-	var animation_name := _get_animation_name(_current_direction)
+	var animation_name := _get_active_animation_name(_current_direction)
 	if not sprite_frames.has_animation(animation_name):
 		return
 
@@ -204,3 +225,21 @@ func _get_animation_name(direction: Direction) -> StringName:
 		Direction.RIGHT: return &"right"
 		Direction.UP: return &"up"
 	return &"down"
+
+
+func _get_idle_animation_name(direction: Direction) -> StringName:
+	match direction:
+		Direction.DOWN: return &"idle_down"
+		Direction.LEFT: return &"idle_left"
+		Direction.RIGHT: return &"idle_right"
+		Direction.UP: return &"idle_up"
+	return &"idle_down"
+
+
+func _get_active_animation_name(direction: Direction) -> StringName:
+	if not _is_moving and _idle_direction_config != null:
+		var idle_animation := _get_idle_animation_name(direction)
+		if sprite_frames != null and sprite_frames.has_animation(idle_animation):
+			return idle_animation
+
+	return _get_animation_name(direction)

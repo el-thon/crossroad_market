@@ -5,10 +5,10 @@ enum Phase { MORNING, DAY, NIGHT }
 const PHASE_DURATION: float = 240.0
 const TOTAL_DAYS: int = 6
 const CLOCK_STEP_MINUTES: int = 10
-const MORNING_START_MINUTES: int = 8 * 60
-const DAY_START_MINUTES: int = 10 * 60
+const MORNING_START_MINUTES: int = 6 * 60
+const DAY_START_MINUTES: int = 12 * 60
 const NIGHT_START_MINUTES: int = 18 * 60
-const END_START_MINUTES: int = 22 * 60
+const END_START_MINUTES: int = 24 * 60
 
 signal phase_changed(new_phase: Phase)
 signal day_started(day: int)
@@ -19,6 +19,7 @@ var current_day: int = 1
 var current_phase: Phase = Phase.MORNING
 var time_remaining: float = PHASE_DURATION
 var is_running: bool = false
+var _day_finished: bool = false
 
 
 func _process(delta: float) -> void:
@@ -34,7 +35,8 @@ func _process(delta: float) -> void:
 
 func start_game() -> void:
 	current_day = 1
-	is_running = true
+	is_running = false
+	_day_finished = false
 	_set_phase(Phase.MORNING)
 	day_started.emit(current_day)
 
@@ -45,7 +47,8 @@ func start_next_day() -> void:
 		return
 
 	current_day += 1
-	is_running = true
+	is_running = false
+	_day_finished = false
 	_set_phase(Phase.MORNING)
 	day_started.emit(current_day)
 
@@ -53,6 +56,13 @@ func start_next_day() -> void:
 func start_day_phase() -> void:
 	is_running = true
 	_set_phase(Phase.DAY)
+
+
+func start_clock() -> void:
+	if _day_finished:
+		return
+
+	is_running = true
 
 
 func end_day_sequence() -> void:
@@ -64,7 +74,19 @@ func pause() -> void:
 
 
 func resume() -> void:
-	is_running = true
+	start_clock()
+
+
+func can_sleep() -> bool:
+	return _day_finished
+
+
+func sleep_until_next_day() -> bool:
+	if not can_sleep():
+		return false
+
+	start_next_day()
+	return true
 
 
 func get_phase_name() -> String:
@@ -85,7 +107,7 @@ func get_time_display() -> String:
 
 func get_clock_display() -> String:
 	var minutes: int = get_world_minutes()
-	var hour: int = floori(minutes / 60.0) % 24
+	var hour: int = 24 if minutes >= END_START_MINUTES else floori(minutes / 60.0) % 24
 	var minute: int = minutes % 60
 
 	return "%02d:%02d" % [hour, minute]
@@ -94,22 +116,25 @@ func get_clock_display() -> String:
 func get_phase_time_range() -> String:
 	match current_phase:
 		Phase.MORNING:
-			return "08:00-10:00"
+			return "06:00-12:00"
 		Phase.DAY:
-			return "10:00-18:00"
+			return "12:00-18:00"
 		Phase.NIGHT:
-			return "18:00-22:00"
+			return "18:00-24:00"
 
 	return ""
 
 
 func get_world_minutes() -> int:
+	if _day_finished:
+		return END_START_MINUTES
+
 	var phase_start: int = _get_phase_start_minutes(current_phase)
 	var elapsed_ratio: float = clamp((PHASE_DURATION - time_remaining) / PHASE_DURATION, 0.0, 0.999)
 	var phase_minutes: int = int(floor(elapsed_ratio * float(_get_phase_world_duration_minutes(current_phase))))
 	phase_minutes = int(floor(float(phase_minutes) / float(CLOCK_STEP_MINUTES))) * CLOCK_STEP_MINUTES
 
-	return (phase_start + phase_minutes) % (24 * 60)
+	return phase_start + phase_minutes
 
 
 func get_current_clock_minutes() -> int:
@@ -123,13 +148,17 @@ func _advance_phase() -> void:
 		Phase.DAY:
 			_set_phase(Phase.NIGHT)
 		Phase.NIGHT:
+			time_remaining = 0.0
 			is_running = false
+			_day_finished = true
+			time_updated.emit(time_remaining)
 			day_ended.emit(current_day)
 
 
 func _set_phase(new_phase: Phase) -> void:
 	current_phase = new_phase
 	time_remaining = PHASE_DURATION
+	_day_finished = false
 	phase_changed.emit(current_phase)
 	time_updated.emit(time_remaining)
 

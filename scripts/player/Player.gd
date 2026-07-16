@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 const ActivityBoard = preload("res://scripts/objects/ActivityBoard.gd")
 const OpenCloseBoard = preload("res://scripts/objects/OpenCloseBoard.gd")
+const SleepBed = preload("res://scripts/objects/SleepBed.gd")
 const PlayerInteraction = preload("res://scripts/player/PlayerInteraction.gd")
 const PlayerNotificationBridge = preload("res://scripts/player/PlayerNotificationBridge.gd")
 const PlayerShelfInteraction = preload("res://scripts/player/PlayerShelfInteraction.gd")
@@ -12,6 +13,7 @@ const PlayerShelfInteraction = preload("res://scripts/player/PlayerShelfInteract
 @onready var interaction_area: Area2D = $InteractionArea
 @onready var sprite_move: AnimatedSprite2D = $VisualRoot/SpriteMove
 @onready var sprite_idle: AnimatedSprite2D = $VisualRoot/SpriteIdle
+@onready var sprite_action: AnimatedSprite2D = $VisualRoot/SpriteAction
 
 var facing_direction: Vector2 = Vector2.DOWN
 var _supply_box_cursor: int = 0
@@ -23,13 +25,25 @@ var _move_direction: CharacterSprite.Direction = CharacterSprite.Direction.DOWN
 const MAX_WRONG_ATTEMPTS: int = 1
 const STORY_INTERACTION_TRUST_GAIN: int = 20
 const GOOBY_ID: String = "gooby"
+const CARRIED_OBJECT_FRONT_OFFSET: Vector2 = Vector2(0, -9)
+const CARRIED_OBJECT_BACK_OFFSET: Vector2 = Vector2(0, -15)
+const CARRIED_OBJECT_LEFT_OFFSET: Vector2 = Vector2(-12, -15)
+const CARRIED_OBJECT_RIGHT_OFFSET: Vector2 = Vector2(12, -15)
+const CARRIED_OBJECT_FRONT_Z: int = 1
+const CARRIED_OBJECT_BACK_Z: int = -1
+const CARRIED_OBJECT_SIDE_Z: int = 1
+const SPRITE_NORMAL_Z: int = 0
+const SPRITE_ACTION_FRONT_Z: int = 0
+const SPRITE_ACTION_BACK_Z: int = 1
 
 
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	add_to_group("player")
 	_update_interaction_area_position()
+	_apply_sprite_base_z_indexes()
 	sprite_move.visible = false
+	sprite_action.visible = false
 
 
 func _physics_process(_delta: float) -> void:
@@ -37,6 +51,7 @@ func _physics_process(_delta: float) -> void:
 		velocity = Vector2.ZERO
 		move_and_slide()
 		_update_character_sprite(Vector2.ZERO)
+		update_carried_object_visual()
 		return
 
 	var input_dir: Vector2 = Input.get_vector(
@@ -49,15 +64,11 @@ func _physics_process(_delta: float) -> void:
 	if input_dir != Vector2.ZERO:
 		facing_direction = input_dir.normalized()
 		_update_interaction_area_position()
-		sprite_idle.visible = false
-		sprite_move.visible = true
-	else:
-		sprite_move.visible = false
-		sprite_idle.visible = true
 
 	velocity = input_dir * speed
 	move_and_slide()
 	_update_character_sprite(input_dir)
+	update_carried_object_visual()
 	_update_interaction_hint()
 
 
@@ -81,16 +92,57 @@ func _update_interaction_area_position() -> void:
 
 
 func _update_character_sprite(motion: Vector2) -> void:
-	if sprite_move == null && sprite_idle == null:
+	if sprite_move == null and sprite_idle == null and sprite_action == null:
 		return
-	
-	if motion == Vector2.ZERO:
-		if sprite_idle.has_method("play_direction_loop"):	
-			sprite_idle.call("play_direction_loop", _move_direction)
+
+	var is_moving := motion != Vector2.ZERO
+	var is_carrying_shelf := _is_carrying_shelf()
+
+	if is_moving:
+		_move_direction = _get_direction(motion)
+
+	var active_sprite := _get_active_character_sprite(is_carrying_shelf, is_moving)
+	_set_character_sprite_visibility(active_sprite)
+
+	if active_sprite == null:
+		return
+
+	if is_moving:
+		if active_sprite.has_method("apply_motion_vector"):
+			active_sprite.call("apply_motion_vector", motion)
 	else:
-		if sprite_move.has_method("apply_motion_vector"):
-			sprite_move.call("apply_motion_vector", motion)
-			_move_direction = _get_direction(motion)
+		if active_sprite.has_method("play_direction_loop"):
+			active_sprite.call("play_direction_loop", _move_direction)
+
+
+func _get_active_character_sprite(is_carrying_shelf: bool, is_moving: bool) -> AnimatedSprite2D:
+	if is_carrying_shelf:
+		return sprite_action
+
+	return sprite_move if is_moving else sprite_idle
+
+
+func _set_character_sprite_visibility(active_sprite: AnimatedSprite2D) -> void:
+	for sprite in [sprite_move, sprite_idle, sprite_action]:
+		if sprite == null:
+			continue
+
+		sprite.visible = sprite == active_sprite
+
+
+func update_carried_object_visual(carried_object: Node2D = null) -> void:
+	var object := carried_object if carried_object != null else _get_carried_object()
+	if object == null:
+		_apply_sprite_base_z_indexes()
+		return
+
+	object.position = _get_carried_object_offset()
+	object.z_index = _get_carried_object_z_index()
+	_apply_carry_sprite_z_index()
+
+
+func _is_carrying_shelf() -> bool:
+	return _get_carried_object() != null
 
 
 func _get_direction(motion: Vector2) -> CharacterSprite.Direction:
@@ -101,6 +153,44 @@ func _get_direction(motion: Vector2) -> CharacterSprite.Direction:
 		return CharacterSprite.Direction.RIGHT if motion.x > 0 else CharacterSprite.Direction.LEFT
 	else:
 		return CharacterSprite.Direction.DOWN if motion.y > 0 else CharacterSprite.Direction.UP
+
+
+func _get_carried_object_offset() -> Vector2:
+	match _move_direction:
+		CharacterSprite.Direction.UP:
+			return CARRIED_OBJECT_BACK_OFFSET
+		CharacterSprite.Direction.LEFT:
+			return CARRIED_OBJECT_LEFT_OFFSET
+		CharacterSprite.Direction.RIGHT:
+			return CARRIED_OBJECT_RIGHT_OFFSET
+		_:
+			return CARRIED_OBJECT_FRONT_OFFSET
+
+
+func _get_carried_object_z_index() -> int:
+	match _move_direction:
+		CharacterSprite.Direction.UP:
+			return CARRIED_OBJECT_BACK_Z
+		CharacterSprite.Direction.LEFT, CharacterSprite.Direction.RIGHT:
+			return CARRIED_OBJECT_SIDE_Z
+		_:
+			return CARRIED_OBJECT_FRONT_Z
+
+
+func _apply_sprite_base_z_indexes() -> void:
+	if sprite_move != null:
+		sprite_move.z_index = SPRITE_NORMAL_Z
+	if sprite_idle != null:
+		sprite_idle.z_index = SPRITE_NORMAL_Z
+	if sprite_action != null:
+		sprite_action.z_index = SPRITE_ACTION_FRONT_Z
+
+
+func _apply_carry_sprite_z_index() -> void:
+	if sprite_action == null:
+		return
+
+	sprite_action.z_index = SPRITE_ACTION_BACK_Z if _move_direction == CharacterSprite.Direction.UP else SPRITE_ACTION_FRONT_Z
 
 
 func _try_interact() -> void:
@@ -147,6 +237,10 @@ func _try_interact() -> void:
 		_interact_with_open_close_board(best_target as OpenCloseBoard)
 		return
 
+	if best_target is SleepBed:
+		_interact_with_sleep_bed(best_target as SleepBed)
+		return
+
 
 func _try_storage_door_interaction(area: Area2D) -> bool:
 	var door_type: String = _get_storage_door_type(area)
@@ -155,7 +249,15 @@ func _try_storage_door_interaction(area: Area2D) -> bool:
 		return false
 
 	if door_type.ends_with("_return") or door_type == "return":
-		return _try_location_return_to_store()
+		return _try_location_return()
+
+	if door_type == "home":
+		var yard: Node = get_tree().get_first_node_in_group("yard")
+
+		if yard == null or not yard.has_method("request_enter_home"):
+			return false
+
+		return bool(yard.call("request_enter_home"))
 
 	var store: Node = get_tree().get_first_node_in_group("store")
 
@@ -174,7 +276,12 @@ func _try_storage_door_interaction(area: Area2D) -> bool:
 	return true
 
 
-func _try_location_return_to_store() -> bool:
+func _try_location_return() -> bool:
+	var home := get_tree().get_first_node_in_group("home")
+
+	if home != null and home.has_method("request_return_to_yard"):
+		return bool(home.call("request_return_to_yard"))
+
 	for group_name in ["storage", "yard"]:
 		var location := get_tree().get_first_node_in_group(group_name)
 
@@ -315,6 +422,13 @@ func _trigger_interaction_guidance(areas: Array[Area2D]) -> void:
 			"open_close_board",
 			"Open/Close Board. Press E to flip the store sign."
 		)
+		return
+
+	if best_target is SleepBed:
+		_show_guided_hint_once(
+			"sleep_bed",
+			"Bed. Press E to sleep when the night is over."
+		)
 
 
 func _trigger_shelf_guidance(shelf: Shelf) -> void:
@@ -406,10 +520,16 @@ func _get_object_prompt_name(target: Node) -> String:
 
 
 func _get_carried_shelf() -> Shelf:
+	var carried_object := _get_carried_object()
+
+	return carried_object as Shelf if carried_object is Shelf else null
+
+
+func _get_carried_object() -> Node2D:
 	for child in get_children():
-		if child is Shelf and child.has_meta("is_carried_storage_object"):
+		if child is Node2D and child.has_meta("is_carried_storage_object"):
 			if bool(child.get_meta("is_carried_storage_object")):
-				return child as Shelf
+				return child as Node2D
 
 	return null
 
@@ -697,7 +817,18 @@ func _interact_with_activity_board(activity_board: ActivityBoard) -> void:
 		_show_notification("Put down the shelf first.", 0.8)
 		return
 
-	activity_board.open_board()
+	if activity_board.has_method("request_interaction"):
+		activity_board.call("request_interaction")
+	else:
+		activity_board.open_board()
+
+
+func _interact_with_sleep_bed(sleep_bed: SleepBed) -> void:
+	if _get_carried_shelf() != null:
+		_show_notification("Put down the shelf first.", 0.8)
+		return
+
+	sleep_bed.request_interaction()
 
 
 func _try_pickup_shelf(shelf: Shelf) -> bool:

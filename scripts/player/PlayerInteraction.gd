@@ -3,6 +3,7 @@ extends RefCounted
 
 const ActivityBoard = preload("res://scripts/objects/ActivityBoard.gd")
 const OpenCloseBoard = preload("res://scripts/objects/OpenCloseBoard.gd")
+const SleepBed = preload("res://scripts/objects/SleepBed.gd")
 
 
 static func get_storage_door_type(area: Area2D) -> String:
@@ -17,6 +18,8 @@ static func get_storage_door_type(area: Area2D) -> String:
 			return "normal"
 		"StorageDoor2", "StorageDoor_Mystery":
 			return "mistery"
+		"HomeDoor":
+			return "home"
 		"ReturnDoor":
 			return "return"
 		_:
@@ -41,5 +44,8 @@ static func get_interaction_priority(target: Node) -> int:
 
 	if target is OpenCloseBoard:
 		return 5
+
+	if target is SleepBed:
+		return 6
 
 	return 999

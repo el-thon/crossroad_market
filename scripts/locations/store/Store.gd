@@ -13,9 +13,6 @@ const STORE_DROP_OFFSET := Vector2(0, 24)
 const CASHIER_DEPTH_HALF_WIDTH: float = 48.0
 const CASHIER_DEPTH_BACK_OFFSET: float = 64.0
 const CASHIER_DEPTH_FRONT_OFFSET: float = 8.0
-const SHELF_DEPTH_HALF_WIDTH: float = 48.0
-const SHELF_DEPTH_BACK_OFFSET: float = 56.0
-const SHELF_DEPTH_FRONT_OFFSET: float = 8.0
 const CARRY_SHELF_CASHIER_BLOCKER_SIZE := Vector2(96, 36)
 const CARRY_SHELF_CASHIER_BLOCKER_OFFSET := Vector2(0, -70)
 const STORE_SHELF_PICKUP_DISTANCE: float = 76.0
@@ -53,6 +50,7 @@ const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 var npc_scene: PackedScene = preload("res://scenes/npc/NPC.tscn")
 var storage_scene: PackedScene = preload("res://scenes/locations/Storage.tscn")
 var yard_scene: PackedScene = preload("res://scenes/locations/Yard.tscn")
+var home_scene: PackedScene = preload("res://scenes/locations/Home.tscn")
 
 @onready var counter_pos: Marker2D = get_node_or_null("CounterPos") as Marker2D
 @onready var entrance_pos: Marker2D = get_node_or_null("EntrancePos") as Marker2D
@@ -73,6 +71,7 @@ var yard_scene: PackedScene = preload("res://scenes/locations/Yard.tscn")
 
 var _current_storage: Node2D = null
 var _current_yard: Node2D = null
+var _current_home: Node2D = null
 var _fade_layer: CanvasLayer = null
 var _fade_rect: ColorRect = null
 var _location_title_layer: CanvasLayer = null
@@ -207,7 +206,7 @@ func request_toggle_store_open() -> void:
 		_update_store_status_board()
 		return
 
-	if not _is_day_setup_complete():
+	if not _store_opened_today and not _is_day_setup_complete():
 		_show_notification("Set up the shelf and stock items before opening.", 1.5)
 		_update_store_status_board()
 		return
@@ -232,6 +231,7 @@ func _open_store_at(_open_minutes: int) -> void:
 	_store_opened_today = true
 	_store_closed_for_day = false
 
+	TimeManager.start_clock()
 	NPCScheduler.set_store_open(true)
 	_update_store_status_board()
 	_show_status_notification("Store is OPEN.", 1.0)
@@ -475,6 +475,14 @@ func _connect_yard_return_signal() -> void:
 	else:
 		push_error("Store: Yard scene must emit return_to_store.")
 
+	if _current_yard.has_signal("enter_home"):
+		var home_callable := Callable(self, "_on_yard_enter_home")
+
+		if not _current_yard.is_connected("enter_home", home_callable):
+			_current_yard.connect("enter_home", home_callable)
+	else:
+		push_error("Store: Yard scene must emit enter_home.")
+
 
 func _enter_storage() -> void:
 	if storage_scene == null:
@@ -654,6 +662,102 @@ func _on_yard_return(_door_type: String) -> void:
 		_pending_store_intro_after_yard = false
 		_show_location_title_once("store", "Store")
 		call_deferred("_show_morning_intro")
+
+
+func _on_yard_enter_home() -> void:
+	if _is_transitioning:
+		return
+
+	_enter_home()
+
+
+func _enter_home() -> void:
+	if home_scene == null:
+		push_error("Store: Home scene is missing.")
+		return
+
+	if player == null and _current_yard != null:
+		player = _current_yard.get_node_or_null("Player") as Node2D
+
+	if player == null:
+		push_error("Store: Player is missing.")
+		return
+
+	_is_transitioning = true
+	_cancel_restricted_drop_feedback()
+	await _fade_to_black()
+
+	_current_home = home_scene.instantiate() as Node2D
+	add_child(_current_home)
+	_current_home.position = Vector2.ZERO
+	_current_home.z_index = 100
+
+	if _current_home.has_signal("return_to_yard"):
+		var return_callable := Callable(self, "_on_home_return_to_yard")
+
+		if not _current_home.is_connected("return_to_yard", return_callable):
+			_current_home.connect("return_to_yard", return_callable)
+	else:
+		push_error("Store: Home scene must emit return_to_yard.")
+
+	var spawn_marker := _current_home.get_node_or_null("PlayerSpawn") as Node2D
+	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 210)
+
+	StoreTransitionController.prepare_player_for_location(player, _current_home, spawn_position)
+
+	var yard_to_remove := _current_yard
+
+	if yard_to_remove != null:
+		yard_to_remove.queue_free()
+
+	_current_yard = null
+	open_close_board = null
+
+	await _fade_from_black()
+	_show_location_title_once("home", "Home")
+	_is_transitioning = false
+
+
+func _on_home_return_to_yard(_door_type: String) -> void:
+	if _is_transitioning:
+		return
+
+	if yard_scene == null:
+		push_error("Store: Yard scene is missing.")
+		return
+
+	_is_transitioning = true
+	await _fade_to_black()
+
+	if player == null and _current_home != null:
+		player = _current_home.get_node_or_null("Player") as Node2D
+
+	_current_yard = yard_scene.instantiate() as Node2D
+	add_child(_current_yard)
+	_current_yard.position = Vector2.ZERO
+	_current_yard.z_index = 100
+	_connect_yard_return_signal()
+	open_close_board = null
+	_update_store_status_board(false)
+
+	var spawn_marker := _current_yard.get_node_or_null("PlayerHomeArea/HomeReturnSpawn") as Node2D
+	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(856, 144)
+
+	if player != null:
+		StoreTransitionController.prepare_player_for_location(player, _current_yard, spawn_position)
+	else:
+		push_error("Store: Player not found while returning from Home.")
+
+	var home_to_remove := _current_home
+
+	if home_to_remove != null:
+		home_to_remove.queue_free()
+
+	_current_home = null
+
+	await _fade_from_black()
+	_show_location_title_once("yard", "Yard")
+	_is_transitioning = false
 
 
 func _on_storage_mystery_discovered() -> void:
@@ -1148,9 +1252,11 @@ func _pickup_installed_shelf(object: Node2D) -> void:
 		_ghost_shelf_installed = false
 
 	object.reparent(player, true)
-	object.position = Vector2(0, -34)
+	object.position = Vector2(0, -18)
 	object.z_index = 80
 	_set_shelf_carried_state(object, true)
+	if player.has_method("update_carried_object_visual"):
+		player.call("update_carried_object_visual", object)
 	_clear_shelf_access_metadata(object)
 	_set_customer_path_visual_visible(true)
 	_update_objective()
@@ -1340,19 +1446,6 @@ func _update_player_depth_override() -> void:
 		CASHIER_DEPTH_FRONT_OFFSET
 	)
 
-	if not is_behind_depth_object:
-		for shelf in get_tree().get_nodes_in_group("shelves"):
-			if shelf is Node2D and _is_descendant_of(shelf, self):
-				is_behind_depth_object = _is_player_behind_depth_object(
-					shelf as Node2D,
-					SHELF_DEPTH_HALF_WIDTH,
-					SHELF_DEPTH_BACK_OFFSET,
-					SHELF_DEPTH_FRONT_OFFSET
-				)
-
-				if is_behind_depth_object:
-					break
-
 	player.z_index = -1 if is_behind_depth_object else 0
 
 
@@ -1451,6 +1544,7 @@ func _set_store_world_active(is_active: bool) -> void:
 		if (
 			child == _current_storage
 			or child == _current_yard
+			or child == _current_home
 			or child == _fade_layer
 			or child == _location_title_layer
 			or child == _carry_shelf_blocker
@@ -1661,7 +1755,6 @@ func _on_daily_report(report: Dictionary) -> void:
 	print("Target: %s" % ("REACHED" if report.target_reached else "MISSED"))
 
 	EconomyManager.pay_tax()
-	TimeManager.end_day_sequence()
 
 
 func _on_day_ended(_day: int) -> void:
@@ -1780,6 +1873,24 @@ func _get_current_objective_text() -> String:
 	if TimeManager.current_phase == TimeManager.Phase.NIGHT and _customer_spawning_unlocked:
 		return "Serve Gooby at the cashier."
 
+	if _store_closed_for_day:
+		return "Store closed. Prepare for night."
+
+	if _store_opened_today:
+		if not _store_open:
+			return "Flip the OPEN board when ready."
+
+		if not _mystery_phase_unlocked or not _mystery_discovered:
+			return "Check the dark storage corner."
+
+		if not _ghost_shelf_installed:
+			return "Place the ghost shelf in the store."
+
+		if ghost_shelf == null or not ghost_shelf.has_stock():
+			return "Stock Phantom Ice Cream on ghost shelf."
+
+		return "Serve customers at the cashier."
+
 	if not _human_shelf_installed:
 		return "Bring the human shelf from storage."
 
@@ -1800,9 +1911,6 @@ func _get_current_objective_text() -> String:
 
 	if not _is_day_setup_complete():
 		return "Prepare the store for customers."
-
-	if _store_closed_for_day:
-		return "Store closed. Prepare for night."
 
 	return "Serve customers at the cashier."
 

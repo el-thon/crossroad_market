@@ -11,6 +11,7 @@ var _slots: Array = []
 var _is_shelf_hovered: bool = false
 
 func _ready() -> void:
+	y_sort_enabled = true
 	_slots.resize(max_slots)
 	_slots.fill(null)
 	_apply_shelf_color()

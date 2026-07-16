@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://byjnuw3njeetx" path="res://scripts/objects/Shelf.gd" id="1_nf23d"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_interact"]
-size = Vector2(92, 68)
+size = Vector2(64, 48)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(64, 32)
@@ -30,9 +30,9 @@ size = Vector2(20, 16)
 y_sort_enabled = true
 script = ExtResource("1_nf23d")
 
-[node name="VisualRoot" type="Node2D" parent="."]
+[node name="VisualRoot" type="Node2D" parent="." unique_id=1552276096]
 
-[node name="AssetSprite" type="Sprite2D" parent="VisualRoot"]
+[node name="AssetSprite" type="Sprite2D" parent="VisualRoot" unique_id=1116925469]
 
 [node name="PlaceholderRect" type="ColorRect" parent="VisualRoot" unique_id=28098589]
 offset_left = -32.0
@@ -43,6 +43,7 @@ color = Color(0.7, 0.5, 0.3, 1)
 [node name="InteractionArea" type="Area2D" parent="." unique_id=673702384]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea" unique_id=217399561]
+y_sort_enabled = true
 position = Vector2(0, -24)
 shape = SubResource("RectangleShape2D_interact")
 

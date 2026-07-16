@@ -12,6 +12,10 @@ const DEFAULT_END_BUFFER_MINUTES: int = 30
 const DEFAULT_MIN_INTERVAL_MINUTES: int = 20
 const DEFAULT_MAX_INTERVAL_MINUTES: int = 180
 const DAY_ONE_CUSTOMER_COUNT: int = 4
+const DAY_ONE_BREAD_CUSTOMER_GOLD: int = 10
+const DAY_ONE_WATER_CUSTOMER_GOLD: int = 5
+const DAY_ONE_BANDAGE_CUSTOMER_GOLD: int = 15
+const DAY_ONE_IRENE_CUSTOMER_GOLD: int = 10
 
 var _npc_database: Dictionary = {}
 var _day_schedule: Array = []
@@ -184,8 +188,7 @@ func _get_daily_customer_blueprint(day: int) -> Dictionary:
 			"customer_count": DAY_ONE_CUSTOMER_COUNT,
 			"window_start": HUMAN_CUSTOMER_START_MINUTES,
 			"window_end": HUMAN_CUSTOMER_END_MINUTES,
-			"first_delay": DEFAULT_FIRST_DELAY_MINUTES,
-			"end_buffer": DEFAULT_END_BUFFER_MINUTES,
+			"use_centered_average_slots": true,
 			"min_interval": DEFAULT_MIN_INTERVAL_MINUTES,
 			"max_interval": DEFAULT_MAX_INTERVAL_MINUTES,
 			"customer_pool": "day_one"
@@ -211,27 +214,12 @@ func _get_daily_customer_blueprint(day: int) -> Dictionary:
 
 func _build_daily_customer_pool(day: int, blueprint: Dictionary) -> Array[NPCData]:
 	if str(blueprint.get("customer_pool", "")) == "day_one":
-		var human_customers := _get_customer_npc_data(day, "npcs/humans/", false)
-		var monster_customers := _get_customer_npc_data(day, "npcs/monsters/", false)
-		human_customers.shuffle()
-
-		var day_one_pool: Array[NPCData] = []
-		if human_customers.size() > 0:
-			day_one_pool.append(_make_day_one_customer_from_data(human_customers[0], "water"))
-		if human_customers.size() > 1:
-			day_one_pool.append(_make_day_one_customer_from_data(human_customers[1], "bandage"))
-		if monster_customers.size() > 0:
-			day_one_pool.append(_make_day_one_customer_from_data(human_customers[2], "water"))
-
-		var irene := _npc_database.get("irene") as NPCData
-		if irene != null:
-			day_one_pool.append(_make_day_one_customer_from_data(irene, "painkiller"))
-
-		#var gooby := _npc_database.get("gooby") as NPCData
-		#if gooby != null:
-			#day_one_pool.append(_make_day_one_customer_from_data(gooby, "phantom_ice_cream"))
-
-		return day_one_pool
+		return [
+			_make_day_one_customer("day1_bread_customer", "Customer", ["bread"], DAY_ONE_BREAD_CUSTOMER_GOLD, NPCData.VisitPhase.DAY, NPCData.NPCCategory.GENERIC, "paid", NPCData.PatienceType.PATIENT, "npcs/humans/human1"),
+			_make_day_one_customer("day1_water_customer", "Customer", ["water"], DAY_ONE_WATER_CUSTOMER_GOLD, NPCData.VisitPhase.DAY, NPCData.NPCCategory.GENERIC, "paid", NPCData.PatienceType.PATIENT, "npcs/humans/human2"),
+			_make_day_one_customer("day1_bandage_customer", "Customer", ["bandage"], DAY_ONE_BANDAGE_CUSTOMER_GOLD, NPCData.VisitPhase.DAY, NPCData.NPCCategory.GENERIC, "paid", NPCData.PatienceType.PATIENT, "npcs/humans/human3"),
+			_make_day_one_customer("irene", "Irene", ["painkiller"], DAY_ONE_IRENE_CUSTOMER_GOLD, NPCData.VisitPhase.DAY, NPCData.NPCCategory.STORY, "paid", NPCData.PatienceType.PATIENT, "irene")
+		]
 
 	var pool := _get_customer_npc_data(day)
 	pool.shuffle()
@@ -279,6 +267,16 @@ func _build_daily_customer_slots(blueprint: Dictionary, customer_count: int) -> 
 
 	var window_start := int(blueprint.get("window_start", HUMAN_CUSTOMER_START_MINUTES))
 	var window_end := int(blueprint.get("window_end", HUMAN_CUSTOMER_END_MINUTES))
+	var use_centered_average_slots := bool(blueprint.get("use_centered_average_slots", false))
+
+	if use_centered_average_slots:
+		var average_interval := float(max(0, window_end - window_start)) / float(customer_count)
+
+		for i in customer_count:
+			slots.append(window_start + int(round(average_interval * (float(i) + 0.5))))
+
+		return slots
+
 	var first_delay := int(blueprint.get("first_delay", DEFAULT_FIRST_DELAY_MINUTES))
 	var end_buffer := int(blueprint.get("end_buffer", DEFAULT_END_BUFFER_MINUTES))
 	var min_interval := int(blueprint.get("min_interval", DEFAULT_MIN_INTERVAL_MINUTES))
@@ -441,7 +439,8 @@ func _make_day_one_customer(
 	visit_phase: NPCData.VisitPhase,
 	category: NPCData.NPCCategory = NPCData.NPCCategory.GENERIC,
 	checkout_outcome: String = "paid",
-	patience_type: NPCData.PatienceType = NPCData.PatienceType.PATIENT
+	patience_type: NPCData.PatienceType = NPCData.PatienceType.PATIENT,
+	assets_path: String = ""
 ) -> NPCData:
 	var data := NPCData.new()
 	data.npc_id = npc_id
@@ -449,6 +448,7 @@ func _make_day_one_customer(
 	data.npc_category = category
 	data.visit_days = [1]
 	data.visit_phase = visit_phase
+	data.assets_path = assets_path
 	data.patience_type = patience_type
 	data.favorite_items = shopping_items.duplicate()
 	data.set_meta("shopping_list", shopping_items.duplicate())

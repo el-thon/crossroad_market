@@ -22,6 +22,7 @@ const DIALOG_DURATION: float = 2.5
 const CHECKOUT_PATIENCE: float = 20.0
 const SEARCH_PATIENCE: float = 15.0
 const SHELF_SEARCH_MIN_TIME: float = 1.0
+const SHELF_TAKE_PAUSE_TIME: float = 1.25
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
 const SHELF_ACTION_DISTANCE: float = 56.0
 const QUEUE_ACTION_DISTANCE: float = 14.0
@@ -55,6 +56,8 @@ var _dialog_timer: float = 0.0
 var _checkout_timer: float = 0.0
 var _search_timer: float = 0.0
 var _search_announced: bool = false
+var _take_item_pause_timer: float = 0.0
+var _has_taken_shelf_item: bool = false
 var _trust_label: Label = null
 var _movement_route: Array[Vector2] = []
 var _movement_route_destination: Vector2 = Vector2.INF
@@ -358,14 +361,26 @@ func _process_browse_item(delta: float) -> void:
 
 
 func _process_take_item() -> void:
+	if _has_taken_shelf_item:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_take_item_pause_timer += get_process_delta_time()
+
+		if _take_item_pause_timer < SHELF_TAKE_PAUSE_TIME:
+			return
+
+		_join_queue()
+		target_position = _get_queue_target()
+		_set_state(State.WAIT_IN_QUEUE)
+		return
+
 	if global_position.distance_to(target_position) > SHELF_ACTION_DISTANCE and not _move_to(target_position):
 		return
 
 	if _take_requested_items_from_shelves():
-		_join_queue()
-		target_position = _get_queue_target()
+		_has_taken_shelf_item = true
+		_take_item_pause_timer = 0.0
 		_show_dialog("I'll take this.")
-		_set_state(State.WAIT_IN_QUEUE)
 		return
 
 	_show_dialog("Someone must have taken it already.")
@@ -1031,6 +1046,10 @@ func _set_state(new_state: State) -> void:
 	if new_state == State.SEARCH_ITEM:
 		_search_timer = 0.0
 		_search_announced = false
+
+	if new_state == State.TAKE_ITEM:
+		_take_item_pause_timer = 0.0
+		_has_taken_shelf_item = false
 
 	if new_state == State.CHECKOUT:
 		_checkout_timer = 0.0

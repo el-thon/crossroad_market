@@ -12,9 +12,6 @@ signal ghost_shelf_item_placed(slot_index: int, item_id: String)
 const SUPPLY_BOX_DEPTH_HALF_WIDTH: float = 34.0
 const SUPPLY_BOX_DEPTH_BACK_OFFSET: float = 48.0
 const SUPPLY_BOX_DEPTH_FRONT_OFFSET: float = 8.0
-const SHELF_DEPTH_HALF_WIDTH: float = 48.0
-const SHELF_DEPTH_BACK_OFFSET: float = 56.0
-const SHELF_DEPTH_FRONT_OFFSET: float = 8.0
 const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 	Vector2(0, 56),
 	Vector2(56, 0),
@@ -27,7 +24,7 @@ const SHELF_DROP_FALLBACKS: Array[Vector2] = [
 ]
 
 @export var pickup_distance: float = 70.0
-@export var carry_offset: Vector2 = Vector2(0, -34)
+@export var carry_offset: Vector2 = Vector2(0, -18)
 @export var drop_offset: Vector2 = Vector2(0, 28)
 @export var put_action: StringName = &"put"
 
@@ -267,8 +264,6 @@ func _update_player_depth_override() -> void:
 	var is_behind_depth_object: bool = (
 		_is_player_behind_depth_object(normal_box, SUPPLY_BOX_DEPTH_HALF_WIDTH, SUPPLY_BOX_DEPTH_BACK_OFFSET, SUPPLY_BOX_DEPTH_FRONT_OFFSET)
 		or _is_player_behind_depth_object(mystery_box, SUPPLY_BOX_DEPTH_HALF_WIDTH, SUPPLY_BOX_DEPTH_BACK_OFFSET, SUPPLY_BOX_DEPTH_FRONT_OFFSET)
-		or _is_player_behind_depth_object(shelf_human, SHELF_DEPTH_HALF_WIDTH, SHELF_DEPTH_BACK_OFFSET, SHELF_DEPTH_FRONT_OFFSET)
-		or _is_player_behind_depth_object(shelf_ghost, SHELF_DEPTH_HALF_WIDTH, SHELF_DEPTH_BACK_OFFSET, SHELF_DEPTH_FRONT_OFFSET)
 	)
 
 	_player.z_index = -1 if is_behind_depth_object else 0
@@ -343,6 +338,8 @@ func _pickup_object(object: Node2D) -> void:
 	object.set_meta("is_carried_storage_object", true)
 	object.set_meta("is_installed_in_store", false)
 	_set_node_enabled_recursive(object, false)
+	if _player.has_method("update_carried_object_visual"):
+		_player.call("update_carried_object_visual", object)
 
 
 func request_pickup_shelf(shelf: Shelf) -> bool:
@@ -410,7 +407,10 @@ func _update_carried_object_position() -> void:
 		_carried_object = _get_carried_object_from_player()
 
 	if _carried_object != null and _carried_object.get_parent() == _player:
-		_carried_object.position = carry_offset
+		if _player.has_method("update_carried_object_visual"):
+			_player.call("update_carried_object_visual", _carried_object)
+		else:
+			_carried_object.position = carry_offset
 
 
 func _get_carried_object_from_player() -> Node2D:

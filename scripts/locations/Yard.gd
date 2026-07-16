@@ -1,8 +1,10 @@
 extends Node2D
 
 signal return_to_store(door_type: String)
+signal enter_home()
 
 @onready var return_door: Area2D = get_node_or_null("ReturnDoor") as Area2D
+@onready var home_door: Area2D = get_node_or_null("PlayerHomeArea/HomeDoor") as Area2D
 
 
 func _ready() -> void:
@@ -15,12 +17,25 @@ func _ready() -> void:
 
 	return_door.set_meta("door_type", "yard_return")
 
+	if home_door == null:
+		push_error("Yard: HomeDoor is missing.")
+	else:
+		home_door.set_meta("door_type", "home")
+
 
 func request_return_to_store() -> bool:
 	if _is_action_locked():
 		return false
 
 	return_to_store.emit("yard")
+	return true
+
+
+func request_enter_home() -> bool:
+	if _is_action_locked():
+		return false
+
+	enter_home.emit()
 	return true
 
 
