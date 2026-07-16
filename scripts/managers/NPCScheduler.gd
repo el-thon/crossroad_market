@@ -21,6 +21,13 @@ const DAY_ONE_BREAD_CUSTOMER_GOLD: int = 10
 const DAY_ONE_WATER_CUSTOMER_GOLD: int = 5
 const DAY_ONE_BANDAGE_CUSTOMER_GOLD: int = 15
 const DAY_ONE_IRENE_CUSTOMER_GOLD: int = 10
+const NIGHT_STOCK_ITEM_IDS: Array[String] = [
+	"phantom_ice_cream",
+	"fresh_tombstone",
+	"mandrake_root",
+	"dewdrop_honey",
+	"potion_bottle_empty"
+]
 
 var _npc_database: Dictionary = {}
 var _day_schedule: Array = []
@@ -220,8 +227,36 @@ func _build_customer_session_pool(day: int, blueprint: Dictionary) -> Array[NPCD
 
 	var visit_phase := NPCData.VisitPhase.NIGHT if pool_name == String(SESSION_NIGHT) else NPCData.VisitPhase.DAY
 	var pool := _get_customer_npc_data(day, "", visit_phase)
+	if visit_phase == NPCData.VisitPhase.NIGHT:
+		pool = _align_night_customer_items(pool)
 	pool.shuffle()
 	return pool
+
+
+func _align_night_customer_items(pool: Array[NPCData]) -> Array[NPCData]:
+	var aligned_pool: Array[NPCData] = []
+
+	for npc in pool:
+		if not _is_ghost_or_monster_customer(npc):
+			aligned_pool.append(npc)
+			continue
+
+		var aligned_npc := npc.duplicate() as NPCData
+		aligned_npc.favorite_items = NIGHT_STOCK_ITEM_IDS.duplicate()
+		aligned_npc.favorite_items.shuffle()
+		aligned_pool.append(aligned_npc)
+
+	return aligned_pool
+
+
+func _is_ghost_or_monster_customer(npc: NPCData) -> bool:
+	if npc == null or npc.assets_path.is_empty():
+		return false
+
+	return (
+		npc.assets_path.begins_with("npcs/ghosts/")
+		or npc.assets_path.begins_with("npcs/monsters/")
+	)
 
 
 func _make_day_one_customer_from_data(npc_data: NPCData, shopping_item: String) -> NPCData:

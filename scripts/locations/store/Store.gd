@@ -86,6 +86,7 @@ var _normal_supply_depleted: bool = false
 var _mystery_phase_unlocked: bool = false
 var _mystery_discovered: bool = false
 var _mystery_supply_depleted: bool = false
+var _mystery_items_taken: Array[String] = []
 var _human_shelf_installed: bool = false
 var _ghost_shelf_installed: bool = false
 var _customer_spawning_unlocked: bool = false
@@ -489,6 +490,9 @@ func _enter_storage() -> void:
 	if _current_storage.has_method("set_mystery_discovered"):
 		_current_storage.set_mystery_discovered(_mystery_discovered)
 
+	if _current_storage.has_method("set_mystery_items_taken"):
+		_current_storage.set_mystery_items_taken(_mystery_items_taken)
+
 	if _current_storage.has_method("set_mystery_supply_depleted"):
 		_current_storage.set_mystery_supply_depleted(_mystery_supply_depleted)
 
@@ -514,6 +518,12 @@ func _enter_storage() -> void:
 
 		if not _current_storage.is_connected("mystery_item_taken", mystery_item_callable):
 			_current_storage.connect("mystery_item_taken", mystery_item_callable)
+
+	if _current_storage.has_signal("mystery_supply_depleted"):
+		var mystery_depleted_callable := Callable(self, "_on_storage_mystery_supply_depleted")
+
+		if not _current_storage.is_connected("mystery_supply_depleted", mystery_depleted_callable):
+			_current_storage.connect("mystery_supply_depleted", mystery_depleted_callable)
 
 	if _current_storage.has_signal("ghost_shelf_item_placed"):
 		var ghost_shelf_callable := Callable(self, "_on_ghost_shelf_item_placed")
@@ -735,7 +745,14 @@ func _on_storage_mystery_discovered() -> void:
 	_update_objective()
 
 
-func _on_storage_mystery_item_taken() -> void:
+func _on_storage_mystery_item_taken(item_id: String) -> void:
+	if item_id != "" and item_id not in _mystery_items_taken:
+		_mystery_items_taken.append(item_id)
+
+	_update_objective()
+
+
+func _on_storage_mystery_supply_depleted() -> void:
 	_mystery_supply_depleted = true
 	_update_objective()
 

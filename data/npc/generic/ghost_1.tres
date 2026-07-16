@@ -9,6 +9,7 @@ display_name = "Ghost Customer"
 visit_phase = 2
 spawn_order = 5
 patience_type = 0
+favorite_items = PackedStringArray("phantom_ice_cream", "fresh_tombstone", "mandrake_root", "dewdrop_honey", "potion_bottle_empty")
 behavior_profile_id = "normal_shopper"
 spawn_chance = 0.6
 assets_path = "npcs/ghosts/ghost1"
