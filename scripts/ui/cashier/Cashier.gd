@@ -249,7 +249,6 @@ func _process_gooby_gift() -> void:
 		npc.complete_checkout()
 
 	var trust_gain := _apply_story_interaction_trust(npc)
-	_request_gooby_slime_follow_up()
 	_notify_store_gooby_resolved()
 	_add_history(npc, item_label, 0, "GIFT")
 	_show_notification(

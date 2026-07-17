@@ -26,6 +26,9 @@ size = Vector2(27, 63)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_vu4nj"]
 size = Vector2(8, 42)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_85wn3"]
+size = Vector2(22, 19)
+
 [node name="StoreStructure" type="Node2D" unique_id=1722790553]
 
 [node name="BaseFloor" type="Sprite2D" parent="." unique_id=1590971830]
@@ -98,3 +101,9 @@ shape = SubResource("RectangleShape2D_1lpbb")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Collidables/Box/Box2" unique_id=2121673639]
 position = Vector2(58, 82)
 shape = SubResource("RectangleShape2D_vu4nj")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="Collidables" unique_id=1052891765]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Collidables/StaticBody2D" unique_id=1788739760]
+position = Vector2(442, 56.5)
+shape = SubResource("RectangleShape2D_85wn3")
