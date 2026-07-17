@@ -4,7 +4,7 @@ signal npc_spawn_requested(npc_data)
 
 const SPAWN_INTERVAL: float = 60.0
 const DAY_ONE_NIGHT_SPAWN_INTERVAL: float = 8.0
-const DAY_ONE_SLIME_FOLLOW_UP_DELAY: float = 3.0
+const DAY_ONE_SLIME_GOLD: int = 10
 const HUMAN_CUSTOMER_START_MINUTES: int = TimeManager.MORNING_START_MINUTES
 const HUMAN_CUSTOMER_END_MINUTES: int = TimeManager.NIGHT_START_MINUTES
 const NIGHT_CUSTOMER_START_MINUTES: int = TimeManager.NIGHT_START_MINUTES
@@ -37,7 +37,6 @@ var _spawn_interval: float = SPAWN_INTERVAL
 var _is_spawning: bool = false
 var _day_one_night_monster_spawned: bool = false
 var _day_one_night_monster_follow_up_requested: bool = false
-var _day_one_night_monster_follow_up_timer: float = 0.0
 var _spawning_unlocked: bool = false
 var _normal_spawning_unlocked: bool = false
 var _store_open: bool = false
@@ -50,7 +49,6 @@ func _ready() -> void:
 	TimeManager.phase_changed.connect(_on_phase_changed)
 
 func _process(delta: float) -> void:
-	_process_day_one_night_monster_follow_up(delta)
 	_process_active_customer_session()
 
 	if not _is_spawning or _spawn_queue.is_empty():
@@ -84,7 +82,6 @@ func _load_npc_data() -> void:
 func _on_day_started(day: int) -> void:
 	_day_one_night_monster_spawned = false
 	_day_one_night_monster_follow_up_requested = false
-	_day_one_night_monster_follow_up_timer = 0.0
 	_normal_spawning_unlocked = false
 	_store_open = false
 	_generate_schedule(day)
@@ -464,26 +461,23 @@ func spawn_day_one_night_monster_customer() -> void:
 		return
 
 	_day_one_night_monster_follow_up_requested = true
-	_day_one_night_monster_follow_up_timer = DAY_ONE_SLIME_FOLLOW_UP_DELAY
-
-func _process_day_one_night_monster_follow_up(delta: float) -> void:
-	if not _day_one_night_monster_follow_up_requested:
-		return
-
-	if TimeManager.current_day != 1 or TimeManager.current_phase != TimeManager.Phase.NIGHT:
-		_day_one_night_monster_follow_up_requested = false
-		_day_one_night_monster_follow_up_timer = 0.0
-		return
-
-	_day_one_night_monster_follow_up_timer -= delta
-
-	if _day_one_night_monster_follow_up_timer > 0.0:
-		return
-
-	_day_one_night_monster_follow_up_requested = false
 	_day_one_night_monster_spawned = true
-	# The monster is already scheduled in the night session. The old hook
-	# emitted Gooby again here, which duplicated the first customer.
+
+	var monster_data := _npc_database.get("monster_1") as NPCData
+
+	if monster_data == null:
+		push_warning("NPCScheduler: monster_1 not found in database")
+		return
+
+	var slime := monster_data.duplicate() as NPCData
+	slime.set_meta("shopping_list", ["phantom_ice_cream"])
+	slime.set_meta("checkout_total", DAY_ONE_SLIME_GOLD)
+	slime.set_meta("checkout_outcome", "paid")
+	npc_spawn_requested.emit(slime)
+
+func _process_day_one_night_monster_follow_up(_delta: float) -> void:
+	# No-op: slime is now spawned immediately in spawn_day_one_night_monster_customer().
+	pass
 
 func _stop_spawning() -> void:
 	_is_spawning = false
