@@ -1,7 +1,7 @@
 class_name SleepBed
 extends Area2D
 
-const FADE_DURATION: float = 0.6
+const FADE_DURATION: float = 2.0
 
 
 func _ready() -> void:
