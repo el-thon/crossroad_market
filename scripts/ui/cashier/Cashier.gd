@@ -9,6 +9,9 @@ const GOOBY_ID: String = "gooby"
 const STORY_INTERACTION_TRUST_GAIN: int = 20
 const CASHIER_BUTTON_FONT_SIZE: int = 8
 const CASHIER_BUTTON_MIN_HEIGHT: float = 20.0
+const CASHIER_PRIMARY_BUTTON_WIDTH: float = 118.0
+const CASHIER_SECONDARY_BUTTON_WIDTH: float = 96.0
+const CASHIER_CLOSE_BUTTON_WIDTH: float = 64.0
 const ITEM_SWATCH_SIZE := Vector2(10, 16)
 const STORE_OS_APP_POS: StringName = &"pos"
 
@@ -144,6 +147,12 @@ func _get_first_checkout_npc() -> NPC:
 
 	if not is_instance_valid(front_npc):
 		return null
+
+	if front_npc.has_method("is_ready_for_checkout_service"):
+		if bool(front_npc.call("is_ready_for_checkout_service")):
+			if front_npc.has_method("mark_checkout_ready"):
+				front_npc.call("mark_checkout_ready")
+			return front_npc
 
 	if front_npc.current_state != NPC.State.CHECKOUT:
 		return null
@@ -330,12 +339,12 @@ func _render_store_os_home(
 		if item != null:
 			_item_list.add_child(_create_catalog_item_row(item))
 
-	var close_button := Button.new()
-	close_button.text = "Close OS"
-	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(close_button, "Close Store OS.")
-	close_button.pressed.connect(_close_store_os)
-	_action_row.add_child(close_button)
+	_add_cashier_action_button(
+		"Close OS",
+		CASHIER_CLOSE_BUTTON_WIDTH,
+		"Close Store OS.",
+		_close_store_os
+	)
 
 
 func _render_pos_app() -> void:
@@ -372,28 +381,28 @@ func _show_scan_panel() -> void:
 
 		_item_list.add_child(_create_scan_item_row(item))
 
-	var add_button := Button.new()
-	add_button.text = "Add Item"
-	add_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(add_button, "Add the selected item to the cart.")
-	add_button.pressed.connect(_on_add_item_pressed)
-	_action_row.add_child(add_button)
+	_add_cashier_action_button(
+		"Add Item",
+		CASHIER_SECONDARY_BUTTON_WIDTH,
+		"Add the selected item to the cart.",
+		_on_add_item_pressed
+	)
 
 	_add_cart_rows_to_panel()
 
-	var confirm_button := Button.new()
-	confirm_button.text = "Confirm Cart"
-	confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(confirm_button, "Check the cart against the customer's request.")
-	confirm_button.pressed.connect(_on_confirm_scan_pressed)
-	_action_row.add_child(confirm_button)
+	_add_cashier_action_button(
+		"Confirm Cart",
+		CASHIER_PRIMARY_BUTTON_WIDTH,
+		"Check the cart against the customer's request.",
+		_on_confirm_scan_pressed
+	)
 
-	var ask_button := Button.new()
-	ask_button.text = "Ask Again %d/3" % _ask_again_count
-	ask_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(ask_button, "Repeat the customer's request. After 3 asks, they leave.")
-	ask_button.pressed.connect(_on_ask_again_pressed)
-	_action_row.add_child(ask_button)
+	_add_cashier_action_button(
+		"Ask Again %d/3" % _ask_again_count,
+		CASHIER_SECONDARY_BUTTON_WIDTH,
+		"Repeat the customer's request. After 3 asks, they leave.",
+		_on_ask_again_pressed
+	)
 
 	_add_app_navigation_buttons()
 
@@ -500,19 +509,19 @@ func _show_paid_panel() -> void:
 		"Receive Payment finishes this paid checkout. Back to Scan lets you correct the selected item."
 	)
 
-	var paid_button := Button.new()
-	paid_button.text = "Receive Payment"
-	paid_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(paid_button, "Finish checkout and add this sale to revenue.")
-	paid_button.pressed.connect(_process_paid)
-	_action_row.add_child(paid_button)
+	_add_cashier_action_button(
+		"Receive Payment",
+		CASHIER_PRIMARY_BUTTON_WIDTH,
+		"Finish checkout and add this sale to revenue.",
+		_process_paid
+	)
 
-	var back_button := Button.new()
-	back_button.text = "Back to Scan Items"
-	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(back_button, "Return to item selection and correct the scan.")
-	back_button.pressed.connect(_show_scan_panel)
-	_action_row.add_child(back_button)
+	_add_cashier_action_button(
+		"Back to Scan Items",
+		CASHIER_SECONDARY_BUTTON_WIDTH,
+		"Return to item selection and correct the scan.",
+		_show_scan_panel
+	)
 
 	_add_app_navigation_buttons()
 
@@ -535,26 +544,26 @@ func _show_gooby_choice_panel() -> void:
 		"Give Item improves trust with no gold. Refuse Sale returns the item and continues the night consequence."
 	)
 
-	var gift_button := Button.new()
-	gift_button.text = "Give Item (+Trust, +0G)"
-	gift_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(gift_button, "Give Gooby the item, gain trust, and earn no revenue.")
-	gift_button.pressed.connect(_process_gooby_gift)
-	_action_row.add_child(gift_button)
+	_add_cashier_action_button(
+		"Give Item (+Trust, +0G)",
+		CASHIER_PRIMARY_BUTTON_WIDTH,
+		"Give Gooby the item, gain trust, and earn no revenue.",
+		_process_gooby_gift
+	)
 
-	var refuse_button := Button.new()
-	refuse_button.text = "Refuse Sale (Return Item)"
-	refuse_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(refuse_button, "Return the item and continue the night consequence.")
-	refuse_button.pressed.connect(_process_gooby_refuse)
-	_action_row.add_child(refuse_button)
+	_add_cashier_action_button(
+		"Refuse Sale (Return Item)",
+		CASHIER_PRIMARY_BUTTON_WIDTH,
+		"Return the item and continue the night consequence.",
+		_process_gooby_refuse
+	)
 
-	var back_button := Button.new()
-	back_button.text = "Back to Scan Items"
-	back_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(back_button, "Return to item selection before deciding.")
-	back_button.pressed.connect(_show_scan_panel)
-	_action_row.add_child(back_button)
+	_add_cashier_action_button(
+		"Back to Scan Items",
+		CASHIER_SECONDARY_BUTTON_WIDTH,
+		"Return to item selection before deciding.",
+		_show_scan_panel
+	)
 
 	_add_app_navigation_buttons()
 
@@ -762,12 +771,12 @@ func _create_catalog_item_row(item: ItemData) -> Control:
 
 
 func _add_app_navigation_buttons() -> void:
-	var close_button := Button.new()
-	close_button.text = "Close OS"
-	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_configure_button_guidance(close_button, "Close Store OS.")
-	close_button.pressed.connect(_close_store_os)
-	_action_row.add_child(close_button)
+	_add_cashier_action_button(
+		"Close OS",
+		CASHIER_CLOSE_BUTTON_WIDTH,
+		"Close Store OS.",
+		_close_store_os
+	)
 
 
 func _close_store_os() -> void:
@@ -1009,6 +1018,29 @@ func _configure_button_guidance(button: Button, tooltip: String) -> void:
 
 	if button.custom_minimum_size.y < CASHIER_BUTTON_MIN_HEIGHT:
 		button.custom_minimum_size.y = CASHIER_BUTTON_MIN_HEIGHT
+
+
+func _add_cashier_action_button(text: String, width: float, tooltip: String, pressed: Callable) -> Button:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 2)
+	_action_row.add_child(row)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(width, CASHIER_BUTTON_MIN_HEIGHT)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_configure_button_guidance(button, tooltip)
+
+	if pressed.is_valid():
+		button.pressed.connect(pressed)
+
+	row.add_child(button)
+	return button
 
 
 func _hide_cashier_panel() -> void:
