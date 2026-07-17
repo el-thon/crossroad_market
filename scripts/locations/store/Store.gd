@@ -3,6 +3,7 @@ extends Node2D
 
 const StoreNotificationBridge = preload("res://scripts/locations/store/StoreNotificationBridge.gd")
 const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.gd")
+const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacementGrid.gd")
 const StoreProgressionController = preload("res://scripts/locations/store/StoreProgressionController.gd")
 const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
 const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
@@ -20,9 +21,10 @@ const DOOR_NO_DROP_MARGIN: float = 8.0
 const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
 const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
 const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
-const SHELF_DROP_DISTANCE: float = 40.0
-const SHELF_DROP_ANCHOR_SEARCH_RADIUS: float = 84.0
-const SHELF_DROP_ANCHOR_LIMIT: int = 8
+const SHELF_DROP_DISTANCE: float = 28.0
+const SHELF_DROP_FRONT_DISTANCE: float = 56.0
+const SHELF_DROP_ANCHOR_SEARCH_RADIUS: float = 72.0
+const SHELF_DROP_ANCHOR_LIMIT: int = 12
 const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
 const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
 const RESTRICTED_DANGER_LINE_CYCLES: int = 3
@@ -30,6 +32,7 @@ const RESTRICTED_DANGER_LINE_CYCLE_DURATION: float = 1.5
 const RESTRICTED_DANGER_LINE_WIDTH: float = 3.0
 const RESTRICTED_DANGER_LINE_COLOR := Color(1.0, 0.16, 0.08, 1.0)
 const LOCATION_TITLE_DURATION: float = 1.25
+const MIDNIGHT_BLACK_HOLD_DURATION: float = 3.0
 const DROP_REJECTION_NONE: StringName = &"none"
 const DROP_REJECTION_STORAGE_DOOR: StringName = &"storage_door"
 const DROP_REJECTION_YARD_DOOR: StringName = &"yard_door"
@@ -45,6 +48,11 @@ var npc_scene: PackedScene = preload("res://scenes/npc/NPC.tscn")
 var storage_scene: PackedScene = preload("res://scenes/locations/Storage.tscn")
 var yard_scene: PackedScene = preload("res://scenes/locations/Yard.tscn")
 var home_scene: PackedScene = preload("res://scenes/locations/Home.tscn")
+
+@export var shelf_placement_grid_origin: Vector2 = Vector2(25, 112)
+@export var shelf_placement_grid_cell_size: Vector2 = Vector2(40, 24)
+@export_range(1, 64, 1) var shelf_placement_grid_columns: int = 11
+@export_range(1, 32, 1) var shelf_placement_grid_rows: int = 7
 
 @onready var counter_pos: Marker2D = get_node_or_null("CounterPos") as Marker2D
 @onready var entrance_pos: Marker2D = get_node_or_null("EntrancePos") as Marker2D
@@ -78,6 +86,8 @@ var _restricted_placement_warning: Node2D = null
 var _restricted_placement_warning_line: Line2D = null
 var _restricted_placement_warning_tween: Tween = null
 var _store_path_graph: StorePathGraph = null
+var _placement_grid: StorePlacementGrid = null
+var _placement_grid_preview: Node = null
 var _is_transitioning: bool = false
 var _shown_location_titles: Dictionary = {}
 var _completed_task_notices: Dictionary = {}
@@ -106,6 +116,12 @@ var _last_objective_text: String = ""
 var _restricted_drop_feedback_token: int = 0
 var _pending_restock_deliveries: Array[Dictionary] = []
 var _restock_delivery_counter: int = 0
+var _restock_ordered_today: bool = false
+var _tax_pending: bool = false
+var _tax_paid_today: bool = false
+var _tax_panel_showing: bool = false
+var _end_day_transition_started: bool = false
+var _latest_daily_report: Dictionary = {}
 
 var human_shelf: Shelf = null
 var ghost_shelf: Shelf = null
@@ -113,6 +129,13 @@ var ghost_shelf: Shelf = null
 
 func _ready() -> void:
 	add_to_group("store")
+	_placement_grid = StorePlacementGrid.new(
+		shelf_placement_grid_origin,
+		shelf_placement_grid_cell_size,
+		shelf_placement_grid_columns,
+		shelf_placement_grid_rows
+	)
+	_placement_grid_preview = get_node_or_null("ShelfPlacementGridPreview")
 	_store_path_graph = StorePathGraph.new(self, store_path_markers)
 
 	_connect_manager_signals()
@@ -132,6 +155,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_end_day_tax_flow()
+
 	if _current_storage != null or _current_yard != null or _current_home != null or _is_transitioning:
 		_set_carry_shelf_blocker_enabled(false)
 		_set_customer_path_visual_visible(false)
@@ -224,6 +249,12 @@ func can_player_sleep() -> Dictionary:
 			"message": "Put down the shelf first."
 		}
 
+	if not _tax_paid_today:
+		return {
+			"allowed": false,
+			"message": "Pay today's tax first."
+		}
+
 	return {
 		"allowed": true,
 		"message": ""
@@ -244,6 +275,7 @@ func _open_store() -> void:
 	_show_status_notification("Store is OPEN.", 1.0)
 	_show_task_complete_notice("store_opened", "Open sign flipped.")
 	_update_objective()
+	_update_end_day_tax_flow()
 
 
 func _close_store() -> void:
@@ -252,6 +284,7 @@ func _close_store() -> void:
 	_update_store_status_board()
 	_show_status_notification("Store is CLOSED.", 1.0)
 	_update_objective()
+	_update_end_day_tax_flow()
 
 
 func _update_store_status_board(animated: bool = true) -> void:
@@ -376,6 +409,20 @@ func _connect_manager_signals() -> void:
 
 	if not EconomyManager.daily_report_ready.is_connected(_on_daily_report):
 		EconomyManager.daily_report_ready.connect(_on_daily_report)
+
+	call_deferred("_connect_hud_signals")
+
+
+func _connect_hud_signals() -> void:
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud == null or not hud.has_signal("tax_payment_requested"):
+		return
+
+	var tax_callable := Callable(self, "_on_tax_payment_requested")
+
+	if not hud.is_connected("tax_payment_requested", tax_callable):
+		hud.connect("tax_payment_requested", tax_callable)
 
 
 func _connect_scene_signals() -> void:
@@ -571,6 +618,12 @@ func _enter_storage() -> void:
 
 		if not _current_storage.is_connected("ghost_shelf_item_placed", ghost_shelf_callable):
 			_current_storage.connect("ghost_shelf_item_placed", ghost_shelf_callable)
+
+	if _current_storage.has_signal("restock_order_purchased"):
+		var restock_order_callable := Callable(self, "_on_storage_restock_order_purchased")
+
+		if not _current_storage.is_connected("restock_order_purchased", restock_order_callable):
+			_current_storage.connect("restock_order_purchased", restock_order_callable)
 
 	if _current_storage.has_signal("restock_item_purchased"):
 		var restock_callable := Callable(self, "_on_storage_restock_item_purchased")
@@ -807,20 +860,57 @@ func _on_storage_mystery_supply_depleted() -> void:
 	_update_objective()
 
 
-func _on_storage_restock_item_purchased(item_id: String, quantity: int) -> void:
-	if item_id == "" or quantity <= 0:
+func _on_storage_restock_order_purchased(order_items: Array) -> void:
+	if order_items.is_empty():
 		return
 
 	_restock_delivery_counter += 1
 	_pending_restock_deliveries.append({
 		"id": _restock_delivery_counter,
+		"items": _duplicate_restock_items(order_items)
+	})
+	_restock_ordered_today = true
+	_sync_restock_deliveries_to_yard()
+	_update_end_day_tax_flow()
+
+
+func _on_storage_restock_item_purchased(item_id: String, quantity: int) -> void:
+	if item_id == "" or quantity <= 0:
+		return
+
+	_on_storage_restock_order_purchased([ {
 		"item_id": item_id,
 		"quantity": quantity
-	})
-	_sync_restock_deliveries_to_yard()
+	}])
+
+
+func _duplicate_restock_items(order_items: Array) -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+
+	for item in order_items:
+		if not (item is Dictionary):
+			continue
+
+		var data := item as Dictionary
+		var item_id := str(data.get("item_id", ""))
+		var quantity := int(data.get("quantity", 0))
+
+		if item_id == "" or quantity <= 0:
+			continue
+
+		items.append({
+			"item_id": item_id,
+			"quantity": quantity
+		})
+
+	return items
 
 
 func _on_yard_restock_delivery_collected(delivery_id: int) -> void:
+	if delivery_id < 0:
+		_pending_restock_deliveries.clear()
+		return
+
 	for i in range(_pending_restock_deliveries.size() - 1, -1, -1):
 		var delivery := _pending_restock_deliveries[i]
 
@@ -837,6 +927,127 @@ func _sync_restock_deliveries_to_yard() -> void:
 		return
 
 	_current_yard.call("set_restock_deliveries", _pending_restock_deliveries)
+
+
+func _update_end_day_tax_flow() -> void:
+	if _end_day_transition_started:
+		return
+
+	if _tax_paid_today:
+		if TimeManager.can_sleep():
+			_start_midnight_to_morning_transition()
+		return
+
+	if not _can_show_tax_panel():
+		return
+
+	_show_tax_panel()
+
+
+func _can_show_tax_panel() -> bool:
+	if _tax_panel_showing:
+		return false
+
+	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
+		return false
+
+	if _store_open:
+		return false
+
+	if not _restock_ordered_today:
+		return false
+
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud != null and hud.has_method("has_interactive_overlay_open") and bool(hud.call("has_interactive_overlay_open")):
+		return false
+
+	if not NPCScheduler.are_customer_sessions_complete_for_day():
+		return false
+
+	if _has_active_customer_npcs():
+		return false
+
+	return true
+
+
+func _has_active_customer_npcs() -> bool:
+	NPCQueueSystem.prune_invalid(NPC.current_queue)
+
+	if not NPC.current_queue.is_empty():
+		return true
+
+	for node in get_tree().get_nodes_in_group("npcs"):
+		if node != null and is_instance_valid(node) and not node.is_queued_for_deletion():
+			return true
+
+	return false
+
+
+func _show_tax_panel(warning: String = "") -> void:
+	_connect_hud_signals()
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud == null or not hud.has_method("show_tax_report"):
+		return
+
+	_tax_pending = true
+	_tax_panel_showing = true
+	_latest_daily_report = EconomyManager.get_daily_report()
+
+	if warning != "" and hud.has_method("show_tax_warning"):
+		hud.call("show_tax_warning", warning, _latest_daily_report)
+	else:
+		hud.call("show_tax_report", _latest_daily_report)
+
+
+func _on_tax_payment_requested() -> void:
+	if not _tax_panel_showing:
+		return
+
+	var tax := EconomyManager.get_daily_tax()
+
+	if EconomyManager.gold < tax:
+		_show_tax_panel("Not enough gold to pay today's tax.")
+		return
+
+	if not EconomyManager.pay_tax():
+		_show_tax_panel("Not enough gold to pay today's tax.")
+		return
+
+	_tax_pending = false
+	_tax_paid_today = true
+	_tax_panel_showing = false
+
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud != null and hud.has_method("hide_tax_report"):
+		hud.call("hide_tax_report")
+
+	_show_notification("Tax paid.", 1.0)
+
+	if TimeManager.can_sleep():
+		_start_midnight_to_morning_transition()
+
+
+func _start_midnight_to_morning_transition() -> void:
+	if _end_day_transition_started:
+		return
+
+	if not TimeManager.can_sleep():
+		return
+
+	_end_day_transition_started = true
+	call_deferred("_run_midnight_to_morning_transition")
+
+
+func _run_midnight_to_morning_transition() -> void:
+	_is_transitioning = true
+	await _fade_to_black()
+	await get_tree().create_timer(MIDNIGHT_BLACK_HOLD_DURATION).timeout
+	TimeManager.start_next_day()
+	await _fade_from_black()
+	_is_transitioning = false
 
 
 func _get_storage_return_position() -> Vector2:
@@ -1078,7 +1289,7 @@ func _get_drop_candidates() -> Array[Vector2]:
 
 
 func _get_nearby_shelf_anchor_drop_candidates(origin: Vector2, use_direction_filter: bool) -> Array[Vector2]:
-	var anchors := _get_store_path_graph().get_shelf_anchor_positions()
+	var anchors := _get_shelf_placement_grid_positions()
 
 	if anchors.is_empty():
 		return []
@@ -1086,7 +1297,7 @@ func _get_nearby_shelf_anchor_drop_candidates(origin: Vector2, use_direction_fil
 	var nearby: Array[Vector2] = []
 
 	for anchor in anchors:
-		if player != null and player.global_position.distance_to(anchor) > SHELF_DROP_ANCHOR_SEARCH_RADIUS:
+		if anchor.distance_to(origin) > SHELF_DROP_ANCHOR_SEARCH_RADIUS:
 			continue
 		if use_direction_filter and not _is_anchor_in_player_drop_direction(anchor, origin):
 			continue
@@ -1094,7 +1305,7 @@ func _get_nearby_shelf_anchor_drop_candidates(origin: Vector2, use_direction_fil
 		nearby.append(anchor)
 
 	nearby.sort_custom(func(a: Vector2, b: Vector2) -> bool:
-		return a.distance_to(origin) < b.distance_to(origin)
+		return _get_shelf_anchor_drop_score(a, origin, use_direction_filter) < _get_shelf_anchor_drop_score(b, origin, use_direction_filter)
 	)
 
 	var limited: Array[Vector2] = []
@@ -1108,13 +1319,76 @@ func _get_nearby_shelf_anchor_drop_candidates(origin: Vector2, use_direction_fil
 	return limited
 
 
+func _get_shelf_anchor_drop_score(anchor: Vector2, origin: Vector2, use_direction_filter: bool) -> float:
+	var score := anchor.distance_to(origin)
+
+	if player == null or not use_direction_filter:
+		return score
+
+	var facing := _get_player_facing_direction()
+	var to_anchor := anchor - player.global_position
+
+	if to_anchor.length() <= 2.0:
+		return score
+
+	var forward_distance: float = to_anchor.dot(facing)
+	var lateral_distance: float = absf(to_anchor.dot(Vector2(-facing.y, facing.x)))
+
+	if forward_distance < 0.0:
+		score += abs(forward_distance) * 2.0
+
+	score += lateral_distance * 0.35
+	return score
+
+
+func _get_shelf_placement_grid_positions() -> Array[Vector2]:
+	if _placement_grid == null:
+		_placement_grid = StorePlacementGrid.new()
+
+	var grid_config := _get_shelf_placement_grid_config()
+	_placement_grid.setup(
+		grid_config["origin"],
+		grid_config["cell_size"],
+		grid_config["columns"],
+		grid_config["rows"]
+	)
+	return _placement_grid.get_positions()
+
+
+func _get_shelf_placement_grid_config() -> Dictionary:
+	if _placement_grid_preview == null:
+		_placement_grid_preview = get_node_or_null("ShelfPlacementGridPreview")
+
+	if _placement_grid_preview != null:
+		var preview_origin: Vector2 = _placement_grid_preview.global_position
+		var grid_origin: Variant = _placement_grid_preview.get("grid_origin")
+
+		if grid_origin is Vector2:
+			preview_origin = _placement_grid_preview.to_global(grid_origin)
+
+		return {
+			"origin": preview_origin,
+			"cell_size": _placement_grid_preview.get("grid_cell_size"),
+			"columns": _placement_grid_preview.get("grid_columns"),
+			"rows": _placement_grid_preview.get("grid_rows")
+		}
+
+	return {
+		"origin": shelf_placement_grid_origin,
+		"cell_size": shelf_placement_grid_cell_size,
+		"columns": shelf_placement_grid_columns,
+		"rows": shelf_placement_grid_rows
+	}
+
+
 func _get_primary_shelf_drop_position() -> Vector2:
-	return player.global_position + _get_player_facing_direction() * SHELF_DROP_DISTANCE
+	var facing := _get_player_facing_direction()
+	return player.global_position + facing * _get_shelf_drop_distance_for_facing(facing)
 
 
 func _get_directional_shelf_drop_fallbacks() -> Array[Vector2]:
 	var facing := _get_player_facing_direction()
-	var forward := facing * SHELF_DROP_FALLBACK_DISTANCE
+	var forward := facing * _get_shelf_drop_distance_for_facing(facing)
 	var right := Vector2(-facing.y, facing.x) * SHELF_DROP_FALLBACK_DISTANCE
 	var back := -facing * SHELF_DROP_FALLBACK_DISTANCE
 
@@ -1141,7 +1415,14 @@ func _is_anchor_in_player_drop_direction(anchor: Vector2, primary_position: Vect
 	if to_anchor.normalized().dot(facing) >= -0.35:
 		return true
 
-	return anchor.distance_to(primary_position) <= SHELF_DROP_DISTANCE * 0.75
+	return anchor.distance_to(primary_position) <= _get_shelf_drop_distance_for_facing(facing) * 0.75
+
+
+func _get_shelf_drop_distance_for_facing(facing: Vector2) -> float:
+	if facing.y > 0.75 and absf(facing.x) < 0.25:
+		return SHELF_DROP_FRONT_DISTANCE
+
+	return SHELF_DROP_DISTANCE
 
 
 func _get_player_facing_direction() -> Vector2:
@@ -1418,6 +1699,7 @@ func _get_store_path_graph() -> StorePathGraph:
 	else:
 		_store_path_graph.setup(self, store_path_markers)
 
+	_store_path_graph.set_shelf_access_points(_get_shelf_placement_grid_positions())
 	return _store_path_graph
 
 
@@ -1956,7 +2238,7 @@ func _on_npc_purchase(_npc: NPC, _item_id: String, price: int) -> void:
 
 
 func _on_npc_exited(_npc: NPC) -> void:
-	pass
+	_update_end_day_tax_flow()
 
 
 func _on_phase_changed(phase) -> void:
@@ -1982,27 +2264,39 @@ func _on_target_reached() -> void:
 
 
 func _on_daily_report(report: Dictionary) -> void:
+	_latest_daily_report = report.duplicate()
 	print("=== DAY %d REPORT ===" % report.day)
 	print("Revenue: %dG" % report.revenue)
 	print("Tax: %dG" % report.tax)
 	print("Net Profit: %dG" % report.net_profit)
 	print("Total Gold: %dG" % report.total_gold)
 	print("Target: %s" % ("REACHED" if report.target_reached else "MISSED"))
-
-	EconomyManager.pay_tax()
+	_update_end_day_tax_flow()
 
 
 func _on_day_ended(_day: int) -> void:
-	_show_notification("Close the store and rest for the night.", 3.0)
+	_show_notification("Close the store, restock, and pay today's tax.", 3.0)
+	_update_end_day_tax_flow()
 
 
 func _on_day_started(_day: int) -> void:
 	_store_open = false
 	_store_opened_today = false
+	_tax_pending = false
+	_tax_paid_today = false
+	_tax_panel_showing = false
+	_end_day_transition_started = false
+	_restock_ordered_today = false
+	_latest_daily_report.clear()
 	_customer_open_notification_shown = false
 	NPCScheduler.set_store_open(false)
 	NPCScheduler.stop_normal_customer_spawning()
 	_update_store_status_board(false)
+
+	var hud := get_tree().get_first_node_in_group("hud")
+
+	if hud != null and hud.has_method("hide_tax_report"):
+		hud.call("hide_tax_report")
 
 	if not _pending_store_intro_after_yard:
 		_update_objective()

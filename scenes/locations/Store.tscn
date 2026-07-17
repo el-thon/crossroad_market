@@ -11,15 +11,16 @@
 [ext_resource type="Script" uid="uid://bjp5fq8jdv4wb" path="res://scripts/objects/ActivityBoard.gd" id="7_activity_board"]
 [ext_resource type="Script" uid="uid://bo6xe1yfdwqhh" path="res://scripts/objects/OpenCloseBoard.gd" id="8_open_close_board"]
 [ext_resource type="PackedScene" uid="uid://bcn1tcfnwf23b" path="res://scenes/locations/store/structure/NpcFeedbackBoard.tscn" id="8_opsjd"]
+[ext_resource type="Script" uid="uid://bdtdcofpixvph" path="res://scripts/locations/store/StorePlacementGridDebug.gd" id="9_grid_debug"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
-size = Vector2(480, 71)
+size = Vector2(480, 63.5)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_vertical"]
 size = Vector2(16, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door_body"]
-size = Vector2(53, 17.5)
+size = Vector2(53, 13.75)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door"]
 size = Vector2(40, 22)
@@ -137,7 +138,7 @@ visible = false
 y_sort_enabled = true
 
 [node name="Top" type="CollisionShape2D" parent="WorldBounds" unique_id=216272337]
-position = Vector2(240, 28)
+position = Vector2(240, 31.75)
 shape = SubResource("RectangleShape2D_wall_horizontal")
 
 [node name="Bottom" type="CollisionShape2D" parent="WorldBounds" unique_id=1216563998]
@@ -169,7 +170,7 @@ polygon = PackedVector2Array(10, -2, 14, -2, 14, 2, 10, 2)
 [node name="DoorBody" type="StaticBody2D" parent="StorageDoor" unique_id=705277412]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor/DoorBody" unique_id=1402322409]
-position = Vector2(1, 15)
+position = Vector2(1, 13.125)
 shape = SubResource("RectangleShape2D_storage_door_body")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StorageDoor" unique_id=1207501204]
@@ -208,11 +209,6 @@ position = Vector2(-14, -39)
 position = Vector2(254, 243)
 metadata/store_path_role = "entry"
 
-[node name="StorePathNodeX452Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1436277798]
-position = Vector2(452, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
 [node name="StorePathExit" type="Marker2D" parent="StorePathMarkers" unique_id=1608747220]
 position = Vector2(254, 243)
 metadata/store_path_role = "exit"
@@ -222,674 +218,49 @@ position = Vector2(254, 243)
 metadata/store_path_role = "enter_store"
 
 [node name="StorePathAisleRight" type="Marker2D" parent="StorePathMarkers" unique_id=490125028]
-position = Vector2(360, 224)
+position = Vector2(254, 238)
 metadata/store_path_role = "aisle_right"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y224" type="Marker2D" parent="StorePathMarkers" unique_id=55945420]
-position = Vector2(240, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX120Y224" type="Marker2D" parent="StorePathMarkers" unique_id=504919570]
-position = Vector2(120, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
 
 [node name="StorePathCashier" type="Marker2D" parent="StorePathMarkers" unique_id=2106467302]
-position = Vector2(88, 248)
+position = Vector2(254, 168)
 metadata/store_path_role = "cashier"
-
-[node name="StorePathNodeX120Y200" type="Marker2D" parent="StorePathMarkers" unique_id=359698953]
-position = Vector2(120, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y200" type="Marker2D" parent="StorePathMarkers" unique_id=526823191]
-position = Vector2(240, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX360Y200" type="Marker2D" parent="StorePathMarkers" unique_id=842486832]
-position = Vector2(360, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX360Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1564143298]
-position = Vector2(360, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX396Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1573610544]
-position = Vector2(396, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y176" type="Marker2D" parent="StorePathMarkers" unique_id=585886703]
-position = Vector2(424, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX452Y176" type="Marker2D" parent="StorePathMarkers" unique_id=2042423793]
-position = Vector2(452, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y152" type="Marker2D" parent="StorePathMarkers" unique_id=270019395]
-position = Vector2(200, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y152" type="Marker2D" parent="StorePathMarkers" unique_id=2007732328]
-position = Vector2(240, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1940815032]
-position = Vector2(280, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y152" type="Marker2D" parent="StorePathMarkers" unique_id=672071628]
-position = Vector2(320, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX360Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1794478560]
-position = Vector2(360, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX396Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1272589612]
-position = Vector2(396, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1365841961]
-position = Vector2(424, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX452Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1283722202]
-position = Vector2(452, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y128" type="Marker2D" parent="StorePathMarkers" unique_id=920380220]
-position = Vector2(240, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y128" type="Marker2D" parent="StorePathMarkers" unique_id=1681797270]
-position = Vector2(320, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
 
 [node name="StorePathStorageReturn" type="Marker2D" parent="StorePathMarkers" unique_id=979609029]
 position = Vector2(397, 109)
 metadata/store_path_role = "storage_return"
 
-[node name="StorePathNodeX452Y128" type="Marker2D" parent="StorePathMarkers" unique_id=2015728092]
-position = Vector2(452, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y128" type="Marker2D" parent="StorePathMarkers" unique_id=95725558]
-position = Vector2(480, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1864524145]
-position = Vector2(480, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1327159472]
-position = Vector2(480, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y200" type="Marker2D" parent="StorePathMarkers" unique_id=126880370]
-position = Vector2(480, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y224" type="Marker2D" parent="StorePathMarkers" unique_id=780006194]
-position = Vector2(480, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1936444145]
-position = Vector2(480, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX480Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2009400626]
-position = Vector2(480, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y128" type="Marker2D" parent="StorePathMarkers" unique_id=511790200]
-position = Vector2(424, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1089891787]
-position = Vector2(160, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1890130634]
-position = Vector2(160, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y176" type="Marker2D" parent="StorePathMarkers" unique_id=516052622]
-position = Vector2(200, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1196697423]
-position = Vector2(240, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y176" type="Marker2D" parent="StorePathMarkers" unique_id=556347296]
-position = Vector2(280, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1677448211]
-position = Vector2(320, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX120Y248" type="Marker2D" parent="StorePathMarkers" unique_id=421065399]
-position = Vector2(120, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y248" type="Marker2D" parent="StorePathMarkers" unique_id=2145612350]
-position = Vector2(240, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX360Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1789505064]
-position = Vector2(360, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX396Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1112213612]
-position = Vector2(396, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y200" type="Marker2D" parent="StorePathMarkers" unique_id=279887925]
-position = Vector2(160, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y200" type="Marker2D" parent="StorePathMarkers" unique_id=346731485]
-position = Vector2(200, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y200" type="Marker2D" parent="StorePathMarkers" unique_id=1809320336]
-position = Vector2(280, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y200" type="Marker2D" parent="StorePathMarkers" unique_id=360913041]
-position = Vector2(320, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y224" type="Marker2D" parent="StorePathMarkers" unique_id=455335839]
-position = Vector2(160, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y224" type="Marker2D" parent="StorePathMarkers" unique_id=861238091]
-position = Vector2(200, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y224" type="Marker2D" parent="StorePathMarkers" unique_id=946068914]
-position = Vector2(280, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1305200974]
-position = Vector2(320, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y248" type="Marker2D" parent="StorePathMarkers" unique_id=682489187]
-position = Vector2(160, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y248" type="Marker2D" parent="StorePathMarkers" unique_id=314136001]
-position = Vector2(200, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y248" type="Marker2D" parent="StorePathMarkers" unique_id=381845334]
-position = Vector2(280, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y248" type="Marker2D" parent="StorePathMarkers" unique_id=2025668197]
-position = Vector2(320, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX025Y184" type="Marker2D" parent="StorePathMarkers" unique_id=483688044]
-position = Vector2(25, 184)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX055Y184" type="Marker2D" parent="StorePathMarkers" unique_id=459079091]
-position = Vector2(55, 184)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX025Y204" type="Marker2D" parent="StorePathMarkers" unique_id=1562840722]
-position = Vector2(25, 204)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX055Y204" type="Marker2D" parent="StorePathMarkers" unique_id=1244108482]
-position = Vector2(55, 204)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX025Y224" type="Marker2D" parent="StorePathMarkers" unique_id=846412615]
-position = Vector2(25, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX055Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1010136736]
-position = Vector2(55, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX025Y248" type="Marker2D" parent="StorePathMarkers" unique_id=57827476]
-position = Vector2(25, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX055Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1119025734]
-position = Vector2(55, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX452Y224" type="Marker2D" parent="StorePathMarkers" unique_id=567249905]
-position = Vector2(452, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y248" type="Marker2D" parent="StorePathMarkers" unique_id=213407193]
-position = Vector2(424, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX396Y200" type="Marker2D" parent="StorePathMarkers" unique_id=1243226447]
-position = Vector2(396, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y200" type="Marker2D" parent="StorePathMarkers" unique_id=734417026]
-position = Vector2(424, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX452Y200" type="Marker2D" parent="StorePathMarkers" unique_id=1960826534]
-position = Vector2(452, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y224" type="Marker2D" parent="StorePathMarkers" unique_id=807871057]
-position = Vector2(424, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX025Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2052909122]
-position = Vector2(25, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX055Y272" type="Marker2D" parent="StorePathMarkers" unique_id=409802798]
-position = Vector2(55, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX088Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1094830335]
-position = Vector2(88, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX120Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1034283914]
-position = Vector2(120, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX160Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1730648737]
-position = Vector2(160, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX200Y272" type="Marker2D" parent="StorePathMarkers" unique_id=355175910]
-position = Vector2(200, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX240Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1708211326]
-position = Vector2(240, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX280Y272" type="Marker2D" parent="StorePathMarkers" unique_id=407520567]
-position = Vector2(280, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX320Y272" type="Marker2D" parent="StorePathMarkers" unique_id=928736150]
-position = Vector2(320, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX360Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2117635460]
-position = Vector2(360, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX396Y272" type="Marker2D" parent="StorePathMarkers" unique_id=517393564]
-position = Vector2(396, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX424Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1737134014]
-position = Vector2(424, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX452Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1647543221]
-position = Vector2(452, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y152" type="Marker2D" parent="StorePathMarkers" unique_id=105031450]
-position = Vector2(140, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y176" type="Marker2D" parent="StorePathMarkers" unique_id=212403201]
-position = Vector2(140, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y200" type="Marker2D" parent="StorePathMarkers" unique_id=472964650]
-position = Vector2(140, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1292941511]
-position = Vector2(140, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y248" type="Marker2D" parent="StorePathMarkers" unique_id=135997857]
-position = Vector2(140, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX140Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1892579595]
-position = Vector2(140, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y152" type="Marker2D" parent="StorePathMarkers" unique_id=681207995]
-position = Vector2(180, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y176" type="Marker2D" parent="StorePathMarkers" unique_id=815602137]
-position = Vector2(180, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y200" type="Marker2D" parent="StorePathMarkers" unique_id=1905399788]
-position = Vector2(180, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1072278316]
-position = Vector2(180, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y248" type="Marker2D" parent="StorePathMarkers" unique_id=177108430]
-position = Vector2(180, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX180Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2144683103]
-position = Vector2(180, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y128" type="Marker2D" parent="StorePathMarkers" unique_id=1141515838]
-position = Vector2(220, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1169891541]
-position = Vector2(220, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y176" type="Marker2D" parent="StorePathMarkers" unique_id=974080910]
-position = Vector2(220, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y200" type="Marker2D" parent="StorePathMarkers" unique_id=609325160]
-position = Vector2(220, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y224" type="Marker2D" parent="StorePathMarkers" unique_id=2003140295]
-position = Vector2(220, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1620343514]
-position = Vector2(220, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX220Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2066738014]
-position = Vector2(220, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y128" type="Marker2D" parent="StorePathMarkers" unique_id=888640592]
-position = Vector2(260, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y152" type="Marker2D" parent="StorePathMarkers" unique_id=250470895]
-position = Vector2(260, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1607910457]
-position = Vector2(260, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y200" type="Marker2D" parent="StorePathMarkers" unique_id=832715951]
-position = Vector2(260, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1156368466]
-position = Vector2(260, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y248" type="Marker2D" parent="StorePathMarkers" unique_id=2026524612]
-position = Vector2(260, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX260Y272" type="Marker2D" parent="StorePathMarkers" unique_id=1436594166]
-position = Vector2(260, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y128" type="Marker2D" parent="StorePathMarkers" unique_id=1537390669]
-position = Vector2(300, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1865225450]
-position = Vector2(300, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1558410516]
-position = Vector2(300, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y200" type="Marker2D" parent="StorePathMarkers" unique_id=2060162752]
-position = Vector2(300, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y224" type="Marker2D" parent="StorePathMarkers" unique_id=1875555517]
-position = Vector2(300, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1775537543]
-position = Vector2(300, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX300Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2051851213]
-position = Vector2(300, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y128" type="Marker2D" parent="StorePathMarkers" unique_id=2010009856]
-position = Vector2(340, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y152" type="Marker2D" parent="StorePathMarkers" unique_id=216804502]
-position = Vector2(340, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1897591090]
-position = Vector2(340, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y200" type="Marker2D" parent="StorePathMarkers" unique_id=1746478342]
-position = Vector2(340, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y224" type="Marker2D" parent="StorePathMarkers" unique_id=304919160]
-position = Vector2(340, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y248" type="Marker2D" parent="StorePathMarkers" unique_id=1338962265]
-position = Vector2(340, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX340Y272" type="Marker2D" parent="StorePathMarkers" unique_id=954533719]
-position = Vector2(340, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y128" type="Marker2D" parent="StorePathMarkers" unique_id=1813255228]
-position = Vector2(380, 128)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y152" type="Marker2D" parent="StorePathMarkers" unique_id=1413963972]
-position = Vector2(380, 152)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y176" type="Marker2D" parent="StorePathMarkers" unique_id=1247543907]
-position = Vector2(380, 176)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y200" type="Marker2D" parent="StorePathMarkers" unique_id=80557868]
-position = Vector2(380, 200)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y224" type="Marker2D" parent="StorePathMarkers" unique_id=2096921507]
-position = Vector2(380, 224)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y248" type="Marker2D" parent="StorePathMarkers" unique_id=355200638]
-position = Vector2(380, 248)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
-[node name="StorePathNodeX380Y272" type="Marker2D" parent="StorePathMarkers" unique_id=2040851071]
-position = Vector2(380, 272)
-metadata/store_path_role = "path"
-metadata/store_path_allow_shelf_anchor = true
-
 [node name="StorePathQueueFront" type="Marker2D" parent="StorePathMarkers" unique_id=1532996586]
-position = Vector2(88, 184)
+position = Vector2(254, 188)
 metadata/store_path_role = "queue_front"
 
 [node name="StorePathQueueBack1" type="Marker2D" parent="StorePathMarkers" unique_id=666068317]
-position = Vector2(88, 204)
+position = Vector2(254, 208)
 metadata/store_path_role = "queue_back"
 
 [node name="StorePathQueueBack2" type="Marker2D" parent="StorePathMarkers" unique_id=366603415]
-position = Vector2(88, 224)
+position = Vector2(254, 228)
 metadata/store_path_role = "queue_back"
+
+[node name="ShelfPlacementGridPreview" type="Node2D" parent="." unique_id=947167669]
+z_index = 80
+position = Vector2(10, 74)
+script = ExtResource("9_grid_debug")
+grid_origin = Vector2(0, 0)
+grid_cell_size = Vector2(15, 15)
+grid_columns = 32
+grid_rows = 12
+grid_color = Color(0.9319725, 0.703867, 0.685626, 0.25882354)
 
 [node name="QueueDropZoneVisuals" type="Node2D" parent="." unique_id=715509124]
 visible = false
 z_index = 8
 position = Vector2(-5, 3)
 
-[node name="QueueFrontZone" type="ColorRect" parent="QueueDropZoneVisuals" unique_id=2137690786]
-offset_left = 67.0
-offset_top = 133.0
-offset_right = 90.0
-offset_bottom = 151.0
-color = Color(1, 0.82, 0.18, 0.28)
-
-[node name="QueueBack1Zone" type="ColorRect" parent="QueueDropZoneVisuals" unique_id=448245395]
-offset_left = 67.0
-offset_top = 153.0
-offset_right = 90.0
-offset_bottom = 171.0
-color = Color(1, 0.82, 0.18, 0.28)
-
-[node name="QueueBack2Zone" type="ColorRect" parent="QueueDropZoneVisuals" unique_id=1399244390]
-offset_left = 67.0
-offset_top = 174.0
-offset_right = 90.0
-offset_bottom = 192.0
+[node name="Queue" type="ColorRect" parent="QueueDropZoneVisuals" unique_id=1399244390]
+offset_left = 240.0
+offset_top = 118.0
+offset_right = 256.0
+offset_bottom = 195.0
 color = Color(1, 0.82, 0.18, 0.28)
 
 [node name="CustomerPathZones" type="Node2D" parent="." unique_id=1702022746]
@@ -897,7 +268,7 @@ visible = false
 z_index = -2
 
 [node name="EntryToAisle" type="Area2D" parent="CustomerPathZones" unique_id=1588983548]
-position = Vector2(396, 224)
+position = Vector2(240, 248)
 monitoring = false
 monitorable = false
 
@@ -909,19 +280,19 @@ polygon = PackedVector2Array(-36, -18, 36, -18, 36, 18, -36, 18)
 shape = SubResource("RectangleShape2D_customer_path_entry_to_aisle")
 
 [node name="AisleToCashier" type="Area2D" parent="CustomerPathZones" unique_id=1254246748]
-position = Vector2(228, 224)
+position = Vector2(240, 208)
 monitoring = false
 monitorable = false
 
 [node name="Visual" type="Polygon2D" parent="CustomerPathZones/AisleToCashier" unique_id=795342657]
 color = Color(1, 0.76, 0.24, 0.24)
-polygon = PackedVector2Array(-132, -18, 132, -18, 132, 18, -132, 18)
+polygon = PackedVector2Array(-18, -48, 18, -48, 18, 48, -18, 48)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="CustomerPathZones/AisleToCashier" unique_id=1075194093]
 shape = SubResource("RectangleShape2D_customer_path_aisle_to_cashier")
 
 [node name="CashierToQueue" type="Area2D" parent="CustomerPathZones" unique_id=1242549929]
-position = Vector2(96, 192)
+position = Vector2(240, 188)
 monitoring = false
 monitorable = false
 

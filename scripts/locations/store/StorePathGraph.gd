@@ -28,6 +28,7 @@ const MAX_SHELF_ACCESS_CANDIDATES: int = 96
 
 var _store: Node2D = null
 var _markers: Node2D = null
+var _shelf_access_points: Array[Vector2] = []
 var _cached_shelf_anchor_positions: Array[Vector2] = []
 var _cached_shelf_anchor_count: int = -1
 var _cached_graph_node_names: Array[StringName] = []
@@ -42,6 +43,10 @@ func _init(store: Node2D = null, markers: Node2D = null) -> void:
 func setup(store: Node2D, markers: Node2D) -> void:
 	_store = store
 	_markers = markers
+
+
+func set_shelf_access_points(points: Array[Vector2]) -> void:
+	_shelf_access_points = points.duplicate()
 
 
 func get_marker_for_role(role: StringName, fallback_node_name: StringName = StringName()) -> Marker2D:
@@ -343,27 +348,10 @@ func _get_shelf_access_candidates(shelf_position: Vector2) -> Array[Dictionary]:
 		if not _is_shelf_access_marker(marker):
 			continue
 
-		var marker_position := marker.global_position
-		var horizontal_distance := absf(marker_position.x - shelf_position.x)
-		var vertical_distance := absf(marker_position.y - shelf_position.y)
+		_append_shelf_access_candidate(candidates, marker.global_position, shelf_position, node_name)
 
-		if vertical_distance <= MARKER_ALIGNMENT_EPSILON or vertical_distance > MAX_SHELF_ACCESS_DISTANCE:
-			continue
-
-		var tier := 2
-
-		if horizontal_distance <= SHELF_ACCESS_COLUMN_EPSILON:
-			tier = 0
-		elif horizontal_distance <= SHELF_ACCESS_NEAR_COLUMN_EPSILON:
-			tier = 1
-
-		candidates.append({
-			"access_point": marker_position,
-			"graph_node": node_name,
-			"tier": tier,
-			"horizontal_distance": horizontal_distance,
-			"vertical_distance": vertical_distance
-		})
+	for access_point in _shelf_access_points:
+		_append_shelf_access_candidate(candidates, access_point, shelf_position, StringName())
 
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var tier_a := int(a.get("tier", 2))
@@ -390,6 +378,37 @@ func _get_shelf_access_candidates(shelf_position: Vector2) -> Array[Dictionary]:
 	)
 
 	return candidates
+
+
+func _append_shelf_access_candidate(
+	candidates: Array[Dictionary],
+	access_point: Vector2,
+	shelf_position: Vector2,
+	graph_node: StringName
+) -> void:
+	if not access_point.is_finite():
+		return
+
+	var horizontal_distance := absf(access_point.x - shelf_position.x)
+	var vertical_distance := absf(access_point.y - shelf_position.y)
+
+	if vertical_distance <= MARKER_ALIGNMENT_EPSILON or vertical_distance > MAX_SHELF_ACCESS_DISTANCE:
+		return
+
+	var tier := 2
+
+	if horizontal_distance <= SHELF_ACCESS_COLUMN_EPSILON:
+		tier = 0
+	elif horizontal_distance <= SHELF_ACCESS_NEAR_COLUMN_EPSILON:
+		tier = 1
+
+	candidates.append({
+		"access_point": access_point,
+		"graph_node": graph_node,
+		"tier": tier,
+		"horizontal_distance": horizontal_distance,
+		"vertical_distance": vertical_distance
+	})
 
 
 func _find_nearest_graph_node(position: Vector2) -> Dictionary:
