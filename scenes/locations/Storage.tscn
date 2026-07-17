@@ -187,14 +187,12 @@ items_to_give = Array[String](["phantom_ice_cream", "fresh_tombstone", "mandrake
 color = Color(0.22, 0.18, 0.34, 1)
 
 [node name="LockedGhostBlocker" type="StaticBody2D" parent="." unique_id=332481026]
-visible = false
 position = Vector2(400, 135)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LockedGhostBlocker" unique_id=1844381840]
 shape = SubResource("RectangleShape2D_locked_ghost")
 
 [node name="LockedGhostSection" type="ColorRect" parent="." unique_id=275553101]
-visible = false
 z_index = 70
 offset_left = 320.0
 offset_right = 480.0
