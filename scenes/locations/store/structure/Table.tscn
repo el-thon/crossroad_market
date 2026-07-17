@@ -2,8 +2,8 @@
 
 [ext_resource type="Texture2D" uid="uid://dbxp57o5xk7n2" path="res://assets/store/table.png" id="1_74c48"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_4bgy0"]
-size = Vector2(114, 26)
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_upm7j"]
+size = Vector2(112, 14)
 
 [node name="Table" type="Node2D" unique_id=712131603]
 
@@ -13,6 +13,10 @@ size = Vector2(114, 26)
 position = Vector2(240, 135)
 texture = ExtResource("1_74c48")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D" unique_id=1751339583]
-position = Vector2(246, 83)
-shape = SubResource("RectangleShape2D_4bgy0")
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="StaticBody2D" unique_id=54442837]
+position = Vector2(246, 87)
+shape = SubResource("RectangleShape2D_upm7j")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="StaticBody2D" unique_id=416454453]
+position = Vector2(412, 143)
+shape = SubResource("RectangleShape2D_upm7j")

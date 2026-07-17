@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://cftax4a7xovpj" path="res://scripts/locations/WorldLighting.gd" id="4_lighting"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_door"]
-size = Vector2(48, 28)
+size = Vector2(70, 41)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_home_left_body"]
 size = Vector2(64, 54)
@@ -202,7 +202,7 @@ offset_right = 24.0
 color = Color(0.2, 0.12, 0.08, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ReturnDoor" unique_id=91024505]
-position = Vector2(0, 10)
+position = Vector2(0, 0.5)
 shape = SubResource("RectangleShape2D_door")
 
 [node name="StaticBody2D" type="StaticBody2D" parent="ReturnDoor" unique_id=786689483]
@@ -242,6 +242,10 @@ night_color = Color(0.02, 0.06, 0.18, 0.52)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -17.0
+offset_top = -20.0
+offset_right = -17.0
+offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.2, 0.13, 0.04, 0.14)
