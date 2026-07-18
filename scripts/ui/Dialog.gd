@@ -26,7 +26,7 @@ signal dialog_finished
 @onready var portrait_view: PortraitAnimation = $Portrait
 @onready var dialog_panel: Panel = $DialogPanel
 @onready var name_label: Label = $DialogPanel/NameLabel
-@onready var content_label: Label = $DialogPanel/ContentLabel
+@onready var content_label: RichTextLabel = $DialogPanel/ContentLabel
 @onready var next_button: Button = $DialogPanel/NextButton
 
 
@@ -83,7 +83,8 @@ func _apply_dialog() -> void:
 
 	name_label.text = character_name
 	content_label.text = content
-	content_label.add_theme_font_size_override("font_size", 12)
+	content_label.scroll_to_line(0)
+	content_label.add_theme_font_size_override("normal_font_size", 9)
 	next_button.text = next_text
 	_update_portrait()
 
