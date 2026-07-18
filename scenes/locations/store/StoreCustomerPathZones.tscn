@@ -1,0 +1,50 @@
+[gd_scene format=3]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_entry_to_aisle"]
+size = Vector2(72, 36)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_aisle_to_cashier"]
+size = Vector2(264, 36)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer_path_cashier_to_queue"]
+size = Vector2(36, 64)
+
+[node name="CustomerPathZones" type="Node2D" unique_id=2123535912]
+visible = false
+z_index = -2
+
+[node name="EntryToAisle" type="Area2D" parent="." unique_id=2129328630]
+position = Vector2(240, 248)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="EntryToAisle" unique_id=1014460221]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-36, -18, 36, -18, 36, 18, -36, 18)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="EntryToAisle" unique_id=1873021080]
+shape = SubResource("RectangleShape2D_customer_path_entry_to_aisle")
+
+[node name="AisleToCashier" type="Area2D" parent="." unique_id=1141994551]
+position = Vector2(240, 208)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="AisleToCashier" unique_id=1855013411]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-18, -48, 18, -48, 18, 48, -18, 48)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AisleToCashier" unique_id=794082512]
+shape = SubResource("RectangleShape2D_customer_path_aisle_to_cashier")
+
+[node name="CashierToQueue" type="Area2D" parent="." unique_id=259798558]
+position = Vector2(240, 188)
+monitoring = false
+monitorable = false
+
+[node name="Visual" type="Polygon2D" parent="CashierToQueue" unique_id=1010200521]
+color = Color(1, 0.76, 0.24, 0.24)
+polygon = PackedVector2Array(-18, -32, 18, -32, 18, 32, -18, 32)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CashierToQueue" unique_id=1385197957]
+shape = SubResource("RectangleShape2D_customer_path_cashier_to_queue")

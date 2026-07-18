@@ -1,51 +1,9 @@
 class_name Store
 extends Node2D
 
-const StoreNotificationBridge = preload("res://scripts/locations/store/StoreNotificationBridge.gd")
-const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.gd")
 const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacementGrid.gd")
-const StoreProgressionController = preload("res://scripts/locations/store/StoreProgressionController.gd")
-const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
-const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
 
-const NORMAL_STOCK_REQUIRED: int = 4
-const PUT_ACTION: StringName = &"put"
-const STORE_DROP_OFFSET := Vector2(0, 24)
-const CASHIER_DEPTH_HALF_WIDTH: float = 48.0
-const CASHIER_DEPTH_BACK_OFFSET: float = 64.0
-const CASHIER_DEPTH_FRONT_OFFSET: float = 8.0
-const CARRY_SHELF_CASHIER_BLOCKER_SIZE := Vector2(96, 36)
-const CARRY_SHELF_CASHIER_BLOCKER_OFFSET := Vector2(0, -70)
-const STORE_SHELF_PICKUP_DISTANCE: float = 60.0
-const DOOR_NO_DROP_MARGIN: float = 8.0
-const CASHIER_FLOW_RESTRICTED_SIZE := Vector2(180, 110)
-const CASHIER_FLOW_RESTRICTED_OFFSET := Vector2(0, -40)
-const SHELF_INTERACTION_STAND_DISTANCE: float = 54.0
-const SHELF_DROP_DISTANCE: float = 28.0
-const SHELF_DROP_FRONT_DISTANCE: float = 36.0
-const SHELF_DROP_ANCHOR_SEARCH_RADIUS: float = 72.0
-const SHELF_DROP_ANCHOR_LIMIT: int = 12
-const RESTRICTED_DROP_MESSAGE_COUNT: int = 3
-const RESTRICTED_DROP_MESSAGE_DURATION: float = 0.55
-const RESTRICTED_DANGER_LINE_CYCLES: int = 3
-const RESTRICTED_DANGER_LINE_CYCLE_DURATION: float = 1.5
-const RESTRICTED_DANGER_LINE_WIDTH: float = 3.0
-const RESTRICTED_DANGER_LINE_COLOR := Color(1.0, 0.16, 0.08, 1.0)
-const LOCATION_TITLE_DURATION: float = 1.25
-const MIDNIGHT_BLACK_HOLD_DURATION: float = 3.0
-const RESTOCK_CLOSE_TAX_CHECK_DELAY: float = 3.0
-const RESTOCK_TAX_RETRY_INTERVAL: float = 0.25
-const DROP_REJECTION_NONE: StringName = &"none"
-const DROP_REJECTION_STORAGE_DOOR: StringName = &"storage_door"
-const DROP_REJECTION_YARD_DOOR: StringName = &"yard_door"
-const DROP_REJECTION_CASHIER_FLOW: StringName = &"cashier_flow"
-const DROP_REJECTION_COLLISION: StringName = &"collision"
-const DROP_REJECTION_REACHABILITY: StringName = &"reachability"
-const SHELF_DROP_FALLBACK_DISTANCE: float = 44.0
-const QUEUE_MARKER_DROP_BLOCK_SIZE := Vector2(56, 18)
-const PENDING_ACCESS_UPDATE_META: StringName = &"pending_shelf_access_update_token"
 const SHELF_ACCESS_WARMUP_DELAY: float = 1.0
-const DEBUG_SHELF_ACCESS_WARMUP: bool = false
 const STORE_ENTRY_FALLBACK_POSITION := Vector2(240, 204)
 const STORE_STORAGE_RETURN_FALLBACK_POSITION := Vector2(383, 76)
 
@@ -79,6 +37,17 @@ var home_scene: PackedScene = preload("res://scenes/locations/Home.tscn")
 @onready var player: Node2D = get_node_or_null("Player") as Node2D
 @onready var cashier: Node2D = get_node_or_null("Cashier") as Node2D
 @onready var open_close_board: Node = get_node_or_null("OpenCloseBoard")
+@onready var location_flow: Node = get_node_or_null("LocationFlow")
+@onready var tax_flow: Node = get_node_or_null("TaxFlow")
+@onready var shelf_placement_controller: Node = get_node_or_null("ShelfPlacementController")
+@onready var progression_flow: Node = get_node_or_null("ProgressionFlow")
+@onready var npc_runtime: Node = get_node_or_null("NpcRuntime")
+@onready var presentation: Node = get_node_or_null("Presentation")
+@onready var open_close_controller: Node = get_node_or_null("OpenCloseController")
+@onready var day_runtime: Node = get_node_or_null("DayRuntime")
+@onready var task_completion: Node = get_node_or_null("TaskCompletion")
+@onready var npc_routes: Node = get_node_or_null("NpcRoutes")
+@onready var world_state_controller: Node = get_node_or_null("WorldStateController")
 
 var _current_storage: Node2D = null
 var _current_yard: Node2D = null
@@ -153,6 +122,7 @@ func _ready() -> void:
 	_placement_surface = get_node_or_null("StorePlacementSurface")
 	_store_path_graph = StorePathGraph.new(self, store_path_markers)
 
+	_setup_store_controllers()
 	_connect_manager_signals()
 	_connect_scene_signals()
 	_set_customer_path_visual_visible(false)
@@ -170,27 +140,29 @@ func _ready() -> void:
 	call_deferred("_start_game_in_yard")
 
 
+func _setup_store_controllers() -> void:
+	for controller in [
+		location_flow,
+		tax_flow,
+		shelf_placement_controller,
+		progression_flow,
+		npc_runtime,
+		presentation,
+		open_close_controller,
+		day_runtime,
+		task_completion,
+		npc_routes,
+		world_state_controller
+	]:
+		if controller != null and controller.has_method("setup"):
+			controller.call("setup", self)
+
+
 func _process(_delta: float) -> void:
 	_update_end_day_tax_flow()
 
-	if _current_storage != null or _current_yard != null or _current_home != null or _is_transitioning:
-		_set_carry_shelf_blocker_enabled(false)
-		_set_customer_path_visual_visible(false)
-		_hide_restricted_placement_warning()
-		return
-
-	_update_carry_shelf_blocker()
-	_update_customer_path_visual()
-	_update_player_depth_override()
-
-	if _is_action_locked():
-		return
-
-	if _is_put_pressed():
-		var carried_object := _get_carried_object_from_player()
-
-		if carried_object != null:
-			_drop_carried_shelf_in_store(carried_object)
+	if world_state_controller != null:
+		world_state_controller.process_store_world(_delta)
 
 
 func request_enter_storage(_door_type: String = "storage") -> void:
@@ -208,19 +180,13 @@ func request_enter_yard(_door_type: String = "yard") -> void:
 
 
 func on_normal_item_taken() -> void:
-	_normal_items_taken = min(_normal_items_taken + 1, NORMAL_STOCK_REQUIRED)
-	_update_objective()
-
-	if _normal_items_taken >= NORMAL_STOCK_REQUIRED:
-		_normal_supply_depleted = true
-		_show_notification("Bring the human shelf to the store and stock it.", 3.0)
-		_update_objective()
-		return
+	if day_runtime != null:
+		day_runtime.on_normal_item_taken()
 
 
 func on_human_item_placed() -> void:
-	_register_human_stock_progress()
-	_update_objective()
+	if day_runtime != null:
+		day_runtime.on_human_item_placed()
 
 
 func is_shelf_type_installed(shelf_type: ItemData.ShelfType) -> bool:
@@ -234,195 +200,130 @@ func is_shelf_type_installed(shelf_type: ItemData.ShelfType) -> bool:
 
 
 func request_toggle_store_open() -> void:
-	if _store_open:
-		_close_store()
-		return
-
-	if not _store_opened_today and not _is_day_setup_complete():
-		_show_notification("Set up the shelf and stock items before opening.", 1.5)
-		_update_store_status_board()
-		return
-
-	_open_store()
+	if open_close_controller != null:
+		open_close_controller.request_toggle_store_open()
 
 
 func can_player_sleep() -> Dictionary:
-	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
-		return {
-			"allowed": false,
-			"message": "It's too early to sleep."
-		}
+	if day_runtime != null:
+		return day_runtime.can_player_sleep()
 
-	if _store_open:
-		return {
-			"allowed": false,
-			"message": "Close the store before sleeping."
-		}
-
-	if _get_carried_object_from_player() != null:
-		return {
-			"allowed": false,
-			"message": "Put down the shelf first."
-		}
-
-	if not _tax_paid_today:
-		return {
-			"allowed": false,
-			"message": "Pay today's tax first."
-		}
-
-	return {
-		"allowed": true,
-		"message": ""
-	}
+	return {"allowed": false, "message": ""}
 
 
 func _is_day_setup_complete() -> bool:
-	return _human_shelf_installed and _human_items_placed >= NORMAL_STOCK_REQUIRED
+	return open_close_controller != null and open_close_controller.is_day_setup_complete()
 
 
 func _open_store() -> void:
-	_store_open = true
-	_store_opened_today = true
-
-	TimeManager.start_clock()
-	NPCScheduler.set_store_open(true)
-	_update_store_status_board()
-	_show_status_notification("Store is OPEN.", 1.0)
-	_show_task_complete_notice("store_opened", "Open sign flipped.")
-	_update_objective()
-	_update_end_day_tax_flow()
+	if open_close_controller != null:
+		open_close_controller.open_store()
 
 
 func _close_store() -> void:
-	_store_open = false
-	NPCScheduler.set_store_open(false)
-
-	if TimeManager.current_phase == TimeManager.Phase.NIGHT:
-		NPCScheduler.close_customer_sessions_for_day()
-
-	_update_store_status_board()
-	_show_status_notification("Store is CLOSED.", 1.0)
-	_update_objective()
-	_update_end_day_tax_flow()
+	if open_close_controller != null:
+		open_close_controller.close_store()
 
 
 func _update_store_status_board(animated: bool = true) -> void:
-	open_close_board = _get_open_close_board()
-
-	if open_close_board != null and open_close_board.has_method("set_open_state"):
-		open_close_board.call("set_open_state", _store_open, animated)
+	if open_close_controller != null:
+		open_close_controller.update_store_status_board(animated)
 
 
 func _get_open_close_board() -> Node:
-	if open_close_board != null and is_instance_valid(open_close_board):
-		return open_close_board
+	if open_close_controller != null:
+		return open_close_controller.get_open_close_board()
 
-	var yard_board: Node = null
-
-	if _current_yard != null and is_instance_valid(_current_yard):
-		yard_board = _current_yard.get_node_or_null("OpenCloseBoard")
-
-	if yard_board != null:
-		return yard_board
-
-	var group_board := get_tree().get_first_node_in_group("open_close_board")
-
-	if group_board != null:
-		return group_board
-
-	return get_node_or_null("OpenCloseBoard")
+	return open_close_board
 
 
 func get_npc_entry_route_to_shelf(shelf_position: Vector2, from_position: Vector2 = Vector2.INF) -> Array[Vector2]:
-	return _get_store_path_graph().get_entry_route_to_shelf(shelf_position, from_position)
+	if npc_routes != null:
+		return npc_routes.get_npc_entry_route_to_shelf(shelf_position, from_position)
+
+	return []
 
 
 func get_npc_shelf_access_position(shelf: Shelf) -> Vector2:
-	return _get_store_path_graph().get_shelf_access_position(shelf)
+	if npc_routes != null:
+		return npc_routes.get_npc_shelf_access_position(shelf)
+
+	return Vector2.INF
 
 
 func get_npc_shelf_visit_position(shelf: Shelf, _npc: Node = null) -> Vector2:
-	if not has_npc_shelf_access_metadata(shelf):
-		return shelf.global_position + Vector2(0, 34) if shelf != null else Vector2.INF
+	if npc_routes != null:
+		return npc_routes.get_npc_shelf_visit_position(shelf, _npc)
 
-	return get_npc_shelf_access_position(shelf)
+	return shelf.global_position + Vector2(0, 34) if shelf != null else Vector2.INF
 
 
 func has_npc_shelf_access_metadata(shelf: Shelf) -> bool:
-	return _get_store_path_graph().has_cached_shelf_access_metadata(shelf)
+	return npc_routes != null and npc_routes.has_npc_shelf_access_metadata(shelf)
 
 
 func get_npc_route_to_shelf_access(shelf: Shelf) -> Array[Vector2]:
-	if not has_npc_shelf_access_metadata(shelf):
-		return []
+	if npc_routes != null:
+		return npc_routes.get_npc_route_to_shelf_access(shelf)
 
-	return _get_store_path_graph().get_route_to_shelf_access(shelf)
+	return []
 
 
 func get_npc_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
-	return _get_store_path_graph().get_route_to_cashier_from(from_position)
+	if npc_routes != null:
+		return npc_routes.get_npc_route_to_cashier_from(from_position)
+
+	return []
 
 
 func get_npc_route_to_queue_target_from(from_position: Vector2, queue_index: int) -> Array[Vector2]:
-	return _get_store_path_graph().get_route_to_queue_target_from(from_position, queue_index)
+	if npc_routes != null:
+		return npc_routes.get_npc_route_to_queue_target_from(from_position, queue_index)
+
+	return []
 
 
 func get_npc_queue_target(queue_index: int, fallback_position: Vector2) -> Vector2:
-	return _get_store_path_graph().get_queue_target_position(queue_index, fallback_position)
+	if npc_routes != null:
+		return npc_routes.get_npc_queue_target(queue_index, fallback_position)
+
+	return fallback_position
 
 
 func get_npc_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
-	return _get_store_path_graph().get_route_from_shelf_to_cashier(shelf)
+	if npc_routes != null:
+		return npc_routes.get_npc_route_from_shelf_to_cashier(shelf)
+
+	return []
 
 
 func get_npc_exit_route_from(from_position: Vector2) -> Array[Vector2]:
-	var exit_position := _get_marker_position_or(npc_exit_marker, STORE_ENTRY_FALLBACK_POSITION)
-	return _get_store_path_graph().get_exit_route_from(from_position, exit_position)
+	if npc_routes != null:
+		return npc_routes.get_npc_exit_route_from(from_position)
+
+	return []
 
 
 func get_npc_exit_route_from_cashier() -> Array[Vector2]:
-	var from_position := _get_marker_position_or(npc_queue_marker, _get_marker_position_or(counter_pos, Vector2(96, 160)))
-	return get_npc_exit_route_from(from_position)
+	if npc_routes != null:
+		return npc_routes.get_npc_exit_route_from_cashier()
+
+	return []
 
 
 func get_activity_board_guidance() -> Dictionary:
-	var activities := [
-		{"text": "Pick the Human Shelf at the Storage, and bring it to the Store", "done": _human_shelf_installed},
-		{"text": "Take stock from the Storage and bring it to the Human Shelf", "done": _completed_task_notices.has("human_shelf_stocked")},
-		{"text": "Check the dark corner inside the Storage", "done": _mystery_discovered},
-		{"text": "Pick the Ghost Shelf at the Storage, and bring it to the Store", "done": _completed_task_notices.has("ghost_shelf_placed")},
-		{"text": "Stock the Ghost Shelf", "done": _completed_task_notices.has("ghost_shelf_stocked")},
-		{"text": "Flip the Open Sign outside the Store", "done": _store_opened_today},
-		{"text": "Serve customers at the Store cashier", "done": _completed_task_notices.has("normal_customer_served")}
-	]
-
-	var lines: Array[String] = []
-	var next_todo_index: int = -1
-
-	for i in activities.size():
-		if bool(activities[i]["done"]):
-			lines.append("[x] %s" % [str(activities[i]["text"])])
-		elif next_todo_index == -1:
-			next_todo_index = i
-
-	if next_todo_index != -1:
-		lines.append("[ ] %s" % [str(activities[next_todo_index]["text"])])
-	elif lines.is_empty():
-		lines.append("[ ] Pick the Human Shelf at the Storage, and bring it to the Store")
-	else:
-		lines.append("All listed activities are complete.")
+	if progression_flow != null:
+		return progression_flow.get_activity_board_guidance()
 
 	return {
 		"title": "Today's Work",
-		"lines": lines
+		"lines": ["[ ] Pick the Human Shelf at the Storage, and bring it to the Store"]
 	}
 
 
 func on_gooby_resolved() -> void:
-	_gooby_resolved = true
-	_show_task_complete_notice("gooby_resolved", "Gooby branch resolved.")
-	_update_objective()
+	if day_runtime != null:
+		day_runtime.on_gooby_resolved()
 
 
 func _connect_manager_signals() -> void:
@@ -474,618 +375,147 @@ func _connect_scene_signals() -> void:
 
 
 func _show_morning_intro() -> void:
-	if _intro_shown:
-		return
-
-	_intro_shown = true
-	await _show_notification_sequence([
-		"Finally made it... Grandma's old shop.",
-		"It's dusty, but it still feels like home.",
-		"Go to the backroom and bring out the human shelf."
-	])
-	_show_first_activity_board()
+	if progression_flow != null:
+		await progression_flow.show_morning_intro()
 
 
 func _show_first_activity_board() -> void:
-	if _first_activity_board_shown:
-		return
-
-	_first_activity_board_shown = true
-
-	var activity_board := get_node_or_null("ActivityBoard")
-
-	if activity_board != null and activity_board.has_method("open_board"):
-		activity_board.call("open_board")
+	if progression_flow != null:
+		progression_flow.show_first_activity_board()
 
 
 func _start_game_in_yard() -> void:
-	if _yard_intro_shown:
-		return
-
-	if yard_scene == null:
-		_show_location_title_once("store", "Store")
-		call_deferred("_show_morning_intro")
-		return
-
-	if player == null:
-		player = get_node_or_null("Player") as Node2D
-
-	if player == null:
-		push_error("Store: Player is missing.")
-		return
-
-	_current_yard = yard_scene.instantiate() as Node2D
-	add_child(_current_yard)
-	_current_yard.position = Vector2.ZERO
-	_current_yard.z_index = 100
-	_configure_yard_scene()
-	open_close_board = null
-	_update_store_status_board(false)
-
-	var spawn_marker := _current_yard.get_node_or_null("PlayerSpawn") as Node2D
-	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 136)
-
-	_set_store_world_active(false)
-	StoreTransitionController.prepare_player_for_location(player, _current_yard, spawn_position)
-	_show_location_title_once("yard", "Yard")
-	_show_yard_intro()
+	if location_flow != null:
+		location_flow.start_game_in_yard()
 
 
 func _show_yard_intro() -> void:
-	if _yard_intro_shown:
-		return
-
-	_yard_intro_shown = true
-	await _show_notification_sequence([
-		"Grandma's old shop is just ahead.",
-		"Take a breath, then head inside.",
-		"Press E at the shop door to enter."
-	])
+	if progression_flow != null:
+		await progression_flow.show_yard_intro()
 
 
 func _connect_yard_return_signal() -> void:
-	if _current_yard == null:
-		return
-
-	if _current_yard.has_signal("return_to_store"):
-		var return_callable := Callable(self, "_on_yard_return")
-
-		if not _current_yard.is_connected("return_to_store", return_callable):
-			_current_yard.connect("return_to_store", return_callable)
-	else:
-		push_error("Store: Yard scene must emit return_to_store.")
-
-	if _current_yard.has_signal("enter_home"):
-		var home_callable := Callable(self, "_on_yard_enter_home")
-
-		if not _current_yard.is_connected("enter_home", home_callable):
-			_current_yard.connect("enter_home", home_callable)
-	else:
-		push_error("Store: Yard scene must emit enter_home.")
+	if location_flow != null:
+		location_flow.connect_yard_return_signal()
 
 
 func _configure_yard_scene() -> void:
-	_connect_yard_return_signal()
-
-	if _current_yard != null and _current_yard.has_signal("restock_delivery_collected"):
-		var restock_collected_callable := Callable(self, "_on_yard_restock_delivery_collected")
-
-		if not _current_yard.is_connected("restock_delivery_collected", restock_collected_callable):
-			_current_yard.connect("restock_delivery_collected", restock_collected_callable)
-
-	_sync_restock_deliveries_to_yard()
+	if location_flow != null:
+		location_flow.configure_yard_scene()
 
 
 func _enter_storage() -> void:
-	if storage_scene == null:
-		push_error("Store: Storage scene is missing.")
-		return
-
-	if player == null:
-		player = get_node_or_null("Player") as Node2D
-
-	if player == null:
-		push_error("Store: Player is missing.")
-		return
-
-	_is_transitioning = true
-	_cancel_restricted_drop_feedback()
-	await _fade_to_black()
-
-	_current_storage = storage_scene.instantiate() as Node2D
-	add_child(_current_storage)
-	_current_storage.position = Vector2.ZERO
-	_current_storage.z_index = 100
-
-	if _current_storage.has_method("set_entry_door"):
-		_current_storage.set_entry_door("storage")
-
-	if _current_storage.has_method("set_shelf_install_state"):
-		_current_storage.set_shelf_install_state(
-			_human_shelf_installed or _is_player_carrying_shelf_named("ShelfHuman"),
-			_ghost_shelf_installed or _is_player_carrying_shelf_named("ShelfGhost")
-		)
-
-	if _current_storage.has_method("set_normal_supply_depleted"):
-		_current_storage.set_normal_supply_depleted(_normal_supply_depleted)
-
-	if _current_storage.has_method("set_mystery_discovered"):
-		_current_storage.set_mystery_discovered(_mystery_discovered)
-
-	if _current_storage.has_method("set_mystery_items_taken"):
-		_current_storage.set_mystery_items_taken(_mystery_items_taken)
-
-	if _current_storage.has_method("set_mystery_supply_depleted"):
-		_current_storage.set_mystery_supply_depleted(_mystery_supply_depleted)
-
-	if _current_storage.has_method("set_mystery_phase_unlocked"):
-		_current_storage.set_mystery_phase_unlocked(_mystery_phase_unlocked)
-
-	if _current_storage.has_signal("return_to_store"):
-		var return_callable := Callable(self, "_on_storage_return")
-
-		if not _current_storage.is_connected("return_to_store", return_callable):
-			_current_storage.connect("return_to_store", return_callable)
-	else:
-		push_error("Store: Storage scene must emit return_to_store.")
-
-	if _current_storage.has_signal("mystery_discovered"):
-		var mystery_callable := Callable(self, "_on_storage_mystery_discovered")
-
-		if not _current_storage.is_connected("mystery_discovered", mystery_callable):
-			_current_storage.connect("mystery_discovered", mystery_callable)
-
-	if _current_storage.has_signal("mystery_item_taken"):
-		var mystery_item_callable := Callable(self, "_on_storage_mystery_item_taken")
-
-		if not _current_storage.is_connected("mystery_item_taken", mystery_item_callable):
-			_current_storage.connect("mystery_item_taken", mystery_item_callable)
-
-	if _current_storage.has_signal("mystery_supply_depleted"):
-		var mystery_depleted_callable := Callable(self, "_on_storage_mystery_supply_depleted")
-
-		if not _current_storage.is_connected("mystery_supply_depleted", mystery_depleted_callable):
-			_current_storage.connect("mystery_supply_depleted", mystery_depleted_callable)
-
-	if _current_storage.has_signal("ghost_shelf_item_placed"):
-		var ghost_shelf_callable := Callable(self, "_on_ghost_shelf_item_placed")
-
-		if not _current_storage.is_connected("ghost_shelf_item_placed", ghost_shelf_callable):
-			_current_storage.connect("ghost_shelf_item_placed", ghost_shelf_callable)
-
-	if _current_storage.has_signal("restock_order_purchased"):
-		var restock_order_callable := Callable(self, "_on_storage_restock_order_purchased")
-
-		if not _current_storage.is_connected("restock_order_purchased", restock_order_callable):
-			_current_storage.connect("restock_order_purchased", restock_order_callable)
-
-	if _current_storage.has_signal("restock_panel_opened"):
-		var restock_panel_opened_callable := Callable(self, "_on_storage_restock_panel_opened")
-
-		if not _current_storage.is_connected("restock_panel_opened", restock_panel_opened_callable):
-			_current_storage.connect("restock_panel_opened", restock_panel_opened_callable)
-
-	if _current_storage.has_signal("restock_panel_closed"):
-		var restock_panel_closed_callable := Callable(self, "_on_storage_restock_panel_closed")
-
-		if not _current_storage.is_connected("restock_panel_closed", restock_panel_closed_callable):
-			_current_storage.connect("restock_panel_closed", restock_panel_closed_callable)
-
-	if _current_storage.has_signal("restock_item_purchased"):
-		var restock_callable := Callable(self, "_on_storage_restock_item_purchased")
-
-		if not _current_storage.is_connected("restock_item_purchased", restock_callable):
-			_current_storage.connect("restock_item_purchased", restock_callable)
-
-	var spawn_marker := _current_storage.get_node_or_null("PlayerSpawn") as Node2D
-	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(42, 68)
-
-	_set_store_world_active(false)
-	StoreTransitionController.prepare_player_for_location(player, _current_storage, spawn_position)
-
-	await _fade_from_black()
-	_show_location_title_once("storage", "Storage")
-	_is_transitioning = false
+	if location_flow != null:
+		await location_flow.enter_storage()
 
 
 func _on_storage_return(_door_type: String) -> void:
-	if _is_transitioning:
-		return
-
-	_is_transitioning = true
-	_close_cashier_runtime_ui()
-	await _fade_to_black()
-
-	if player == null and _current_storage != null:
-		player = _current_storage.get_node_or_null("Player") as Node2D
-
-	if player != null:
-		StoreTransitionController.prepare_player_for_location(player, self, _get_storage_return_position())
-	else:
-		push_error("Store: Player not found while returning from Storage.")
-
-	var storage_to_remove := _current_storage
-
-	if storage_to_remove != null:
-		storage_to_remove.queue_free()
-
-	_set_store_world_active(true)
-	_current_storage = null
-	_setup_npc_static_data()
-	_update_objective()
-
-	await _fade_from_black()
-	_is_transitioning = false
+	if location_flow != null:
+		await location_flow.on_storage_return(_door_type)
 
 
 func _enter_yard() -> void:
-	if yard_scene == null:
-		push_error("Store: Yard scene is missing.")
-		return
-
-	if player == null:
-		player = get_node_or_null("Player") as Node2D
-
-	if player == null:
-		push_error("Store: Player is missing.")
-		return
-
-	_is_transitioning = true
-	_cancel_restricted_drop_feedback()
-	_close_cashier_runtime_ui()
-	await _fade_to_black()
-
-	_current_yard = yard_scene.instantiate() as Node2D
-	add_child(_current_yard)
-	_current_yard.position = Vector2.ZERO
-	_current_yard.z_index = 100
-	_configure_yard_scene()
-	open_close_board = null
-	_update_store_status_board(false)
-
-	var spawn_marker := _current_yard.get_node_or_null("PlayerSpawn") as Node2D
-	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 136)
-
-	_set_store_world_active(false)
-	StoreTransitionController.prepare_player_for_location(player, _current_yard, spawn_position)
-
-	await _fade_from_black()
-	_show_location_title_once("yard", "Yard")
-	_is_transitioning = false
+	if location_flow != null:
+		await location_flow.enter_yard()
 
 
 func _on_yard_return(_door_type: String) -> void:
-	if _is_transitioning:
-		return
-
-	_is_transitioning = true
-	await _fade_to_black()
-
-	if player == null and _current_yard != null:
-		player = _current_yard.get_node_or_null("Player") as Node2D
-
-	if player != null:
-		StoreTransitionController.prepare_player_for_location(player, self, _get_yard_return_position())
-	else:
-		push_error("Store: Player not found while returning from Yard.")
-
-	var yard_to_remove := _current_yard
-
-	if yard_to_remove != null:
-		yard_to_remove.queue_free()
-
-	_set_store_world_active(true)
-	_current_yard = null
-	open_close_board = null
-	_setup_npc_static_data()
-	_update_objective()
-
-	await _fade_from_black()
-	_is_transitioning = false
-
-	if _pending_store_intro_after_yard:
-		_pending_store_intro_after_yard = false
-		_show_location_title_once("store", "Store")
-		call_deferred("_show_morning_intro")
+	if location_flow != null:
+		await location_flow.on_yard_return(_door_type)
 
 
 func _on_yard_enter_home() -> void:
-	if _is_transitioning:
-		return
-
-	_enter_home()
+	if location_flow != null:
+		location_flow.on_yard_enter_home()
 
 
 func _enter_home() -> void:
-	if home_scene == null:
-		push_error("Store: Home scene is missing.")
-		return
-
-	if player == null and _current_yard != null:
-		player = _current_yard.get_node_or_null("Player") as Node2D
-
-	if player == null:
-		push_error("Store: Player is missing.")
-		return
-
-	_is_transitioning = true
-	_cancel_restricted_drop_feedback()
-	await _fade_to_black()
-
-	_current_home = home_scene.instantiate() as Node2D
-	add_child(_current_home)
-	_current_home.position = Vector2.ZERO
-	_current_home.z_index = 100
-
-	if _current_home.has_signal("return_to_yard"):
-		var return_callable := Callable(self, "_on_home_return_to_yard")
-
-		if not _current_home.is_connected("return_to_yard", return_callable):
-			_current_home.connect("return_to_yard", return_callable)
-	else:
-		push_error("Store: Home scene must emit return_to_yard.")
-
-	var spawn_marker := _current_home.get_node_or_null("PlayerSpawn") as Node2D
-	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(240, 210)
-
-	_set_store_world_active(false)
-	StoreTransitionController.prepare_player_for_location(player, _current_home, spawn_position)
-
-	var yard_to_remove := _current_yard
-
-	if yard_to_remove != null:
-		yard_to_remove.queue_free()
-
-	_current_yard = null
-	open_close_board = null
-
-	await _fade_from_black()
-	_show_location_title_once("home", "Home")
-	_is_transitioning = false
+	if location_flow != null:
+		await location_flow.enter_home()
 
 
 func _on_home_return_to_yard(_door_type: String) -> void:
-	if _is_transitioning:
-		return
-
-	if yard_scene == null:
-		push_error("Store: Yard scene is missing.")
-		return
-
-	_is_transitioning = true
-	await _fade_to_black()
-
-	if player == null and _current_home != null:
-		player = _current_home.get_node_or_null("Player") as Node2D
-
-	_current_yard = yard_scene.instantiate() as Node2D
-	add_child(_current_yard)
-	_current_yard.position = Vector2.ZERO
-	_current_yard.z_index = 100
-	_configure_yard_scene()
-	open_close_board = null
-	_update_store_status_board(false)
-
-	var spawn_marker := _current_yard.get_node_or_null("PlayerHomeArea/HomeReturnSpawn") as Node2D
-	var spawn_position := spawn_marker.global_position if spawn_marker != null else Vector2(856, 144)
-
-	if player != null:
-		StoreTransitionController.prepare_player_for_location(player, _current_yard, spawn_position)
-	else:
-		push_error("Store: Player not found while returning from Home.")
-
-	var home_to_remove := _current_home
-
-	if home_to_remove != null:
-		home_to_remove.queue_free()
-
-	_current_home = null
-	_set_store_world_active(false)
-
-	await _fade_from_black()
-	_show_location_title_once("yard", "Yard")
-	_is_transitioning = false
+	if location_flow != null:
+		await location_flow.on_home_return_to_yard(_door_type)
 
 
 func _on_storage_mystery_discovered() -> void:
-	_mystery_discovered = true
-	_show_task_complete_notice("mystery_discovered", "Mystery corner discovered.")
-	_update_objective()
+	if progression_flow != null:
+		progression_flow.on_storage_mystery_discovered()
 
 
 func _on_storage_mystery_item_taken(item_id: String) -> void:
-	if item_id != "" and item_id not in _mystery_items_taken:
-		_mystery_items_taken.append(item_id)
-
-	_update_objective()
+	if progression_flow != null:
+		progression_flow.on_storage_mystery_item_taken(item_id)
 
 
 func _on_storage_mystery_supply_depleted() -> void:
-	_mystery_supply_depleted = true
-	_update_objective()
+	if progression_flow != null:
+		progression_flow.on_storage_mystery_supply_depleted()
 
 
 func _on_storage_restock_order_purchased(order_items: Array) -> void:
-	if order_items.is_empty():
-		return
-
-	_restock_delivery_counter += 1
-	_pending_restock_deliveries.append({
-		"id": _restock_delivery_counter,
-		"items": _duplicate_restock_items(order_items)
-	})
-	_restock_ordered_today = true
-	_sync_restock_deliveries_to_yard()
+	if tax_flow != null:
+		tax_flow.on_storage_restock_order_purchased(order_items)
 
 
 func _on_storage_restock_panel_opened() -> void:
-	_restock_panel_open = true
-	_tax_waiting_for_restock_close = false
-	_tax_ready_after_restock_close = false
-	_tax_restock_close_ready_at_msec = 0
-	_tax_restock_retry_token += 1
+	if tax_flow != null:
+		tax_flow.on_storage_restock_panel_opened()
 
 
 func _on_storage_restock_panel_closed(had_checkout: bool = false) -> void:
-	_restock_panel_open = false
-
-	if not had_checkout:
-		return
-
-	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
-		return
-
-	if _store_open:
-		return
-
-	if _tax_paid_today or _tax_panel_showing:
-		return
-
-	_restock_ordered_today = true
-	_tax_waiting_for_restock_close = true
-	_tax_ready_after_restock_close = true
-	_tax_restock_close_ready_at_msec = Time.get_ticks_msec() + int(RESTOCK_CLOSE_TAX_CHECK_DELAY * 1000.0)
-	_schedule_restock_tax_retry()
+	if tax_flow != null:
+		tax_flow.on_storage_restock_panel_closed(had_checkout)
 
 
 func _schedule_restock_tax_retry() -> void:
-	_tax_restock_retry_token += 1
-	var retry_token := _tax_restock_retry_token
-	_defer_restock_tax_retry(retry_token)
+	if tax_flow != null:
+		tax_flow.schedule_restock_tax_retry()
 
 
 func _defer_restock_tax_retry(retry_token: int) -> void:
-	while retry_token == _tax_restock_retry_token and _should_continue_restock_tax_retry():
-		var remaining_msec := _tax_restock_close_ready_at_msec - Time.get_ticks_msec()
-
-		if remaining_msec > 0:
-			await get_tree().create_timer(float(remaining_msec) / 1000.0).timeout
-		else:
-			if _try_show_tax_panel():
-				return
-
-			await get_tree().create_timer(RESTOCK_TAX_RETRY_INTERVAL).timeout
+	if tax_flow != null:
+		await tax_flow.defer_restock_tax_retry(retry_token)
 
 
 func _should_continue_restock_tax_retry() -> bool:
-	return (
-		_tax_waiting_for_restock_close
-		and _tax_ready_after_restock_close
-		and not _tax_paid_today
-		and not _tax_panel_showing
-		and not _end_day_transition_started
-	)
+	return tax_flow != null and tax_flow.should_continue_restock_tax_retry()
 
 
 func _on_storage_restock_item_purchased(item_id: String, quantity: int) -> void:
-	if item_id == "" or quantity <= 0:
-		return
-
-	_on_storage_restock_order_purchased([ {
-		"item_id": item_id,
-		"quantity": quantity
-	}])
+	if tax_flow != null:
+		tax_flow.on_storage_restock_item_purchased(item_id, quantity)
 
 
 func _duplicate_restock_items(order_items: Array) -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
+	if tax_flow == null:
+		return []
 
-	for item in order_items:
-		if not (item is Dictionary):
-			continue
-
-		var data := item as Dictionary
-		var item_id := str(data.get("item_id", ""))
-		var quantity := int(data.get("quantity", 0))
-
-		if item_id == "" or quantity <= 0:
-			continue
-
-		items.append({
-			"item_id": item_id,
-			"quantity": quantity
-		})
-
-	return items
+	return tax_flow.duplicate_restock_items(order_items)
 
 
 func _on_yard_restock_delivery_collected(delivery_id: int) -> void:
-	if delivery_id < 0:
-		_pending_restock_deliveries.clear()
-		return
-
-	for i in range(_pending_restock_deliveries.size() - 1, -1, -1):
-		var delivery := _pending_restock_deliveries[i]
-
-		if int(delivery.get("id", -1)) == delivery_id:
-			_pending_restock_deliveries.remove_at(i)
-			return
+	if tax_flow != null:
+		tax_flow.on_yard_restock_delivery_collected(delivery_id)
 
 
 func _sync_restock_deliveries_to_yard() -> void:
-	if _current_yard == null or not is_instance_valid(_current_yard):
-		return
-
-	if not _current_yard.has_method("set_restock_deliveries"):
-		return
-
-	_current_yard.call("set_restock_deliveries", _pending_restock_deliveries)
+	if tax_flow != null:
+		tax_flow.sync_restock_deliveries_to_yard()
 
 
 func _update_end_day_tax_flow() -> void:
-	if _end_day_transition_started:
-		return
-
-	if _tax_paid_today:
-		return
-
-	if _tax_waiting_for_restock_close:
-		if not _tax_ready_after_restock_close:
-			return
-
-		if Time.get_ticks_msec() < _tax_restock_close_ready_at_msec:
-			return
-
-	if _restock_panel_open:
-		return
-
-	_try_show_tax_panel()
+	if tax_flow != null:
+		tax_flow.update_end_day_tax_flow()
 
 
 func _try_show_tax_panel() -> bool:
-	if not _can_show_tax_panel():
-		return false
-
-	if not _show_tax_panel():
-		return false
-
-	_tax_waiting_for_restock_close = false
-	_tax_ready_after_restock_close = false
-	_tax_restock_close_ready_at_msec = 0
-	_tax_restock_retry_token += 1
-	return true
+	return tax_flow != null and tax_flow.try_show_tax_panel()
 
 
 func _can_show_tax_panel() -> bool:
-	if _tax_panel_showing:
-		return false
-
-	if _restock_panel_open:
-		return false
-
-	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
-		return false
-
-	if _store_open:
-		return false
-
-	if not _restock_ordered_today:
-		return false
-
-	if _has_blocking_overlay_for_tax():
-		return false
-
-	return true
+	return tax_flow != null and tax_flow.can_show_tax_panel()
 
 
 func _has_active_customer_npcs() -> bool:
@@ -1106,669 +536,105 @@ func _has_blocking_overlay_for_tax() -> bool:
 
 
 func _show_tax_panel(warning: String = "") -> bool:
-	_connect_hud_signals()
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud == null or not hud.has_method("show_tax_report"):
-		return false
-
-	_tax_pending = true
-	_tax_panel_showing = true
-	_latest_daily_report = EconomyManager.get_daily_report()
-
-	if warning != "" and hud.has_method("show_tax_warning"):
-		hud.call("show_tax_warning", warning, _latest_daily_report)
-	else:
-		hud.call("show_tax_report", _latest_daily_report)
-
-	return true
+	return tax_flow != null and tax_flow.show_tax_panel(warning)
 
 
 func _on_tax_payment_requested() -> void:
-	if not _tax_panel_showing:
-		return
-
-	var tax := EconomyManager.get_daily_tax()
-
-	if EconomyManager.gold < tax:
-		_show_tax_panel("Not enough gold to pay today's tax.")
-		return
-
-	if not EconomyManager.pay_tax():
-		_show_tax_panel("Not enough gold to pay today's tax.")
-		return
-
-	_tax_pending = false
-	_tax_paid_today = true
-	_tax_panel_showing = false
-	_tax_waiting_for_restock_close = false
-	_tax_ready_after_restock_close = false
-	_tax_restock_close_ready_at_msec = 0
-	_tax_restock_retry_token += 1
-
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("hide_tax_report"):
-		hud.call("hide_tax_report")
-
-	_show_notification("Tax paid.", 1.0)
+	if tax_flow != null:
+		tax_flow.on_tax_payment_requested()
 
 
 func _start_midnight_to_morning_transition() -> void:
-	if _end_day_transition_started:
-		return
-
-	if not TimeManager.can_sleep():
-		return
-
-	_end_day_transition_started = true
-	call_deferred("_run_midnight_to_morning_transition")
+	if tax_flow != null:
+		tax_flow.start_midnight_to_morning_transition()
 
 
 func _run_midnight_to_morning_transition() -> void:
-	_is_transitioning = true
-	await _fade_to_black()
-	await get_tree().create_timer(MIDNIGHT_BLACK_HOLD_DURATION).timeout
-	TimeManager.start_next_day()
-	await _fade_from_black()
-	_is_transitioning = false
+	if tax_flow != null:
+		await tax_flow.run_midnight_to_morning_transition()
 
 
 func _get_storage_return_position() -> Vector2:
-	if storage_return_pos != null:
-		return storage_return_pos.global_position
-
-	if storage_door != null:
-		return storage_door.global_position + Vector2(0, 44)
+	if location_flow != null:
+		return location_flow.get_storage_return_position()
 
 	return STORE_STORAGE_RETURN_FALLBACK_POSITION
 
 
 func _get_yard_return_position() -> Vector2:
-	if store_entry_pos != null:
-		return store_entry_pos.global_position
-
-	var structure_bottom := get_node_or_null("StoreStructure/Boundaries/Bottom/CollisionShape2D") as CollisionShape2D
-	var bottom_shape: RectangleShape2D = null
-
-	if structure_bottom != null:
-		bottom_shape = structure_bottom.shape as RectangleShape2D
-
-	if structure_bottom != null and bottom_shape != null:
-		var player_bottom_offset := 30.0
-		var player_collision: CollisionShape2D = null
-		var player_shape: RectangleShape2D = null
-
-		if player != null:
-			player_collision = player.get_node_or_null("CollisionShape2D") as CollisionShape2D
-
-		if player_collision != null:
-			player_shape = player_collision.shape as RectangleShape2D
-
-		if player_collision != null and player_shape != null:
-			player_bottom_offset = player_collision.position.y + player_shape.size.y * 0.5
-
-		var structure_center_x := 240.0
-		var base_floor := get_node_or_null("StoreStructure/BaseFloor") as Node2D
-
-		if base_floor != null:
-			structure_center_x = base_floor.global_position.x
-
-		return Vector2(
-			structure_center_x,
-			structure_bottom.global_position.y - bottom_shape.size.y * 0.5 - player_bottom_offset - 1.0
-		)
-
-	if yard_door != null:
-		return yard_door.global_position + Vector2(0, -47)
+	if location_flow != null:
+		return location_flow.get_yard_return_position()
 
 	return STORE_ENTRY_FALLBACK_POSITION
 
 
 func _is_put_pressed() -> bool:
-	return InputMap.has_action(PUT_ACTION) and Input.is_action_just_pressed(PUT_ACTION)
+	return world_state_controller != null and world_state_controller.is_put_pressed()
 
 
 func _is_action_locked() -> bool:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-
-	if hud == null or not hud.has_method("is_action_locked"):
-		return false
-
-	return bool(hud.call("is_action_locked"))
+	return world_state_controller != null and world_state_controller.is_action_locked()
 
 
 func _get_carried_object_from_player() -> Node2D:
-	return StoreShelfController.get_carried_object_from_player(player)
+	if shelf_placement_controller != null:
+		return shelf_placement_controller.get_carried_object_from_player()
+
+	return null
 
 
 func request_drop_carried_shelf() -> bool:
-	var carried_object := _get_carried_object_from_player()
-
-	if carried_object == null:
-		return false
-
-	_drop_carried_shelf_in_store(carried_object)
-	return true
+	return shelf_placement_controller != null and shelf_placement_controller.request_drop_carried_shelf()
 
 
 func request_pickup_shelf(shelf: Shelf) -> bool:
-	if shelf == null or player == null:
-		return false
-
-	if not _is_descendant_of(shelf, self):
-		return false
-
-	if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
-		return false
-
-	var is_within_pickup_distance := player.global_position.distance_to(shelf.global_position) <= STORE_SHELF_PICKUP_DISTANCE
-
-	if not is_within_pickup_distance and not _is_player_overlapping_shelf_interaction(shelf):
-		return false
-
-	_pickup_installed_shelf(shelf)
-	return true
+	return shelf_placement_controller != null and shelf_placement_controller.request_pickup_shelf(shelf)
 
 
 func _is_player_carrying_shelf_named(shelf_name: String) -> bool:
-	return StoreShelfController.is_player_carrying_shelf_named(player, shelf_name)
+	return shelf_placement_controller != null and shelf_placement_controller.is_player_carrying_shelf_named(shelf_name)
 
 
 func _drop_carried_shelf_in_store(object: Node2D) -> void:
-	if player == null:
-		return
-
-	var primary_drop_position := _get_primary_shelf_drop_position()
-	var primary_restriction := _evaluate_shelf_drop_restriction(object, primary_drop_position)
-
-	if primary_restriction.get("type", DROP_REJECTION_NONE) == DROP_REJECTION_CASHIER_FLOW:
-		_show_drop_restriction_feedback(primary_restriction)
-		return
-
-	var drop_candidates: Array[Vector2] = []
-	var drop_position := primary_drop_position
-
-	if bool(primary_restriction.get("blocked", false)):
-		drop_candidates = _get_drop_candidates()
-		drop_position = _find_safe_drop_position(object, drop_candidates)
-
-	if drop_position == Vector2.INF:
-		if not bool(primary_restriction.get("blocked", false)):
-			primary_restriction = _get_drop_failure_context(object, drop_candidates)
-
-		if not bool(primary_restriction.get("blocked", false)):
-			var primary_object_rect := _get_object_body_rect_at(object, primary_drop_position)
-			primary_restriction = _make_drop_restriction(
-				true,
-				DROP_REJECTION_COLLISION,
-				"I can't place the shelf here.",
-				primary_object_rect,
-				false
-			)
-
-		_show_drop_restriction_feedback(primary_restriction)
-		return
-
-	object.reparent(self, true)
-	object.global_position = drop_position
-	object.z_index = 0
-	_set_shelf_carried_state(object, false)
-	if not object.is_in_group("shelves"):
-		object.add_to_group("shelves")
-	_show_passive_notification("Shelf placed in the store.", 2.0, true)
-	_schedule_post_shelf_drop_update(object, drop_position)
-	_set_customer_path_visual_visible(false)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.drop_carried_shelf_in_store(object)
 
 
 func _create_carry_shelf_blocker() -> void:
-	_carry_shelf_blocker = StaticBody2D.new()
-	_carry_shelf_blocker.name = "CarryShelfCashierBlocker"
-	_carry_shelf_blocker.visible = false
-	add_child(_carry_shelf_blocker)
-
-	var shape := RectangleShape2D.new()
-	shape.size = CARRY_SHELF_CASHIER_BLOCKER_SIZE
-
-	_carry_shelf_blocker_shape = CollisionShape2D.new()
-	_carry_shelf_blocker_shape.name = "CollisionShape2D"
-	_carry_shelf_blocker_shape.shape = shape
-	_carry_shelf_blocker.add_child(_carry_shelf_blocker_shape)
-
-	_set_carry_shelf_blocker_enabled(false)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.create_carry_shelf_blocker()
 
 
 func _create_restricted_placement_warning() -> void:
-	_restricted_placement_warning = Node2D.new()
-	_restricted_placement_warning.name = "RestrictedPlacementWarning"
-	_restricted_placement_warning.z_index = 90
-	_restricted_placement_warning.visible = false
-	_restricted_placement_warning.modulate.a = 0.0
-	add_child(_restricted_placement_warning)
-
-	_restricted_placement_warning_line = Line2D.new()
-	_restricted_placement_warning_line.name = "RestrictedPlacementWarningLine"
-	_restricted_placement_warning_line.width = RESTRICTED_DANGER_LINE_WIDTH
-	_restricted_placement_warning_line.default_color = RESTRICTED_DANGER_LINE_COLOR
-	_restricted_placement_warning_line.closed = true
-	_restricted_placement_warning_line.visible = false
-	_restricted_placement_warning.add_child(_restricted_placement_warning_line)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.create_restricted_placement_warning()
 
 
 func _update_carry_shelf_blocker() -> void:
-	if _carry_shelf_blocker != null:
-		_carry_shelf_blocker.global_position = _get_carry_shelf_blocker_position()
-
-	_set_carry_shelf_blocker_enabled(false)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.update_carry_shelf_blocker()
 
 
 func _update_customer_path_visual() -> void:
-	_set_customer_path_visual_visible(false)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.update_customer_path_visual()
 
 
 func _set_customer_path_visual_visible(should_show: bool) -> void:
-	if customer_path_zones == null:
-		return
-
-	customer_path_zones.visible = should_show
+	if shelf_placement_controller != null:
+		shelf_placement_controller.set_customer_path_visual_visible(should_show)
 
 
 func _set_carry_shelf_blocker_enabled(_enabled: bool) -> void:
-	if _carry_shelf_blocker_shape == null:
-		return
-
-	_carry_shelf_blocker_shape.disabled = true
-
-
-func _find_safe_drop_position(object: Node2D, candidates: Array[Vector2]) -> Vector2:
-	for candidate in candidates:
-		if not bool(_evaluate_shelf_drop_restriction(object, candidate).get("blocked", false)):
-			return candidate
-
-	return Vector2.INF
-
-
-func _get_drop_failure_context(object: Node2D, candidates: Array[Vector2]) -> Dictionary:
-	for candidate in candidates:
-		var rejection := _evaluate_shelf_drop_restriction(object, candidate)
-
-		if bool(rejection.get("blocked", false)):
-			return rejection
-
-	return _make_drop_restriction()
-
-
-func _get_drop_candidates() -> Array[Vector2]:
-	var candidates: Array[Vector2] = []
-	var primary_position := _get_primary_shelf_drop_position()
-
-	candidates.append(primary_position)
-	candidates.append_array(_get_nearby_shelf_anchor_drop_candidates(primary_position, true))
-	candidates.append_array(_get_nearby_shelf_anchor_drop_candidates(player.global_position, false))
-
-	for offset in _get_directional_shelf_drop_fallbacks():
-		var candidate := player.global_position + offset
-
-		if candidate not in candidates:
-			candidates.append(candidate)
-
-	return candidates
-
-
-func _get_nearby_shelf_anchor_drop_candidates(origin: Vector2, use_direction_filter: bool) -> Array[Vector2]:
-	var anchors := _get_shelf_placement_grid_positions()
-
-	if anchors.is_empty():
-		return []
-
-	var nearby: Array[Vector2] = []
-
-	for anchor in anchors:
-		if anchor.distance_to(origin) > SHELF_DROP_ANCHOR_SEARCH_RADIUS:
-			continue
-		if use_direction_filter and not _is_anchor_in_player_drop_direction(anchor, origin):
-			continue
-
-		nearby.append(anchor)
-
-	nearby.sort_custom(func(a: Vector2, b: Vector2) -> bool:
-		return _get_shelf_anchor_drop_score(a, origin, use_direction_filter) < _get_shelf_anchor_drop_score(b, origin, use_direction_filter)
-	)
-
-	var limited: Array[Vector2] = []
-
-	for anchor in nearby:
-		limited.append(anchor)
-
-		if limited.size() >= SHELF_DROP_ANCHOR_LIMIT:
-			break
-
-	return limited
-
-
-func _get_shelf_anchor_drop_score(anchor: Vector2, origin: Vector2, use_direction_filter: bool) -> float:
-	var score := anchor.distance_to(origin)
-
-	if player == null or not use_direction_filter:
-		return score
-
-	var facing := _get_player_facing_direction()
-	var to_anchor := anchor - player.global_position
-
-	if to_anchor.length() <= 2.0:
-		return score
-
-	var forward_distance: float = to_anchor.dot(facing)
-	var lateral_distance: float = absf(to_anchor.dot(Vector2(-facing.y, facing.x)))
-
-	if forward_distance < 0.0:
-		score += abs(forward_distance) * 2.0
-
-	score += lateral_distance * 0.35
-	return score
+	if shelf_placement_controller != null:
+		shelf_placement_controller.set_carry_shelf_blocker_enabled(_enabled)
 
 
 func _get_shelf_placement_grid_positions() -> Array[Vector2]:
-	if not _placement_surface_anchor_cache.is_empty():
-		return _placement_surface_anchor_cache
+	if shelf_placement_controller != null:
+		return shelf_placement_controller.get_shelf_placement_grid_positions()
 
-	if _placement_surface == null:
-		_placement_surface = get_node_or_null("StorePlacementSurface")
-
-	if _placement_surface != null and _placement_surface.has_method("get_anchor_positions"):
-		var anchors: Variant = _placement_surface.call("get_anchor_positions")
-
-		if anchors is Array:
-			_placement_surface_anchor_cache.clear()
-
-			for anchor in anchors:
-				if anchor is Vector2:
-					_placement_surface_anchor_cache.append(anchor)
-
-		return _placement_surface_anchor_cache
-
-	if _placement_grid == null:
-		_placement_grid = StorePlacementGrid.new()
-
-	_placement_grid.setup(
-		shelf_placement_fallback_polygon,
-		shelf_placement_fallback_spacing
-	)
-	_placement_surface_anchor_cache = _placement_grid.get_positions()
-	return _placement_surface_anchor_cache
-
-
-func _get_primary_shelf_drop_position() -> Vector2:
-	var facing := _get_player_facing_direction()
-	return player.global_position + facing * _get_shelf_drop_distance_for_facing(facing)
-
-
-func _get_directional_shelf_drop_fallbacks() -> Array[Vector2]:
-	var facing := _get_player_facing_direction()
-	var forward := facing * _get_shelf_drop_distance_for_facing(facing)
-	var right := Vector2(-facing.y, facing.x) * SHELF_DROP_FALLBACK_DISTANCE
-	var back := -facing * SHELF_DROP_FALLBACK_DISTANCE
-
-	return [
-		forward,
-		forward + right * 0.75,
-		forward - right * 0.75,
-		right,
-		- right,
-		back
-	]
-
-
-func _is_anchor_in_player_drop_direction(anchor: Vector2, primary_position: Vector2) -> bool:
-	if player == null:
-		return true
-
-	var facing := _get_player_facing_direction()
-	var to_anchor := anchor - player.global_position
-
-	if to_anchor.length() <= 2.0:
-		return true
-
-	if to_anchor.normalized().dot(facing) >= -0.35:
-		return true
-
-	return anchor.distance_to(primary_position) <= _get_shelf_drop_distance_for_facing(facing) * 0.75
-
-
-func _get_shelf_drop_distance_for_facing(facing: Vector2) -> float:
-	if facing.y > 0.75 and absf(facing.x) < 0.25:
-		return SHELF_DROP_FRONT_DISTANCE
-
-	return SHELF_DROP_DISTANCE
-
-
-func _get_player_facing_direction() -> Vector2:
-	var facing: Variant = player.get("facing_direction") if player != null else Vector2.DOWN
-
-	if facing is Vector2 and not facing.is_zero_approx():
-		return (facing as Vector2).normalized()
-
-	return Vector2.DOWN
-
-
-func _is_drop_position_clear(object: Node2D, candidate: Vector2) -> bool:
-	var collision_shape := _get_object_collision_shape(object)
-
-	if collision_shape == null or collision_shape.shape == null:
-		return true
-
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = collision_shape.shape
-	query.transform = Transform2D(0.0, candidate + collision_shape.position)
-	query.collide_with_bodies = true
-	query.collide_with_areas = false
-
-	var hits := get_world_2d().direct_space_state.intersect_shape(query, 16)
-
-	for hit in hits:
-		var collider: Node = hit.get("collider", null)
-
-		if collider == null:
-			continue
-
-		if collider == object or _is_descendant_of(collider, object):
-			continue
-
-		return false
-
-	return true
-
-
-func _evaluate_shelf_drop_restriction(object: Node2D, candidate: Vector2) -> Dictionary:
-	var object_rect := _get_object_body_rect_at(object, candidate)
-
-	var cashier_rect := _get_cashier_drop_restricted_rect(object_rect)
-	if _rect_has_area(cashier_rect):
-		return _make_drop_restriction(
-			true,
-			DROP_REJECTION_CASHIER_FLOW,
-			"Keep the cashier area clear.",
-			cashier_rect,
-			true
-		)
-
-	var queue_marker_rect := _get_queue_marker_drop_restricted_rect(object_rect)
-	if _rect_has_area(queue_marker_rect):
-		return _make_drop_restriction(
-			true,
-			DROP_REJECTION_CASHIER_FLOW,
-			"Keep the checkout queue clear.",
-			queue_marker_rect,
-			true
-		)
-
-	if not _is_drop_position_clear(object, candidate):
-		return _make_drop_restriction(
-			true,
-			DROP_REJECTION_COLLISION,
-			"I can't place the shelf here.",
-			object_rect,
-			false
-		)
-
-	return _make_drop_restriction()
-
-
-func _make_drop_restriction(
-	blocked: bool = false,
-	rejection_type: StringName = DROP_REJECTION_NONE,
-	message: String = "",
-	warning_rect: Rect2 = Rect2(),
-	show_warning: bool = false
-) -> Dictionary:
-	return {
-		"blocked": blocked,
-		"type": rejection_type,
-		"message": message,
-		"warning_rect": warning_rect,
-		"show_warning": show_warning
-	}
-
-
-func _rect_has_area(rect: Rect2) -> bool:
-	return rect.size.x > 0.0 and rect.size.y > 0.0
-
-
-func _get_object_body_rect_at(object: Node2D, candidate: Vector2) -> Rect2:
-	var collision_shape := _get_object_collision_shape(object)
-
-	if collision_shape == null:
-		return Rect2(candidate - Vector2(32, 24), Vector2(64, 48))
-
-	var rectangle := collision_shape.shape as RectangleShape2D
-
-	if rectangle == null:
-		return Rect2(candidate - Vector2(32, 24), Vector2(64, 48))
-
-	var center := candidate + collision_shape.position
-	return Rect2(center - rectangle.size * 0.5, rectangle.size)
-
-
-func _get_door_no_drop_rect(area: Area2D, margin: float) -> Rect2:
-	if area == null:
-		return Rect2()
-
-	var area_rect := _get_area_rect(area)
-
-	if area_rect.size == Vector2.ZERO:
-		return Rect2()
-
-	return area_rect.grow(margin)
-
-
-func _get_area_rect(area: Area2D) -> Rect2:
-	if area == null:
-		return Rect2()
-
-	var collision_shape := area.get_node_or_null("CollisionShape2D") as CollisionShape2D
-
-	if collision_shape == null:
-		return Rect2(area.global_position - Vector2(20, 20), Vector2(40, 40))
-
-	var rectangle := collision_shape.shape as RectangleShape2D
-
-	if rectangle == null:
-		return Rect2(area.global_position - Vector2(20, 20), Vector2(40, 40))
-
-	var center := area.global_position + collision_shape.position
-	return Rect2(center - rectangle.size * 0.5, rectangle.size)
-
-
-func _get_cashier_flow_restricted_rect() -> Rect2:
-	var center := Vector2(96, 132)
-
-	if counter_pos != null:
-		center = counter_pos.global_position
-	elif cashier != null:
-		center = cashier.global_position + Vector2(0, 38)
-
-	center += CASHIER_FLOW_RESTRICTED_OFFSET
-	return Rect2(center - CASHIER_FLOW_RESTRICTED_SIZE * 0.5, CASHIER_FLOW_RESTRICTED_SIZE)
-
-
-func _get_queue_marker_drop_restricted_rect(object_rect: Rect2) -> Rect2:
-	for marker in _get_queue_drop_block_markers():
-		if marker == null:
-			continue
-
-		var marker_rect := Rect2(
-			marker.global_position - QUEUE_MARKER_DROP_BLOCK_SIZE * 0.5,
-			QUEUE_MARKER_DROP_BLOCK_SIZE
-		)
-
-		if object_rect.intersects(marker_rect):
-			return marker_rect
-
-	return Rect2()
-
-
-func _get_cashier_drop_restricted_rect(object_rect: Rect2) -> Rect2:
-	if cashier == null:
-		cashier = get_node_or_null("Cashier") as Node2D
-
-	if cashier == null:
-		return Rect2()
-
-	var restricted_rects: Array[Rect2] = []
-
-	for shape_name in ["CollisionShape2D", "BackCounterCollision"]:
-		var collision_shape := cashier.get_node_or_null(shape_name) as CollisionShape2D
-		var rect := _get_collision_shape_rect(collision_shape)
-
-		if _rect_has_area(rect):
-			restricted_rects.append(rect)
-
-	for rect in restricted_rects:
-		if object_rect.intersects(rect):
-			return rect
-
-	return Rect2()
-
-
-func _get_collision_shape_rect(collision_shape: CollisionShape2D) -> Rect2:
-	if collision_shape == null:
-		return Rect2()
-
-	var rectangle := collision_shape.shape as RectangleShape2D
-
-	if rectangle == null:
-		return Rect2()
-
-	return Rect2(collision_shape.global_position - rectangle.size * 0.5, rectangle.size)
-
-
-func _get_queue_drop_block_markers() -> Array[Marker2D]:
-	var markers: Array[Marker2D] = []
-
-	if store_path_markers == null:
-		return markers
-
-	for child in store_path_markers.get_children():
-		var marker := child as Marker2D
-		if marker == null:
-			continue
-
-		var role := StringName()
-		if marker.has_meta("store_path_role"):
-			var role_value: Variant = marker.get_meta("store_path_role")
-			role = StringName(str(role_value))
-
-		if role == &"queue_front" or role == &"queue_back":
-			markers.append(marker)
-
-	return markers
-
-
-func _get_marker_position_or(marker: Marker2D, fallback: Vector2) -> Vector2:
-	if marker == null:
-		return fallback
-
-	return marker.global_position
+	return []
 
 
 func _get_marker2d(primary_path: NodePath, fallback_path: NodePath = NodePath("")) -> Marker2D:
@@ -1811,887 +677,223 @@ func _get_store_path_marker_by_role(
 
 
 func _get_store_path_graph() -> StorePathGraph:
+	if npc_routes != null:
+		return npc_routes.get_store_path_graph()
+
 	if _store_path_graph == null:
 		_store_path_graph = StorePathGraph.new(self, store_path_markers)
-	else:
-		_store_path_graph.setup(self, store_path_markers)
 
-	_store_path_graph.set_shelf_access_points(_get_shelf_placement_grid_positions())
 	return _store_path_graph
 
 
-func _has_reachable_store_shelf_visit_position(object: Node2D, candidate: Vector2) -> bool:
-	return _get_store_path_graph().has_reachable_shelf_access(object, candidate)
-
-
-func _get_object_collision_shape(object: Node2D) -> CollisionShape2D:
-	if object == null:
-		return null
-
-	return object.get_node_or_null("PhysicsBody/CollisionShape2D") as CollisionShape2D
-
-
-func _get_nearest_installed_shelf() -> Node2D:
-	if player == null:
-		return null
-
-	var nearest_shelf: Node2D = null
-	var nearest_distance := STORE_SHELF_PICKUP_DISTANCE
-
-	for node in get_tree().get_nodes_in_group("shelves"):
-		if not node is Shelf:
-			continue
-
-		var shelf := node as Shelf
-
-		if not _is_descendant_of(shelf, self):
-			continue
-
-		if shelf.has_meta("is_carried_storage_object") and bool(shelf.get_meta("is_carried_storage_object")):
-			continue
-
-		var distance := player.global_position.distance_to(shelf.global_position)
-
-		if distance <= nearest_distance:
-			nearest_distance = distance
-			nearest_shelf = shelf
-
-	return nearest_shelf
-
-
-func _is_player_overlapping_shelf_interaction(shelf: Shelf) -> bool:
-	if player == null or shelf == null:
-		return false
-
-	var player_area := player.get_node_or_null("InteractionArea") as Area2D
-	var shelf_area := shelf.get_node_or_null("InteractionArea") as Area2D
-
-	if player_area == null or shelf_area == null:
-		return false
-
-	return shelf_area in player_area.get_overlapping_areas()
-
-
-func _pickup_installed_shelf(object: Node2D) -> void:
-	if player == null:
-		return
-
-	if object == human_shelf:
-		_human_shelf_installed = false
-	elif object == ghost_shelf:
-		_ghost_shelf_installed = false
-
-	object.reparent(player, true)
-	object.position = Vector2(0, -18)
-	object.z_index = 80
-	_set_shelf_carried_state(object, true)
-	if player.has_method("update_carried_object_visual"):
-		player.call("update_carried_object_visual", object)
-	_clear_shelf_access_metadata(object)
-	_update_objective()
-	_show_notification("Shelf picked up. Press Q to place it.")
-
-
-func _set_shelf_carried_state(object: Node2D, is_carried: bool) -> void:
-	if object == null:
-		return
-
-	object.set_meta("is_carried_storage_object", is_carried)
-	object.set_meta("is_installed_in_store", not is_carried)
-
-	if is_carried:
-		object.remove_from_group("shelves")
-		_set_node_enabled_recursive(object, false)
-	else:
-		_set_node_enabled_recursive(object, true)
-
-
-func _store_shelf_access_metadata(object: Node2D, drop_position: Vector2) -> void:
-	var graph := _get_store_path_graph()
-	graph.store_shelf_access_metadata(object, drop_position)
-
-
-func _schedule_post_shelf_drop_update(object: Node2D, drop_position: Vector2) -> void:
-	if object == null:
-		return
-
-	_shelf_access_metadata_update_token += 1
-	var update_token := _shelf_access_metadata_update_token
-	object.set_meta(PENDING_ACCESS_UPDATE_META, update_token)
-	_defer_post_shelf_drop_update(object, drop_position, update_token)
-
-
-func _defer_post_shelf_drop_update(object: Node2D, drop_position: Vector2, update_token: int) -> void:
-	await get_tree().process_frame
-	await get_tree().physics_frame
-
-	if object == null or not is_instance_valid(object):
-		return
-
-	if not object.has_meta(PENDING_ACCESS_UPDATE_META):
-		return
-
-	if int(object.get_meta(PENDING_ACCESS_UPDATE_META)) != update_token:
-		return
-
-	if object.has_meta("is_carried_storage_object") and bool(object.get_meta("is_carried_storage_object")):
-		object.remove_meta(PENDING_ACCESS_UPDATE_META)
-		return
-
-	object.remove_meta(PENDING_ACCESS_UPDATE_META)
-	await get_tree().create_timer(0.15).timeout
-
-	if object == null or not is_instance_valid(object):
-		return
-
-	if object.has_meta("is_carried_storage_object") and bool(object.get_meta("is_carried_storage_object")):
-		return
-
-	_register_installed_shelf(object)
-
-
 func _schedule_shelf_access_warmup(delay: float = SHELF_ACCESS_WARMUP_DELAY) -> void:
-	_shelf_access_warmup_token += 1
-	var warmup_token := _shelf_access_warmup_token
-	_defer_shelf_access_warmup(warmup_token, delay)
-
-
-func _defer_shelf_access_warmup(warmup_token: int, delay: float) -> void:
-	await get_tree().process_frame
-
-	if delay > 0.0:
-		await get_tree().create_timer(delay).timeout
-
-	if warmup_token != _shelf_access_warmup_token:
-		return
-
-	if not _can_run_shelf_access_warmup():
-		_schedule_shelf_access_warmup(SHELF_ACCESS_WARMUP_DELAY)
-		return
-
-	var graph := _get_store_path_graph()
-
-	for shelf_node in get_tree().get_nodes_in_group("shelves"):
-		if warmup_token != _shelf_access_warmup_token:
-			return
-
-		var shelf := shelf_node as Shelf
-
-		if shelf == null:
-			continue
-
-		if graph.has_cached_shelf_access_metadata(shelf):
-			continue
-
-		var warmup_start := Time.get_ticks_usec()
-		graph.store_shelf_access_metadata(shelf, shelf.global_position)
-
-		if DEBUG_SHELF_ACCESS_WARMUP:
-			var duration_ms := float(Time.get_ticks_usec() - warmup_start) / 1000.0
-			print("Shelf access warmup [%s]: %.2fms" % [shelf.name, duration_ms])
-
-		await get_tree().process_frame
-
-
-func _can_run_shelf_access_warmup() -> bool:
-	if _current_storage != null or _current_yard != null or _current_home != null or _is_transitioning:
-		return false
-
-	if _is_action_locked():
-		return false
-
-	return _get_carried_object_from_player() == null
-
-
-func _clear_shelf_access_metadata(object: Node2D) -> void:
-	var graph := _get_store_path_graph()
-	graph.clear_shelf_access_metadata(object)
-
-	if object != null and object.has_meta(PENDING_ACCESS_UPDATE_META):
-		object.remove_meta(PENDING_ACCESS_UPDATE_META)
-
-
-func _show_drop_restriction_feedback(restriction: Dictionary) -> void:
-	var message := str(restriction.get("message", "I can't place the shelf here."))
-
-	if bool(restriction.get("show_warning", false)):
-		_show_restricted_drop_feedback(restriction)
-		return
-
-	_show_notification(message, 0.9)
-
-
-func _show_restricted_drop_feedback(restriction: Dictionary) -> void:
-	_restricted_drop_feedback_token += 1
-	var feedback_token := _restricted_drop_feedback_token
-	var message := str(restriction.get("message", "Keep this area clear for customers."))
-	var warning_rect := _get_warning_rect_from_restriction(restriction)
-
-	_play_restricted_placement_warning(warning_rect)
-
-	for i in RESTRICTED_DROP_MESSAGE_COUNT:
-		if feedback_token != _restricted_drop_feedback_token:
-			return
-
-		_show_notification(message, RESTRICTED_DROP_MESSAGE_DURATION)
-		await get_tree().create_timer(2.0 / float(RESTRICTED_DROP_MESSAGE_COUNT)).timeout
-
-
-func _get_warning_rect_from_restriction(restriction: Dictionary) -> Rect2:
-	var rect_variant: Variant = restriction.get("warning_rect", Rect2())
-
-	if rect_variant is Rect2:
-		return rect_variant as Rect2
-
-	return Rect2()
-
-
-func _play_restricted_placement_warning(rect: Rect2) -> void:
-	if _current_storage != null or _current_yard != null or _is_transitioning:
-		_hide_restricted_placement_warning()
-		return
-
-	if _restricted_placement_warning == null:
-		return
-
-	if _restricted_placement_warning_tween != null and _restricted_placement_warning_tween.is_valid():
-		_restricted_placement_warning_tween.kill()
-	_restricted_placement_warning_tween = null
-
-	if not _rect_has_area(rect):
-		_hide_restricted_placement_warning()
-		return
-
-	_sync_restricted_placement_warning(rect)
-	_restricted_placement_warning.visible = true
-	_restricted_placement_warning.modulate.a = 0.0
-
-	_restricted_placement_warning_tween = create_tween()
-
-	for i in RESTRICTED_DANGER_LINE_CYCLES:
-		_restricted_placement_warning_tween.tween_property(
-			_restricted_placement_warning,
-			"modulate:a",
-			1.0,
-			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
-		)
-		_restricted_placement_warning_tween.tween_property(
-			_restricted_placement_warning,
-			"modulate:a",
-			0.0,
-			RESTRICTED_DANGER_LINE_CYCLE_DURATION * 0.5
-		)
-
-	_restricted_placement_warning_tween.tween_callback(func() -> void:
-		_restricted_placement_warning_tween = null
-		_hide_restricted_placement_warning()
-	)
-
-
-func _sync_restricted_placement_warning(rect: Rect2) -> void:
-	if _restricted_placement_warning_line == null:
-		return
-
-	_sync_restricted_warning_line_to_rect(_restricted_placement_warning_line, rect)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.schedule_shelf_access_warmup(delay)
 
 
 func _hide_restricted_placement_warning() -> void:
-	if _restricted_placement_warning_tween != null and _restricted_placement_warning_tween.is_valid():
-		_restricted_placement_warning_tween.kill()
-	_restricted_placement_warning_tween = null
-
-	if _restricted_placement_warning == null:
-		return
-
-	_restricted_placement_warning.visible = false
-	_restricted_placement_warning.modulate.a = 0.0
-
-	if _restricted_placement_warning_line != null:
-		_restricted_placement_warning_line.visible = false
+	if shelf_placement_controller != null:
+		shelf_placement_controller.hide_restricted_placement_warning()
 
 
 func _cancel_restricted_drop_feedback() -> void:
-	_restricted_drop_feedback_token += 1
-	_hide_restricted_placement_warning()
-
-
-func _sync_restricted_warning_line_to_rect(line: Line2D, rect: Rect2) -> void:
-	if line == null:
-		return
-
-	line.visible = true
-
-	var points := PackedVector2Array([
-		to_local(rect.position),
-		to_local(rect.position + Vector2(rect.size.x, 0.0)),
-		to_local(rect.position + rect.size),
-		to_local(rect.position + Vector2(0.0, rect.size.y))
-	])
-	line.points = points
-
-
-func _get_carry_shelf_blocker_position() -> Vector2:
-	if counter_pos != null:
-		return counter_pos.global_position + CARRY_SHELF_CASHIER_BLOCKER_OFFSET
-
-	if cashier != null:
-		return cashier.global_position + Vector2(0, 20)
-
-	return Vector2(96, 142)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.cancel_restricted_drop_feedback()
 
 
 func _update_player_depth_override() -> void:
-	if player == null:
-		player = get_node_or_null("Player") as Node2D
-
-	if cashier == null:
-		cashier = get_node_or_null("Cashier") as Node2D
-
-	if player == null or cashier == null:
-		return
-
-	player.z_index = 0
-
-
-func _is_player_behind_depth_object(
-	object: Node2D,
-	half_width: float,
-	back_offset: float,
-	front_offset: float
-) -> bool:
-	return StoreShelfController.is_player_behind_depth_object(
-		player,
-		object,
-		half_width,
-		back_offset,
-		front_offset
-	)
+	if shelf_placement_controller != null:
+		shelf_placement_controller.update_player_depth_override()
 
 
 func _register_installed_shelf(object: Node2D) -> void:
-	if object == null:
-		return
-
-	if not object.is_in_group("shelves"):
-		object.add_to_group("shelves")
-
-	if object.name == "ShelfHuman" and object is Shelf:
-		_human_shelf_installed = true
-		human_shelf = object as Shelf
-
-		_connect_human_shelf_signals(human_shelf)
-		_set_human_stock_count(_get_shelf_stock_count(human_shelf))
-		_update_objective()
-		_show_task_complete_notice("human_shelf_placed", "Human Shelf placed.")
-
-		if _human_items_placed < NORMAL_STOCK_REQUIRED:
-			_show_passive_notification("Now stock the human shelf with normal items.", 3.0)
-
-	if object.name == "ShelfGhost" and object is Shelf:
-		_ghost_shelf_installed = true
-		ghost_shelf = object as Shelf
-
-		if not ghost_shelf.item_placed.is_connected(_on_ghost_shelf_item_placed):
-			ghost_shelf.item_placed.connect(_on_ghost_shelf_item_placed)
-
-		ghost_shelf.apply_ghost_glow(true)
-		_check_customer_spawning_ready()
-		_update_objective()
-		_show_task_complete_notice("ghost_shelf_placed", "Ghost Shelf placed.")
-
-	_setup_npc_static_data()
+	if progression_flow != null:
+		progression_flow.register_installed_shelf(object)
 
 
 func _register_human_stock_progress() -> void:
-	_set_human_stock_count(_human_items_placed + 1)
+	if progression_flow != null:
+		progression_flow.register_human_stock_progress()
 
 
 func _connect_human_shelf_signals(shelf: Shelf) -> void:
-	if shelf == null:
-		return
-
-	if not shelf.item_placed.is_connected(_on_human_shelf_item_placed):
-		shelf.item_placed.connect(_on_human_shelf_item_placed)
-
-	if not shelf.item_removed.is_connected(_on_human_shelf_item_removed):
-		shelf.item_removed.connect(_on_human_shelf_item_removed)
+	if progression_flow != null:
+		progression_flow.connect_human_shelf_signals(shelf)
 
 
 func _set_human_stock_count(stock_count: int) -> void:
-	_human_items_placed = clampi(stock_count, 0, NORMAL_STOCK_REQUIRED)
-
-	if _human_items_placed >= NORMAL_STOCK_REQUIRED:
-		_show_task_complete_notice("human_shelf_stocked", "Human Shelf stocked.")
-
-	if not StoreProgressionController.can_unlock_mystery_phase(
-		_human_items_placed,
-		NORMAL_STOCK_REQUIRED,
-		_human_shelf_installed,
-		_mystery_phase_unlocked
-	):
-		return
-
-	_mystery_phase_unlocked = true
-	_show_notification("The dark corner in storage just opened.", 3.0)
-	_update_objective()
-
-	if _current_storage != null and _current_storage.has_method("set_mystery_phase_unlocked"):
-		_current_storage.set_mystery_phase_unlocked(true)
+	if progression_flow != null:
+		progression_flow.set_human_stock_count(stock_count)
 
 
 func _set_store_world_active(is_active: bool) -> void:
-	if _is_store_world_active == is_active:
-		return
-
-	_is_store_world_active = is_active
-
-	if not is_active:
-		_cancel_restricted_drop_feedback()
-		_close_cashier_runtime_ui()
-
-	for child in get_children():
-		if (
-			child == _current_storage
-			or child == _current_yard
-			or child == _current_home
-			or child == _fade_layer
-			or child == _location_title_layer
-			or child == _carry_shelf_blocker
-			or child == player
-		):
-			continue
-
-		if child.name == "HUD":
-			continue
-
-		_set_node_active_recursive(child, is_active)
-
-
-func _set_node_active_recursive(node: Node, is_active: bool) -> void:
-	StoreTransitionController.set_node_active_recursive(node, is_active)
+	if world_state_controller != null:
+		world_state_controller.set_store_world_active(is_active)
 
 
 func _set_node_enabled_recursive(node: Node, enabled: bool) -> void:
-	StoreTransitionController.set_node_enabled_recursive(node, enabled)
+	if world_state_controller != null:
+		world_state_controller.set_node_enabled_recursive(node, enabled)
 
 
 func _create_fade_layer() -> void:
-	var fade_nodes := StoreTransitionController.create_fade_layer(self)
-	_fade_layer = fade_nodes["layer"] as CanvasLayer
-	_fade_rect = fade_nodes["rect"] as ColorRect
+	if presentation != null:
+		presentation.create_fade_layer()
 
 
 func _create_location_title_layer() -> void:
-	_location_title_layer = CanvasLayer.new()
-	_location_title_layer.name = "LocationTitleLayer"
-	_location_title_layer.layer = 24
-	add_child(_location_title_layer)
-
-	var panel := ColorRect.new()
-	panel.name = "LocationTitlePanel"
-	panel.color = Color(0.06, 0.05, 0.05, 0.72)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -88.0
-	panel.offset_top = -18.0
-	panel.offset_right = 88.0
-	panel.offset_bottom = 18.0
-	panel.modulate.a = 0.0
-	_location_title_layer.add_child(panel)
-
-	_location_title_label = Label.new()
-	_location_title_label.name = "LocationTitleLabel"
-	_location_title_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_location_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_location_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_location_title_label.add_theme_font_size_override("font_size", 14)
-	panel.add_child(_location_title_label)
+	if presentation != null:
+		presentation.create_location_title_layer()
 
 
 func _show_location_title_once(location_key: String, title: String) -> void:
-	if _shown_location_titles.has(location_key):
-		return
-
-	_shown_location_titles[location_key] = true
-	_show_location_title(title)
+	if presentation != null:
+		presentation.show_location_title_once(location_key, title)
 
 
 func _show_location_title(title: String) -> void:
-	if _location_title_layer == null or _location_title_label == null:
-		return
-
-	var panel := _location_title_label.get_parent() as Control
-
-	if panel == null:
-		return
-
-	if _location_title_tween != null and _location_title_tween.is_valid():
-		_location_title_tween.kill()
-
-	_location_title_label.text = title
-	panel.visible = true
-	panel.modulate.a = 0.0
-	panel.position.y = 8.0
-
-	_location_title_tween = create_tween()
-	_location_title_tween.set_parallel(true)
-	_location_title_tween.tween_property(panel, "modulate:a", 1.0, 0.18)
-	_location_title_tween.tween_property(panel, "position:y", 0.0, 0.18)
-	_location_title_tween.set_parallel(false)
-	_location_title_tween.tween_interval(LOCATION_TITLE_DURATION)
-	_location_title_tween.tween_property(panel, "modulate:a", 0.0, 0.28)
+	if presentation != null:
+		presentation.show_location_title(title)
 
 
 func _fade_to_black() -> void:
-	await StoreTransitionController.fade_to(self, _fade_rect, 1.0)
+	if presentation != null:
+		await presentation.fade_to_black()
 
 
 func _fade_from_black() -> void:
-	await StoreTransitionController.fade_to(self, _fade_rect, 0.0)
+	if presentation != null:
+		await presentation.fade_from_black()
 
 
 func _setup_npc_static_data() -> void:
-	if npc_queue_marker != null:
-		NPC.counter_position = npc_queue_marker.global_position
-	elif counter_pos != null:
-		NPC.counter_position = counter_pos.global_position
-
-	if entrance_pos != null:
-		NPC.entrance_position = entrance_pos.global_position
-
-	if npc_enter_store_marker != null:
-		NPC.entrance_position = npc_enter_store_marker.global_position
-	elif npc_exit_marker != null:
-		NPC.entrance_position = npc_exit_marker.global_position
-
-	if npc_exit_marker != null:
-		NPC.exit_position = npc_exit_marker.global_position
-	elif entrance_pos != null:
-		NPC.exit_position = entrance_pos.global_position
-
-	if npc_store_path_marker != null:
-		NPC.store_path_position = npc_store_path_marker.global_position
-	else:
-		NPC.store_path_position = Vector2.INF
-
-
-func _is_descendant_of(node: Node, ancestor: Node) -> bool:
-	return StoreShelfController.is_descendant_of(node, ancestor)
+	if npc_runtime != null:
+		npc_runtime.setup_static_data()
 
 
 func _close_cashier_runtime_ui() -> void:
-	if cashier == null:
-		cashier = get_node_or_null("Cashier") as Node2D
-
-	if cashier != null and cashier.has_method("reset_runtime_ui"):
-		cashier.call("reset_runtime_ui")
+	if world_state_controller != null:
+		world_state_controller.close_cashier_runtime_ui()
 
 
 func _connect_cursor_tooltip(area: Area2D, tooltip_text: String) -> void:
-	if area == null:
-		return
-
-	area.input_pickable = true
-	var entered := Callable(self, "_on_cursor_tooltip_entered").bind(tooltip_text)
-	var exited := Callable(self, "_on_cursor_tooltip_exited")
-
-	if not area.mouse_entered.is_connected(entered):
-		area.mouse_entered.connect(entered)
-
-	if not area.mouse_exited.is_connected(exited):
-		area.mouse_exited.connect(exited)
+	if presentation != null:
+		presentation.connect_cursor_tooltip(area, tooltip_text)
 
 
 func _on_cursor_tooltip_entered(tooltip_text: String) -> void:
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("show_cursor_tooltip"):
-		hud.call("show_cursor_tooltip", tooltip_text)
+	if presentation != null:
+		presentation._on_cursor_tooltip_entered(tooltip_text)
 
 
 func _on_cursor_tooltip_exited() -> void:
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("hide_cursor_tooltip"):
-		hud.call("hide_cursor_tooltip")
+	if presentation != null:
+		presentation._on_cursor_tooltip_exited()
 
 
 func _on_npc_spawn_requested(npc_data: NPCData) -> void:
-	if _current_home != null:
-		return
-
-	StoreNpcSpawner.spawn_npc(
-		self,
-		npc_scene,
-		_get_npc_spawn_marker(),
-		npc_data,
-		_on_npc_purchase,
-		_on_npc_exited
-	)
+	if npc_runtime != null:
+		npc_runtime.on_npc_spawn_requested(npc_data)
 
 
 func _get_npc_spawn_marker() -> Marker2D:
-	if npc_enter_store_marker != null:
-		return npc_enter_store_marker
-
-	if npc_entry_marker != null:
-		return npc_entry_marker
-
-	if npc_exit_marker != null:
-		return npc_exit_marker
+	if npc_runtime != null:
+		return npc_runtime.get_npc_spawn_marker()
 
 	return entrance_pos
 
 
 func _on_npc_purchase(_npc: NPC, _item_id: String, price: int) -> void:
-	EconomyManager.add_gold(price)
-
-	if price > 0:
-		_show_task_complete_notice("normal_customer_served", "First customer served.")
+	if npc_runtime != null:
+		npc_runtime.on_npc_purchase(_npc, _item_id, price)
 
 
 func _on_npc_exited(_npc: NPC) -> void:
-	_update_end_day_tax_flow()
+	if npc_runtime != null:
+		npc_runtime.on_npc_exited(_npc)
 
 
 func _on_phase_changed(phase) -> void:
-	match phase:
-		TimeManager.Phase.DAY:
-			if _is_day_setup_complete():
-				if _suppress_next_day_open_notification:
-					_suppress_next_day_open_notification = false
-				else:
-					_show_customer_open_notification()
-			else:
-				_show_notification("Finish setting up before customers arrive.", 3.0)
-		TimeManager.Phase.NIGHT:
-			if _customer_spawning_unlocked:
-				_show_notification("Night falls. Strange customers may arrive.", 3.0)
-			else:
-				_show_notification("Night falls, but the ghost shelf is not ready.", 3.0)
-	_update_objective()
+	if day_runtime != null:
+		day_runtime.on_phase_changed(phase)
 
 
 func _on_target_reached() -> void:
-	_show_notification("Daily target achieved.", 2.5)
+	if day_runtime != null:
+		day_runtime.on_target_reached()
 
 
 func _on_daily_report(report: Dictionary) -> void:
-	_latest_daily_report = report.duplicate()
-	print("=== DAY %d REPORT ===" % report.day)
-	print("Revenue: %dG" % report.revenue)
-	print("Tax: %dG" % report.tax)
-	print("Net Profit: %dG" % report.net_profit)
-	print("Total Gold: %dG" % report.total_gold)
-	print("Target: %s" % ("REACHED" if report.target_reached else "MISSED"))
-	_update_end_day_tax_flow()
+	if day_runtime != null:
+		day_runtime.on_daily_report(report)
 
 
 func _on_day_ended(_day: int) -> void:
-	_show_notification("Close the store, restock, and pay today's tax.", 3.0)
-	_update_end_day_tax_flow()
+	if day_runtime != null:
+		day_runtime.on_day_ended(_day)
 
 
 func _on_day_started(_day: int) -> void:
-	_store_open = false
-	_store_opened_today = false
-	_tax_pending = false
-	_tax_paid_today = false
-	_tax_panel_showing = false
-	_restock_panel_open = false
-	_tax_waiting_for_restock_close = false
-	_tax_ready_after_restock_close = false
-	_tax_restock_close_ready_at_msec = 0
-	_tax_restock_retry_token += 1
-	_end_day_transition_started = false
-	_restock_ordered_today = false
-	_latest_daily_report.clear()
-	_customer_open_notification_shown = false
-	NPCScheduler.set_store_open(false)
-	NPCScheduler.stop_normal_customer_spawning()
-	_update_store_status_board(false)
-
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("hide_tax_report"):
-		hud.call("hide_tax_report")
-
-	if not _pending_store_intro_after_yard:
-		_update_objective()
+	if day_runtime != null:
+		day_runtime.on_day_started(_day)
 
 
 func _on_human_shelf_item_placed(_slot_index: int, item_id: String) -> void:
-	var item := ItemDatabase.get_item(item_id)
-
-	if item != null and item.shelf_type == ItemData.ShelfType.HUMAN:
-		_set_human_stock_count(_get_shelf_stock_count(human_shelf))
-		_update_objective()
+	if progression_flow != null:
+		progression_flow.on_human_shelf_item_placed(_slot_index, item_id)
 
 
 func _on_human_shelf_item_removed(_slot_index: int, item_id: String) -> void:
-	var item := ItemDatabase.get_item(item_id)
-
-	if item != null and item.shelf_type == ItemData.ShelfType.HUMAN:
-		_set_human_stock_count(_get_shelf_stock_count(human_shelf))
-		_update_objective()
+	if progression_flow != null:
+		progression_flow.on_human_shelf_item_removed(_slot_index, item_id)
 
 
 func _on_ghost_shelf_item_placed(_slot_index: int, item_id: String) -> void:
-	var item := ItemDatabase.get_item(item_id)
-
-	if item == null or item.shelf_type != ItemData.ShelfType.GHOST:
-		return
-
-	var became_ready := _check_customer_spawning_ready(false)
-	_update_objective()
-	_show_task_complete_notice("ghost_shelf_stocked", "Ghost Shelf stocked.")
-
-	if _ghost_shelf_lesson_shown:
-		if became_ready:
-			_show_customer_open_notification()
-			_update_objective()
-		return
-
-	_ghost_shelf_lesson_shown = true
-	await _show_notification_sequence([
-		"Huh... so it only stays on this shelf?",
-		"This shelf looks different too...",
-		"What was Grandma keeping here?"
-	])
-
-	if became_ready:
-		_show_customer_open_notification()
+	if progression_flow != null:
+		await progression_flow.on_ghost_shelf_item_placed(_slot_index, item_id)
 
 
 func _check_customer_spawning_ready(show_notice: bool = true) -> bool:
-	if not StoreProgressionController.can_unlock_customer_spawning(
-		_customer_spawning_unlocked,
-		_ghost_shelf_installed,
-		ghost_shelf
-	):
-		return false
-
-	if _customer_spawning_unlocked:
-		return true
-
-	_customer_spawning_unlocked = true
-	_gooby_resolved = false
-
-	var should_start_day_one_customers_now := StoreProgressionController.should_start_day_one_customers_now()
-
-	if show_notice:
-		_show_customer_open_notification()
-	else:
-		_suppress_next_day_open_notification = should_start_day_one_customers_now
-
-	NPCScheduler.unlock_spawning_now(false)
-	_update_objective()
-	return true
+	return progression_flow != null and progression_flow.check_customer_spawning_ready(show_notice)
 
 
 func _show_customer_open_notification() -> void:
-	if _customer_open_notification_shown:
-		return
-
-	_customer_open_notification_shown = true
-	_show_notification("Store setup is ready. Flip the OPEN board when you want customers.", 2.5)
-	_update_objective()
+	if progression_flow != null:
+		progression_flow.show_customer_open_notification()
 
 
 func _update_objective() -> void:
-	var objective_text := _get_current_objective_text()
-
-	if objective_text == _last_objective_text:
-		return
-
-	_last_objective_text = objective_text
-
-	var hud := get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("set_objective"):
-		hud.call("set_objective", objective_text)
+	if progression_flow != null:
+		progression_flow.update_objective()
 
 
 func _get_current_objective_text() -> String:
-	if _gooby_resolved:
-		return "Wait for the next strange customer."
+	if progression_flow != null:
+		return progression_flow.get_current_objective_text()
 
-	if TimeManager.current_phase == TimeManager.Phase.NIGHT and _customer_spawning_unlocked:
-		return "Serve Gooby at the cashier."
-
-	if _store_opened_today:
-		if not _store_open:
-			return "Flip the OPEN board when ready."
-
-		if not _mystery_phase_unlocked or not _mystery_discovered:
-			return "Check the dark storage corner."
-
-		if not _ghost_shelf_installed:
-			return "Place the ghost shelf in the store."
-
-		if ghost_shelf == null or not ghost_shelf.has_stock():
-			return "Stock Phantom Ice Cream on ghost shelf."
-
-		return "Serve customers at the cashier."
-
-	if not _human_shelf_installed:
-		return "Bring the human shelf from storage."
-
-	if _human_items_placed < NORMAL_STOCK_REQUIRED:
-		return "Stock the human shelf with normal items."
-
-	if not _store_open:
-		return "Flip the OPEN board when ready."
-
-	if not _mystery_phase_unlocked or not _mystery_discovered:
-		return "Check the dark storage corner."
-
-	if not _ghost_shelf_installed:
-		return "Place the ghost shelf in the store."
-
-	if ghost_shelf == null or not ghost_shelf.has_stock():
-		return "Stock Phantom Ice Cream on ghost shelf."
-
-	if not _is_day_setup_complete():
-		return "Prepare the store for customers."
-
-	return "Serve customers at the cashier."
+	return ""
 
 
 func _show_notification(text: String, duration: float = 2.0) -> void:
-	StoreNotificationBridge.show(get_tree(), text, duration)
+	if presentation != null:
+		presentation.show_notification(text, duration)
 
 
 func _show_passive_notification(text: String, duration: float = 2.0, instant_text: bool = false) -> void:
-	StoreNotificationBridge.show(get_tree(), text, duration, false, instant_text)
+	if presentation != null:
+		presentation.show_passive_notification(text, duration, instant_text)
 
 
 func _show_status_notification(text: String, duration: float = 1.0) -> void:
-	StoreNotificationBridge.show(get_tree(), text, duration, false)
+	if presentation != null:
+		presentation.show_status_notification(text, duration)
 
 
 func _show_task_complete_notice(key: String, message: String) -> void:
-	if _completed_task_notices.has(key):
-		return
-
-	_completed_task_notices[key] = true
-
-	var hud := get_tree().get_first_node_in_group("hud")
-	var text := "Task Complete! %s Check the Activity Board." % message
-
-	if hud != null and hud.has_method("show_notification"):
-		hud.call("show_notification", text, 2.2, false)
-
-	ActivityCompletionManager.notify(message)
-
-	var activity_board := get_node_or_null("ActivityBoard")
-
-	if activity_board != null and activity_board.has_method("play_completion_glow"):
-		activity_board.call("play_completion_glow")
+	if task_completion != null:
+		task_completion.show_task_complete_notice(key, message)
 
 
 func _show_notification_sequence(messages: Array[String]) -> void:
-	await StoreNotificationBridge.show_sequence(self, messages)
-
-
-func _get_shelf_stock_count(shelf: Shelf) -> int:
-	return StoreShelfController.get_shelf_stock_count(shelf)
+	if presentation != null:
+		await presentation.show_notification_sequence(messages)

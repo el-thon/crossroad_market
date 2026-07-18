@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door_body"]
+size = Vector2(58, 20)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_yard_door"]
+size = Vector2(58, 31)
+
+[node name="YardDoor" type="Area2D" unique_id=315026411]
+z_index = 1
+position = Vector2(240, 251)
+
+[node name="VisualRoot" type="Node2D" parent="." unique_id=871235187]
+visible = false
+
+[node name="DoorVisual" type="ColorRect" parent="VisualRoot" unique_id=136097829]
+offset_left = -22.0
+offset_top = -16.0
+offset_right = 17.0
+offset_bottom = 39.0
+color = Color(0.1, 0.34, 0.31, 1)
+metadata/_edit_use_anchors_ = true
+
+[node name="DoorBody" type="StaticBody2D" parent="." unique_id=1368850612]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DoorBody" unique_id=522485607]
+position = Vector2(0, -7)
+shape = SubResource("RectangleShape2D_yard_door_body")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1052842563]
+position = Vector2(0, -13.5)
+shape = SubResource("RectangleShape2D_yard_door")

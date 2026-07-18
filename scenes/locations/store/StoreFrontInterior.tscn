@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[node name="StoreFrontInterior" type="Node2D" unique_id=1253652099]
+visible = false
+position = Vector2(0, 292)
+
+[node name="FrontWall" type="ColorRect" parent="." unique_id=596998747]
+offset_top = -32.0
+offset_right = 480.0
+offset_bottom = 39.0
+color = Color(0.19, 0.12, 0.08, 1)
+
+[node name="FrontBaseShadow" type="ColorRect" parent="." unique_id=1791870859]
+offset_left = 4.0
+offset_top = 20.0
+offset_right = 396.0
+offset_bottom = 28.0
+color = Color(0.09, 0.06, 0.04, 1)
+
+[node name="FrontBaseShadow2" type="ColorRect" parent="." unique_id=2100977064]
+offset_left = 386.0
+offset_top = -24.0
+offset_right = 396.0
+offset_bottom = 38.0
+color = Color(0.09, 0.06, 0.04, 1)
+
+[node name="FrontTrim" type="ColorRect" parent="." unique_id=2090581061]
+self_modulate = Color(1, 1, 1, 0.38039216)
+offset_top = -38.0
+offset_right = 480.0
+offset_bottom = -25.0
+color = Color(0.55, 0.37, 0.18, 1)
+
+[node name="Window" type="ColorRect" parent="." unique_id=354640970]
+offset_left = 272.0
+offset_top = -20.0
+offset_right = 348.0
+offset_bottom = 10.0
+color = Color(0.11, 0.35, 0.35, 1)
+
+[node name="Window2" type="ColorRect" parent="." unique_id=490735789]
+offset_left = 67.0
+offset_top = -20.0
+offset_right = 143.0
+offset_bottom = 10.0
+color = Color(0.11, 0.35, 0.35, 1)
+
+[node name="WindowGlow2" type="ColorRect" parent="." unique_id=635250696]
+offset_left = 73.0
+offset_top = -16.0
+offset_right = 137.0
+offset_bottom = 7.0
+color = Color(0.54, 0.78, 0.68, 0.55)
+
+[node name="WindowGlow" type="ColorRect" parent="." unique_id=738272183]
+offset_left = 278.0
+offset_top = -16.0
+offset_right = 342.0
+offset_bottom = 7.0
+color = Color(0.54, 0.78, 0.68, 0.55)

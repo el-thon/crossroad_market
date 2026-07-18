@@ -1,0 +1,48 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/objects/OpenCloseBoard.gd" id="1_r4xps"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_open_close_board_body"]
+size = Vector2(78, 18)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_open_close_board_area"]
+size = Vector2(80, 44)
+
+[node name="OpenCloseBoard" type="StaticBody2D" unique_id=1655914554]
+z_index = 2
+position = Vector2(310, 294)
+scale = Vector2(0.5, 0.5)
+script = ExtResource("1_r4xps")
+
+[node name="VisualRoot" type="Node2D" parent="." unique_id=1309139366]
+position = Vector2(2, -90)
+
+[node name="BoardBase" type="Polygon2D" parent="VisualRoot" unique_id=228991613]
+color = Color(0.18, 0.11, 0.06, 1)
+polygon = PackedVector2Array(-39, -28, 39, -28, 39, 0, -39, 0)
+
+[node name="StatusPanel" type="Polygon2D" parent="VisualRoot" unique_id=564418062]
+color = Color(0.36, 0.1, 0.06, 1)
+polygon = PackedVector2Array(-32, -23, 32, -23, 32, -5, -32, -5)
+
+[node name="StatusLabel" type="Label" parent="VisualRoot" unique_id=1845772974]
+offset_left = -30.0
+offset_top = -25.0
+offset_right = 30.0
+offset_bottom = -4.0
+theme_type_variation = &"SmallLabel"
+text = "CLOSED"
+horizontal_alignment = 1
+vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=302785401]
+position = Vector2(2, -104)
+shape = SubResource("RectangleShape2D_open_close_board_body")
+
+[node name="InteractionArea" type="Area2D" parent="." unique_id=1048661562]
+position = Vector2(2, 34)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea" unique_id=447340567]
+position = Vector2(0, -146)
+shape = SubResource("RectangleShape2D_open_close_board_area")

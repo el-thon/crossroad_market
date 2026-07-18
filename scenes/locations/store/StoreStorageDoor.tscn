@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door_body"]
+size = Vector2(53, 10.75)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_storage_door"]
+size = Vector2(40, 36)
+
+[node name="StorageDoor" type="Area2D" unique_id=1308349279]
+z_index = -1
+position = Vector2(383, 30)
+
+[node name="VisualRoot" type="Node2D" parent="." unique_id=433212184]
+
+[node name="DoorVisual" type="Polygon2D" parent="VisualRoot" unique_id=1988028281]
+color = Color(0.32, 0.22, 0.13, 1)
+polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
+
+[node name="DoorKnob" type="Polygon2D" parent="VisualRoot" unique_id=848724215]
+color = Color(0.95, 0.75, 0.25, 1)
+polygon = PackedVector2Array(10, -2, 14, -2, 14, 2, 10, 2)
+
+[node name="DoorBody" type="StaticBody2D" parent="." unique_id=1340442474]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DoorBody" unique_id=1816420594]
+position = Vector2(1, 11.625)
+shape = SubResource("RectangleShape2D_storage_door_body")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1337927790]
+position = Vector2(1, -1)
+shape = SubResource("RectangleShape2D_storage_door")

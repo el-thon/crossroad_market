@@ -1,0 +1,321 @@
+class_name StoreTaxFlow
+extends Node
+
+const MIDNIGHT_BLACK_HOLD_DURATION: float = 3.0
+const RESTOCK_CLOSE_TAX_CHECK_DELAY: float = 3.0
+const RESTOCK_TAX_RETRY_INTERVAL: float = 0.25
+
+var store: Node = null
+
+
+func setup(store_node: Node) -> void:
+	store = store_node
+
+
+func on_storage_restock_order_purchased(order_items: Array) -> void:
+	if store == null or order_items.is_empty():
+		return
+
+	store._restock_delivery_counter += 1
+	store._pending_restock_deliveries.append({
+		"id": store._restock_delivery_counter,
+		"items": duplicate_restock_items(order_items)
+	})
+	store._restock_ordered_today = true
+	sync_restock_deliveries_to_yard()
+
+
+func on_storage_restock_panel_opened() -> void:
+	if store == null:
+		return
+
+	store._restock_panel_open = true
+	store._tax_waiting_for_restock_close = false
+	store._tax_ready_after_restock_close = false
+	store._tax_restock_close_ready_at_msec = 0
+	store._tax_restock_retry_token += 1
+
+
+func on_storage_restock_panel_closed(had_checkout: bool = false) -> void:
+	if store == null:
+		return
+
+	store._restock_panel_open = false
+
+	if not had_checkout:
+		return
+
+	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
+		return
+
+	if store._store_open:
+		return
+
+	if store._tax_paid_today or store._tax_panel_showing:
+		return
+
+	store._restock_ordered_today = true
+	store._tax_waiting_for_restock_close = true
+	store._tax_ready_after_restock_close = true
+	store._tax_restock_close_ready_at_msec = Time.get_ticks_msec() + int(RESTOCK_CLOSE_TAX_CHECK_DELAY * 1000.0)
+	schedule_restock_tax_retry()
+
+
+func schedule_restock_tax_retry() -> void:
+	if store == null:
+		return
+
+	store._tax_restock_retry_token += 1
+	var retry_token: int = int(store._tax_restock_retry_token)
+	defer_restock_tax_retry(retry_token)
+
+
+func defer_restock_tax_retry(retry_token: int) -> void:
+	if store == null:
+		return
+
+	while retry_token == store._tax_restock_retry_token and should_continue_restock_tax_retry():
+		var remaining_msec: int = int(store._tax_restock_close_ready_at_msec) - Time.get_ticks_msec()
+
+		if remaining_msec > 0:
+			await store.get_tree().create_timer(float(remaining_msec) / 1000.0).timeout
+		else:
+			if try_show_tax_panel():
+				return
+
+			await store.get_tree().create_timer(RESTOCK_TAX_RETRY_INTERVAL).timeout
+
+
+func should_continue_restock_tax_retry() -> bool:
+	return (
+		store != null
+		and store._tax_waiting_for_restock_close
+		and store._tax_ready_after_restock_close
+		and not store._tax_paid_today
+		and not store._tax_panel_showing
+		and not store._end_day_transition_started
+	)
+
+
+func on_storage_restock_item_purchased(item_id: String, quantity: int) -> void:
+	if item_id == "" or quantity <= 0:
+		return
+
+	on_storage_restock_order_purchased([{
+		"item_id": item_id,
+		"quantity": quantity
+	}])
+
+
+func duplicate_restock_items(order_items: Array) -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+
+	for item in order_items:
+		if not (item is Dictionary):
+			continue
+
+		var data := item as Dictionary
+		var item_id := str(data.get("item_id", ""))
+		var quantity := int(data.get("quantity", 0))
+
+		if item_id == "" or quantity <= 0:
+			continue
+
+		items.append({
+			"item_id": item_id,
+			"quantity": quantity
+		})
+
+	return items
+
+
+func on_yard_restock_delivery_collected(delivery_id: int) -> void:
+	if store == null:
+		return
+
+	if delivery_id < 0:
+		store._pending_restock_deliveries.clear()
+		return
+
+	for i in range(store._pending_restock_deliveries.size() - 1, -1, -1):
+		var delivery: Dictionary = store._pending_restock_deliveries[i]
+
+		if int(delivery.get("id", -1)) == delivery_id:
+			store._pending_restock_deliveries.remove_at(i)
+			return
+
+
+func sync_restock_deliveries_to_yard() -> void:
+	if store == null:
+		return
+
+	if store._current_yard == null or not is_instance_valid(store._current_yard):
+		return
+
+	if not store._current_yard.has_method("set_restock_deliveries"):
+		return
+
+	store._current_yard.call("set_restock_deliveries", store._pending_restock_deliveries)
+
+
+func update_end_day_tax_flow() -> void:
+	if store == null:
+		return
+
+	if store._end_day_transition_started:
+		return
+
+	if store._tax_paid_today:
+		return
+
+	if store._tax_waiting_for_restock_close:
+		if not store._tax_ready_after_restock_close:
+			return
+
+		if Time.get_ticks_msec() < store._tax_restock_close_ready_at_msec:
+			return
+
+	if store._restock_panel_open:
+		return
+
+	try_show_tax_panel()
+
+
+func try_show_tax_panel() -> bool:
+	if store == null:
+		return false
+
+	if not can_show_tax_panel():
+		return false
+
+	if not show_tax_panel():
+		return false
+
+	store._tax_waiting_for_restock_close = false
+	store._tax_ready_after_restock_close = false
+	store._tax_restock_close_ready_at_msec = 0
+	store._tax_restock_retry_token += 1
+	return true
+
+
+func can_show_tax_panel() -> bool:
+	if store == null:
+		return false
+
+	if store._tax_panel_showing:
+		return false
+
+	if store._restock_panel_open:
+		return false
+
+	if TimeManager.current_phase != TimeManager.Phase.NIGHT:
+		return false
+
+	if store._store_open:
+		return false
+
+	if not store._restock_ordered_today:
+		return false
+
+	if store._has_blocking_overlay_for_tax():
+		return false
+
+	return true
+
+
+func show_tax_panel(warning: String = "") -> bool:
+	if store == null:
+		return false
+
+	store._connect_hud_signals()
+	var hud := store.get_tree().get_first_node_in_group("hud")
+
+	if hud == null or not hud.has_method("show_tax_report"):
+		return false
+
+	store._tax_pending = true
+	store._tax_panel_showing = true
+	store._latest_daily_report = EconomyManager.get_daily_report()
+
+	if warning != "" and hud.has_method("show_tax_warning"):
+		hud.call("show_tax_warning", warning, store._latest_daily_report)
+	else:
+		hud.call("show_tax_report", store._latest_daily_report)
+
+	return true
+
+
+func on_tax_payment_requested() -> void:
+	if store == null:
+		return
+
+	if not store._tax_panel_showing:
+		return
+
+	var tax := EconomyManager.get_daily_tax()
+
+	if EconomyManager.gold < tax:
+		show_tax_panel("Not enough gold to pay today's tax.")
+		return
+
+	if not EconomyManager.pay_tax():
+		show_tax_panel("Not enough gold to pay today's tax.")
+		return
+
+	store._tax_pending = false
+	store._tax_paid_today = true
+	store._tax_panel_showing = false
+	store._tax_waiting_for_restock_close = false
+	store._tax_ready_after_restock_close = false
+	store._tax_restock_close_ready_at_msec = 0
+	store._tax_restock_retry_token += 1
+
+	var hud := store.get_tree().get_first_node_in_group("hud")
+
+	if hud != null and hud.has_method("hide_tax_report"):
+		hud.call("hide_tax_report")
+
+	store._show_notification("Tax paid.", 1.0)
+
+
+func start_midnight_to_morning_transition() -> void:
+	if store == null:
+		return
+
+	if store._end_day_transition_started:
+		return
+
+	if not TimeManager.can_sleep():
+		return
+
+	store._end_day_transition_started = true
+	store.call_deferred("_run_midnight_to_morning_transition")
+
+
+func run_midnight_to_morning_transition() -> void:
+	if store == null:
+		return
+
+	store._is_transitioning = true
+	await store._fade_to_black()
+	await store.get_tree().create_timer(MIDNIGHT_BLACK_HOLD_DURATION).timeout
+	TimeManager.start_next_day()
+	await store._fade_from_black()
+	store._is_transitioning = false
+
+
+func reset_day_state() -> void:
+	if store == null:
+		return
+
+	store._tax_pending = false
+	store._tax_paid_today = false
+	store._tax_panel_showing = false
+	store._restock_panel_open = false
+	store._tax_waiting_for_restock_close = false
+	store._tax_ready_after_restock_close = false
+	store._tax_restock_close_ready_at_msec = 0
+	store._tax_restock_retry_token += 1
+	store._end_day_transition_started = false
+	store._restock_ordered_today = false
+	store._latest_daily_report.clear()
