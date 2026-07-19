@@ -207,7 +207,7 @@ func _get_checkout_route_start_index(
 	from_position: Vector2,
 	markers: Array[Marker2D]
 ) -> int:
-	var final_marker := markers.back()
+	var final_marker: Marker2D = markers.back()
 
 	# Once the NPC has reached the bottom of the mandatory right lane, route
 	# rebuilds must continue into the main graph instead of sending it back to

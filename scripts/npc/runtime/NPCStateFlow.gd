@@ -120,7 +120,7 @@ func process_search_item(delta: float) -> void:
 	var stocked_shelf := _find_reachable_stocked_shelf()
 
 	if stocked_shelf != null:
-		var visit_position := npc._get_shelf_visit_position(stocked_shelf)
+		var visit_position: Vector2 = npc._get_shelf_visit_position(stocked_shelf)
 
 		if stocked_shelf != npc._target_shelf:
 			npc._target_shelf = stocked_shelf
@@ -346,7 +346,7 @@ func _find_reachable_stocked_shelf() -> Shelf:
 		if not has_requested_stock:
 			continue
 
-		var visit_position := npc._get_shelf_visit_position(shelf)
+		var visit_position: Vector2 = npc._get_shelf_visit_position(shelf)
 		if visit_position.is_finite():
 			return shelf
 

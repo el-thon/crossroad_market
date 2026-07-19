@@ -105,7 +105,7 @@ func find_matching_shelf() -> Shelf:
 
 func find_reachable_matching_shelf() -> Shelf:
 	for shelf in get_matching_shelf_candidates():
-		var visit_position := get_shelf_visit_position(shelf)
+		var visit_position: Vector2 = get_shelf_visit_position(shelf)
 		pass
 
 		if visit_position.is_finite():

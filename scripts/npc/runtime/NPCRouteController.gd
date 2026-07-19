@@ -300,7 +300,7 @@ func get_shelf_egress_queue_route(
 	if egress_route.is_empty():
 		return []
 
-	var egress_end := egress_route.back()
+	var egress_end: Vector2 = egress_route.back()
 	var queue_route := call_store_route(
 		store,
 		&"get_npc_route_to_queue_target_from",
