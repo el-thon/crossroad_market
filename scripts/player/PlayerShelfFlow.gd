@@ -127,10 +127,11 @@ func handle_wrong_shelf_attempt(
 	player._wrong_shelf_attempts[attempt_key] = attempts
 
 	if attempts >= MAX_WRONG_ATTEMPTS:
-		await player._show_notification_sequence([
+		var messages: Array[String] = [
 			"%s does not fit on this shelf." % item.display_name,
 			"Try the %s shelf." % get_shelf_type_label(item.shelf_type)
-		])
+		]
+		await player._show_notification_sequence(messages)
 	else:
 		player._show_notification(
 			"The item fell off the shelf... (%d/%d)" %

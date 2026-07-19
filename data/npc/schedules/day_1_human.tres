@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="NPCScheduleBlueprint" format=3]
+
+[ext_resource type="Script" path="res://scripts/managers/npc_scheduler/resources/NPCScheduleBlueprint.gd" id="1"]
+[ext_resource type="Resource" path="res://data/npc/behaviors/general_small_talk.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+day = 1
+session_name = &"human"
+customer_count = 4
+window_start = 360
+window_end = 1080
+min_interval = 20
+max_interval = 180
+customer_pool = "day_one_human"
+behavior_blueprints = Array[Resource]([ExtResource("2")])

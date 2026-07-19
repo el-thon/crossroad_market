@@ -81,9 +81,11 @@ func reset_runtime_ui() -> void:
 
 func try_checkout() -> void:
 	if not _is_player_nearby():
+		print("[DEBUG][CASHIER_READY] stage=try_checkout player_nearby=false scanned=%s" % str(_has_scanned_customer()))
 		return
 
 	if _has_scanned_customer():
+		print("[DEBUG][CASHIER_READY] stage=try_checkout scanned_customer=true scanned_total=%d panel_visible=%s" % [_scanned_total, str(_cashier_panel != null and _cashier_panel.visible)])
 		if _cashier_panel != null and _cashier_panel.visible:
 			_show_notification("Use the cashier panel.", 0.8)
 		elif _scanned_total <= 0:
@@ -94,6 +96,7 @@ func try_checkout() -> void:
 
 	var first_npc: NPC = _get_first_checkout_npc()
 	if first_npc == null:
+		print("[DEBUG][CASHIER_READY] stage=try_checkout first_npc=null approaching=%s" % str(_has_customer_approaching_counter()))
 		if _has_customer_approaching_counter():
 			_show_notification("Customer is still walking to the counter.", 1.2)
 		else:
@@ -102,6 +105,7 @@ func try_checkout() -> void:
 		_render_empty_pos_app()
 		return
 
+	print("[DEBUG][CASHIER_READY] stage=try_checkout process_scan npc=%s state=%s pos=%s target=%s" % [first_npc.name, str(first_npc.current_state), str(first_npc.global_position), str(first_npc.target_position)])
 	_process_scan(first_npc)
 
 

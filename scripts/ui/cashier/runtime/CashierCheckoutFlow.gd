@@ -35,7 +35,6 @@ func process_scan(npc: NPC) -> void:
 	cashier._pending_item_id = ""
 	cashier._ask_again_count = 0
 
-	print("SCAN: %s - %dG" % [item_label, price])
 	show_customer_request_bubble()
 	cashier._show_scan_panel()
 
@@ -74,7 +73,6 @@ func process_paid() -> void:
 
 	cashier.checkout_done.emit(npc, item_id, price)
 	add_history(npc, item_label, price, "PAID")
-	print("PAID: %s for %dG" % [item_label, price])
 	var story_trust_gain := cashier._apply_story_interaction_trust(npc)
 	if story_trust_gain > 0:
 		cashier._show_notification("PAID | %s | +%dG | Trust +%d" % [item_label, price, story_trust_gain], 1.8)

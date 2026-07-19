@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="NPCInteractionBlueprint" format=3]
+
+[ext_resource type="Script" path="res://scripts/managers/npc_scheduler/resources/NPCInteractionBlueprint.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "general_small_talk"
+category = &"general_small_talk"
+chance = 1.0
+proximity_radius = 28.0
+pause_duration = 2.0
+cooldown = 12.0
+max_per_session = 1
+meet_progress = 0.55
+min_delay = 10
+max_delay = 60
+face_distance = 18.0
+dialog_lines = Array[String](["Quiet day so far.", "Hope the shelves stay stocked."])
