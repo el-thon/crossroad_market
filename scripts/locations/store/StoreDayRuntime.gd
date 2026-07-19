@@ -2,6 +2,7 @@ class_name StoreDayRuntime
 extends Node
 
 const NORMAL_STOCK_REQUIRED: int = 4
+const CUSTOMER_INTAKE_CLOSED_META: StringName = &"customer_intake_closed_today"
 
 var store: Node = null
 
@@ -98,6 +99,7 @@ func on_day_ended(_day: int) -> void:
 func on_day_started(_day: int) -> void:
 	store._store_open = false
 	store._store_opened_today = false
+	store.set_meta(CUSTOMER_INTAKE_CLOSED_META, false)
 	if store.tax_flow != null:
 		store.tax_flow.reset_day_state()
 	store._customer_open_notification_shown = false
