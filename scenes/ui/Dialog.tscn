@@ -1,0 +1,118 @@
+[gd_scene format=3 uid="uid://bstxttr3xm7mf"]
+
+[ext_resource type="Script" uid="uid://cto35boa86hcv" path="res://scripts/ui/Dialog.gd" id="1_dialog"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PortraitAnimation.tscn" id="2_portrait"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_dialog_panel"]
+bg_color = Color(0.98, 0.86, 0.78, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.29, 0.16, 0.1, 1)
+corner_radius_top_left = 1
+corner_radius_top_right = 1
+corner_radius_bottom_right = 1
+corner_radius_bottom_left = 1
+
+[sub_resource type="SystemFont" id="SystemFont_name"]
+font_weight = 700
+subpixel_positioning = 0
+
+[sub_resource type="SystemFont" id="SystemFont_body"]
+subpixel_positioning = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_button_normal"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.98, 0.86, 0.78, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_button_pressed"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.76, 0.55, 0.44, 0.42)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_button_hover"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(0.91, 0.73, 0.63, 0.42)
+
+[node name="Dialog" type="Control" unique_id=1710076381]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_dialog")
+
+[node name="Portrait" parent="." unique_id=622468240 instance=ExtResource("2_portrait")]
+anchors_preset = 0
+
+[node name="DialogPanel" type="Panel" parent="." unique_id=1243328353]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.25
+anchor_top = 0.7
+anchor_right = 0.75
+anchor_bottom = 0.99
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_dialog_panel")
+
+[node name="NameLabel" type="Label" parent="DialogPanel" unique_id=15062827]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 6.0
+offset_right = -9.0
+offset_bottom = 22.0
+theme_override_colors/font_color = Color(0.29, 0.16, 0.1, 1)
+theme_override_fonts/font = SubResource("SystemFont_name")
+theme_override_font_sizes/font_size = 10
+text = "Gooby"
+vertical_alignment = 1
+
+[node name="ContentLabel" type="RichTextLabel" parent="DialogPanel" unique_id=1930937981]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 26.0
+offset_right = 232.0
+offset_bottom = 55.0
+mouse_filter = 1
+theme_override_colors/default_color = Color(0.29, 0.16, 0.1, 1)
+theme_override_fonts/normal_font = SubResource("SystemFont_body")
+theme_override_font_sizes/normal_font_size = 9
+text = "I want Phantom Ice Cream Boo..."
+autowrap_mode = 2
+
+[node name="NextButton" type="Button" parent="DialogPanel" unique_id=971781118]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -53.0
+offset_top = -28.299988
+offset_right = -6.0
+offset_bottom = -5.299988
+grow_horizontal = 0
+grow_vertical = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(0.29, 0.16, 0.1, 1)
+theme_override_colors/font_pressed_color = Color(0.18, 0.09, 0.05, 1)
+theme_override_colors/font_hover_color = Color(0.18, 0.09, 0.05, 1)
+theme_override_font_sizes/font_size = 9
+theme_override_styles/normal = SubResource("StyleBox_button_normal")
+theme_override_styles/pressed = SubResource("StyleBox_button_pressed")
+theme_override_styles/hover = SubResource("StyleBox_button_hover")
+text = "Next..."
