@@ -4,8 +4,9 @@ extends RefCounted
 const STANDING_SHAPE_SIZE := Vector2(21, 9)
 const STANDING_SHAPE_OFFSET := Vector2(0, -8)
 const ROUTE_SAMPLE_STEP: float = 6.0
+const START_CLEARANCE: float = 16.0
 const ENDPOINT_CLEARANCE: float = 8.0
-const MARKER_CORRIDOR_RADIUS: float = 5.5
+const MARKER_CORRIDOR_RADIUS: float = 7.0
 const POINT_EPSILON: float = 2.0
 const ALL_PHYSICS_LAYERS: int = 0x7FFFFFFF
 
@@ -45,7 +46,7 @@ func sanitize_store_route(route: Array[Vector2]) -> Array[Vector2]:
 func _insert_intermediate_markers(
 	start_position: Vector2,
 	route: Array[Vector2],
-	store: Node
+	store: Node2D
 ) -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	var current := start_position
@@ -67,7 +68,7 @@ func _insert_intermediate_markers(
 func _get_markers_between(
 	from_position: Vector2,
 	to_position: Vector2,
-	store: Node
+	store: Node2D
 ) -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	var markers := store.get_node_or_null("StorePathMarkers") as Node2D
@@ -125,12 +126,20 @@ func _get_markers_between(
 func _is_route_clear(
 	start_position: Vector2,
 	route: Array[Vector2],
-	store: Node
+	store: Node2D
 ) -> bool:
 	var current := start_position
 
-	for target in route:
-		if not _is_segment_clear(current, target, store):
+	for index in range(route.size()):
+		var target := route[index]
+		var start_clearance := START_CLEARANCE if index == 0 else ENDPOINT_CLEARANCE
+
+		if not _is_segment_clear(
+			current,
+			target,
+			store,
+			start_clearance
+		):
 			return false
 		current = target
 
@@ -140,14 +149,15 @@ func _is_route_clear(
 func _is_segment_clear(
 	from_position: Vector2,
 	to_position: Vector2,
-	store: Node
+	store: Node2D,
+	start_clearance: float
 ) -> bool:
 	var distance := from_position.distance_to(to_position)
-	if distance <= ENDPOINT_CLEARANCE * 2.0:
+	if distance <= start_clearance + ENDPOINT_CLEARANCE:
 		return true
 
 	var direction := from_position.direction_to(to_position)
-	var sample_start := from_position + direction * ENDPOINT_CLEARANCE
+	var sample_start := from_position + direction * start_clearance
 	var sample_end := to_position - direction * ENDPOINT_CLEARANCE
 	var sample_distance := sample_start.distance_to(sample_end)
 	var steps := maxi(1, int(ceil(sample_distance / ROUTE_SAMPLE_STEP)))
@@ -176,7 +186,7 @@ func _is_segment_clear(
 	return true
 
 
-func _get_dynamic_actor_rids(store: Node) -> Array[RID]:
+func _get_dynamic_actor_rids(store: Node2D) -> Array[RID]:
 	var result: Array[RID] = []
 
 	if npc is CollisionObject2D:
@@ -189,7 +199,7 @@ func _get_dynamic_actor_rids(store: Node) -> Array[RID]:
 			result.append(player_rid)
 
 	for node in store.get_tree().get_nodes_in_group("npcs"):
-		if not node is CollisionObject2D:
+		if not (node is CollisionObject2D):
 			continue
 
 		var rid := (node as CollisionObject2D).get_rid()
@@ -199,10 +209,10 @@ func _get_dynamic_actor_rids(store: Node) -> Array[RID]:
 	return result
 
 
-func _get_store() -> Node:
+func _get_store() -> Node2D:
 	if npc == null or npc.get_tree() == null:
 		return null
-	return npc.get_tree().get_first_node_in_group("store")
+	return npc.get_tree().get_first_node_in_group("store") as Node2D
 
 
 func _append_unique_point(
