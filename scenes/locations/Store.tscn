@@ -28,6 +28,7 @@
 [ext_resource type="Script" uid="uid://b21eo20ciw08h" path="res://scripts/locations/store/StoreTaskCompletion.gd" id="32_task_completion"]
 [ext_resource type="Script" uid="uid://c8yp2nc8o1ilx" path="res://scripts/locations/store/StoreNpcRoutes.gd" id="33_npc_routes"]
 [ext_resource type="Script" uid="uid://d22cxs4dwn38b" path="res://scripts/locations/store/StoreWorldStateController.gd" id="34_world_state"]
+[ext_resource type="Script" path="res://scripts/locations/store/StoreNpcInteractionRuntime.gd" id="35_npc_interaction"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
 size = Vector2(480, 48)
@@ -72,6 +73,9 @@ script = ExtResource("33_npc_routes")
 
 [node name="WorldStateController" type="Node" parent="." unique_id=1264755954]
 script = ExtResource("34_world_state")
+
+[node name="NpcInteractionRuntime" type="Node" parent="."]
+script = ExtResource("35_npc_interaction")
 
 [node name="Background" type="ColorRect" parent="." unique_id=1097879215]
 visible = false

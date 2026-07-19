@@ -1,6 +1,6 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://4ep3vcjka32a"]
 
-[ext_resource type="Script" path="res://scripts/objects/OpenCloseBoard.gd" id="1_r4xps"]
+[ext_resource type="Script" uid="uid://bo6xe1yfdwqhh" path="res://scripts/objects/OpenCloseBoard.gd" id="1_r4xps"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_open_close_board_body"]
 size = Vector2(78, 18)

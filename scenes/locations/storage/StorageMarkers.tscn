@@ -3,4 +3,4 @@
 [node name="StorageMarkers" type="Node2D"]
 
 [node name="PlayerSpawn" type="Marker2D" parent="."]
-position = Vector2(64, 136)
+position = Vector2(25, 155)
