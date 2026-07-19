@@ -87,12 +87,6 @@ func on_target_reached() -> void:
 
 func on_daily_report(report: Dictionary) -> void:
 	store._latest_daily_report = report.duplicate()
-	print("=== DAY %d REPORT ===" % report.day)
-	print("Revenue: %dG" % report.revenue)
-	print("Tax: %dG" % report.tax)
-	print("Net Profit: %dG" % report.net_profit)
-	print("Total Gold: %dG" % report.total_gold)
-	print("Target: %s" % ("REACHED" if report.target_reached else "MISSED"))
 	store._update_end_day_tax_flow()
 
 

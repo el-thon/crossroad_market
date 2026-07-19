@@ -10,7 +10,7 @@ func setup(home_node: Node) -> void:
 
 func configure_return_door() -> void:
 	if home.return_door == null:
-		push_error("Home: ReturnDoor is missing.")
+		pass
 		return
 
 	home.return_door.set_meta("door_type", "home_return")

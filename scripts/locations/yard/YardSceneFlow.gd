@@ -10,13 +10,13 @@ func setup(yard_node: Node) -> void:
 
 func configure_doors() -> void:
 	if yard.return_door == null:
-		push_error("Yard: ReturnDoor is missing.")
+		pass
 		return
 
 	yard.return_door.set_meta("door_type", "yard_return")
 
 	if yard.home_door == null:
-		push_error("Yard: HomeDoor is missing.")
+		pass
 	else:
 		yard.home_door.set_meta("door_type", "home")
 

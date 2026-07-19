@@ -21,7 +21,7 @@ func get_player_spawn_position() -> Vector2:
 
 func connect_signals() -> void:
 	if storage.return_door == null:
-		push_error("Storage: ReturnDoor is missing.")
+		pass
 		return
 
 	storage.return_door.set_meta("door_type", "storage_return")

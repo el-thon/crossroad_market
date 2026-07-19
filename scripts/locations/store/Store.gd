@@ -374,13 +374,13 @@ func _connect_hud_signals() -> void:
 
 func _connect_scene_signals() -> void:
 	if storage_door == null:
-		push_error("Store: StorageDoor is missing.")
+		pass
 	else:
 		storage_door.set_meta("door_type", "storage")
 		_connect_cursor_tooltip(storage_door, "Storage Door")
 
 	if yard_door == null:
-		push_error("Store: YardDoor is missing.")
+		pass
 	else:
 		yard_door.set_meta("door_type", "yard")
 		_connect_cursor_tooltip(yard_door, "Yard Door")

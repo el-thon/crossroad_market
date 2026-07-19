@@ -26,7 +26,7 @@ func start_game_in_yard() -> void:
 		store.player = store.get_node_or_null("Player") as Node2D
 
 	if store.player == null:
-		push_error("Store: Player is missing.")
+		pass
 		return
 
 	store._current_yard = store.yard_scene.instantiate() as Node2D
@@ -56,7 +56,7 @@ func connect_yard_return_signal() -> void:
 		if not store._current_yard.is_connected("return_to_store", return_callable):
 			store._current_yard.connect("return_to_store", return_callable)
 	else:
-		push_error("Store: Yard scene must emit return_to_store.")
+		pass
 
 	if store._current_yard.has_signal("enter_home"):
 		var home_callable := Callable(store, "_on_yard_enter_home")
@@ -64,7 +64,7 @@ func connect_yard_return_signal() -> void:
 		if not store._current_yard.is_connected("enter_home", home_callable):
 			store._current_yard.connect("enter_home", home_callable)
 	else:
-		push_error("Store: Yard scene must emit enter_home.")
+		pass
 
 
 func configure_yard_scene() -> void:
@@ -81,14 +81,14 @@ func configure_yard_scene() -> void:
 
 func enter_storage() -> void:
 	if store.storage_scene == null:
-		push_error("Store: Storage scene is missing.")
+		pass
 		return
 
 	if store.player == null:
 		store.player = store.get_node_or_null("Player") as Node2D
 
 	if store.player == null:
-		push_error("Store: Player is missing.")
+		pass
 		return
 
 	store._is_transitioning = true
@@ -149,7 +149,7 @@ func connect_storage_signals() -> void:
 		if not store._current_storage.is_connected("return_to_store", return_callable):
 			store._current_storage.connect("return_to_store", return_callable)
 	else:
-		push_error("Store: Storage scene must emit return_to_store.")
+		pass
 
 	if store._current_storage.has_signal("mystery_discovered"):
 		var mystery_callable := Callable(store, "_on_storage_mystery_discovered")
@@ -214,7 +214,7 @@ func on_storage_return(_door_type: String) -> void:
 	if store.player != null:
 		StoreTransitionController.prepare_player_for_location(store.player, store, get_storage_return_position())
 	else:
-		push_error("Store: Player not found while returning from Storage.")
+		pass
 
 	var storage_to_remove: Node2D = store._current_storage
 
@@ -232,14 +232,14 @@ func on_storage_return(_door_type: String) -> void:
 
 func enter_yard() -> void:
 	if store.yard_scene == null:
-		push_error("Store: Yard scene is missing.")
+		pass
 		return
 
 	if store.player == null:
 		store.player = store.get_node_or_null("Player") as Node2D
 
 	if store.player == null:
-		push_error("Store: Player is missing.")
+		pass
 		return
 
 	store._is_transitioning = true
@@ -279,7 +279,7 @@ func on_yard_return(_door_type: String) -> void:
 	if store.player != null:
 		StoreTransitionController.prepare_player_for_location(store.player, store, get_yard_return_position())
 	else:
-		push_error("Store: Player not found while returning from Yard.")
+		pass
 
 	var yard_to_remove: Node2D = store._current_yard
 
@@ -310,14 +310,14 @@ func on_yard_enter_home() -> void:
 
 func enter_home() -> void:
 	if store.home_scene == null:
-		push_error("Store: Home scene is missing.")
+		pass
 		return
 
 	if store.player == null and store._current_yard != null:
 		store.player = store._current_yard.get_node_or_null("Player") as Node2D
 
 	if store.player == null:
-		push_error("Store: Player is missing.")
+		pass
 		return
 
 	store._is_transitioning = true
@@ -335,7 +335,7 @@ func enter_home() -> void:
 		if not store._current_home.is_connected("return_to_yard", return_callable):
 			store._current_home.connect("return_to_yard", return_callable)
 	else:
-		push_error("Store: Home scene must emit return_to_yard.")
+		pass
 
 	var spawn_marker := store._current_home.get_node_or_null("PlayerSpawn") as Node2D
 	var spawn_position: Vector2 = spawn_marker.global_position if spawn_marker != null else Vector2(240, 210)
@@ -361,7 +361,7 @@ func on_home_return_to_yard(_door_type: String) -> void:
 		return
 
 	if store.yard_scene == null:
-		push_error("Store: Yard scene is missing.")
+		pass
 		return
 
 	store._is_transitioning = true
@@ -384,7 +384,7 @@ func on_home_return_to_yard(_door_type: String) -> void:
 	if store.player != null:
 		StoreTransitionController.prepare_player_for_location(store.player, store._current_yard, spawn_position)
 	else:
-		push_error("Store: Player not found while returning from Home.")
+		pass
 
 	var home_to_remove: Node2D = store._current_home
 

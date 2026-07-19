@@ -11,13 +11,13 @@ static func spawn_npc(
 	npc_exited_callback: Callable
 ) -> NPC:
 	if npc_scene == null:
-		push_error("Store: NPC scene is missing.")
+		pass
 		return null
 
 	var npc := npc_scene.instantiate() as NPC
 
 	if npc == null:
-		push_error("Store: NPC scene root must use NPC.gd.")
+		pass
 		return null
 
 	owner.add_child(npc)
