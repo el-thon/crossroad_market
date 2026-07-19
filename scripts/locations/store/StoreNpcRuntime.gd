@@ -2,6 +2,7 @@ class_name StoreNpcRuntime
 extends Node
 
 const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.gd")
+const CUSTOMER_INTAKE_CLOSED_META: StringName = &"customer_intake_closed_today"
 
 var store: Node = null
 
@@ -42,6 +43,20 @@ func on_npc_spawn_requested(npc_data: NPCData) -> void:
 	if store == null:
 		return
 
+	# Protect against scheduler requests emitted on the same frame the board
+	# is closed, and against reopening the board after the day's customer
+	# intake has already been finalized.
+	if (
+		not store._store_open
+		or bool(
+			store.get_meta(
+				CUSTOMER_INTAKE_CLOSED_META,
+				false
+			)
+		)
+	):
+		return
+
 	if store._current_home != null:
 		return
 
@@ -55,7 +70,10 @@ func on_npc_spawn_requested(npc_data: NPCData) -> void:
 	)
 
 	if npc != null:
-		var route_ready_callable := Callable(self, "on_npc_shelf_route_ready")
+		var route_ready_callable := Callable(
+			self,
+			"on_npc_shelf_route_ready"
+		)
 
 		if not npc.shelf_route_ready.is_connected(route_ready_callable):
 			npc.shelf_route_ready.connect(route_ready_callable)
@@ -77,14 +95,21 @@ func get_npc_spawn_marker() -> Marker2D:
 	return store.entrance_pos
 
 
-func on_npc_purchase(_npc: NPC, _item_id: String, price: int) -> void:
+func on_npc_purchase(
+	_npc: NPC,
+	_item_id: String,
+	price: int
+) -> void:
 	if store == null:
 		return
 
 	EconomyManager.add_gold(price)
 
 	if price > 0:
-		store._show_task_complete_notice("normal_customer_served", "First customer served.")
+		store._show_task_complete_notice(
+			"normal_customer_served",
+			"First customer served."
+		)
 
 
 func on_npc_exited(_npc: NPC) -> void:
@@ -92,5 +117,11 @@ func on_npc_exited(_npc: NPC) -> void:
 		store._update_end_day_tax_flow()
 
 
-func on_npc_shelf_route_ready(npc: NPC, travel_seconds: float) -> void:
-	NPCScheduler.notify_npc_shelf_route_ready(npc, travel_seconds)
+func on_npc_shelf_route_ready(
+	npc: NPC,
+	travel_seconds: float
+) -> void:
+	NPCScheduler.notify_npc_shelf_route_ready(
+		npc,
+		travel_seconds
+	)
