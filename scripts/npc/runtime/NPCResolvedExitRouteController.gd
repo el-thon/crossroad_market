@@ -1,8 +1,5 @@
 extends "res://scripts/npc/runtime/NPCTargetArrivalRouteController.gd"
 
-const SOLO_CHECKOUT_EXIT_META: StringName = &"solo_checkout_exit"
-const EXIT_ORIGIN_SHELF_META: StringName = &"exit_origin_shelf"
-
 
 func get_store_route_for_current_state(
 	destination: Vector2
