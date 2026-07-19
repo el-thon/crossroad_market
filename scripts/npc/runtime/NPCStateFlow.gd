@@ -47,7 +47,7 @@ func process_enter() -> void:
 	var route_info := get_route_travel_info(visit_position)
 	npc.shelf_route_ready.emit(npc, float(route_info.get("travel_seconds", 0.0)))
 	pass
-	_print_perf_shelf_if_slow("npc_enter_route", enter_start_usec, route_info)
+	pass
 
 	set_state(NPC.State.WALK_TO_SHELF)
 
@@ -337,15 +337,6 @@ func set_state(new_state: int) -> void:
 	npc._movement_route_destination = Vector2.INF
 	npc._reset_stuck_watchdog()
 	npc.current_state = new_state
-
-
-func _print_perf_shelf_if_slow(stage: String, start_usec: int, route_info: Dictionary) -> void:
-	var elapsed_msec := float(Time.get_ticks_usec() - start_usec) / 1000.0
-
-	if elapsed_msec < PERF_SHELF_THRESHOLD_MSEC:
-		return
-
-	pass
 
 
 func _get_perf_npc_label() -> String:

@@ -189,7 +189,7 @@ func get_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector2.IN
 
 	if bool(entry_route_result.get("valid", false)):
 		var entry_route := entry_route_result.get("route", []) as Array[Vector2]
-		_print_shelf_entry_route_debug(shelf, access_point, graph_node, str(entry_route_result.get("source", "")), entry_route)
+		pass
 		return _dedupe_route_points(entry_route)
 
 	var start_node := _find_nearest_graph_node(route_start)
@@ -198,7 +198,7 @@ func get_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector2.IN
 	route.append_array(_build_route_from_graph_path(path))
 	_append_surface_access_route_to(route, shelf, graph_node, access_point, true)
 	var fallback_route := _dedupe_route_points(route)
-	_print_shelf_entry_route_debug(shelf, access_point, graph_node, "metadata_fallback", fallback_route)
+	pass
 	return fallback_route
 
 
@@ -206,7 +206,7 @@ func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
 	var start := _find_nearest_graph_node(from_position)
 
 	if not bool(start.get("valid", false)):
-		_print_cashier_route_debug(from_position, StringName(), StringName(), [], [], [], "no_start")
+		pass
 		return []
 
 	var cashier_node := _get_role_node_name(ROLE_CASHIER, CASHIER)
@@ -228,15 +228,7 @@ func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
 
 			if direct_clear:
 				var direct_result := _dedupe_route_points(direct_route)
-				_print_cashier_route_debug(
-					from_position,
-					start.get("node", StringName()) as StringName,
-					cashier_node,
-					[],
-					direct_result,
-					direct_routes,
-					"direct_%s" % str(order.get("label", ""))
-				)
+				pass
 				return direct_result
 
 	var path := _find_graph_path(start.get("node", cashier_node) as StringName, cashier_node)
@@ -244,15 +236,7 @@ func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
 	route.append_array(_build_route_from_graph_path(path))
 	var result := _dedupe_route_points(route)
 
-	_print_cashier_route_debug(
-		from_position,
-		start.get("node", StringName()) as StringName,
-		cashier_node,
-		path,
-		result,
-		direct_routes,
-		"graph"
-	)
+	pass
 	return result
 
 
@@ -261,10 +245,10 @@ func get_route_to_queue_target_from(from_position: Vector2, queue_index: int) ->
 	var queue_node := _get_queue_target_node_name(queue_index)
 	var direct_route: Array[Vector2] = [queue_target]
 	var direct_clear := _is_queue_route_clear_from_current_position(from_position, direct_route)
-	_print_queue_route_candidate_debug("direct_horizontal", from_position, queue_index, queue_node, queue_target, direct_route, _debug_queue_route_clear_from_current_position(from_position, direct_route))
+	pass
 
 	var direct_vertical_route := _make_orthogonal_route(from_position, queue_target, false)
-	_print_queue_route_candidate_debug("direct_vertical", from_position, queue_index, queue_node, queue_target, direct_vertical_route, _debug_queue_route_clear_from_current_position(from_position, direct_vertical_route))
+	pass
 
 	if direct_clear:
 		var direct_result := _dedupe_route_points(direct_route)
@@ -275,13 +259,13 @@ func get_route_to_queue_target_from(from_position: Vector2, queue_index: int) ->
 	if bool(queue_start.get("valid", false)):
 		var queue_route := queue_start.get("route", []) as Array[Vector2]
 		var appended_center := queue_route.is_empty() or _append_clear_queue_target_route_to(queue_route, queue_target, true, from_position)
-		_print_queue_route_candidate_debug("nearest_center", from_position, queue_index, queue_node, queue_target, queue_route, _debug_queue_route_clear_from_current_position(from_position, queue_route), queue_start)
+		pass
 
 		if appended_center:
 			var center_result := _dedupe_route_points(queue_route)
 			return center_result
 	else:
-		_print_queue_route_candidate_debug("nearest_center", from_position, queue_index, queue_node, queue_target, [], {"valid": false, "blocked_reason": "no_reachable_graph_node"}, queue_start)
+		pass
 
 	var approach_node := _get_queue_approach_node_name(queue_index)
 
@@ -291,13 +275,13 @@ func get_route_to_queue_target_from(from_position: Vector2, queue_index: int) ->
 		if bool(approach_start.get("valid", false)):
 			var approach_route := approach_start.get("route", []) as Array[Vector2]
 			var appended_right := _append_clear_queue_target_route_to(approach_route, queue_target, true, from_position)
-			_print_queue_route_candidate_debug("right_marker_fallback", from_position, queue_index, approach_node, queue_target, approach_route, _debug_queue_route_clear_from_current_position(from_position, approach_route), approach_start)
+			pass
 
 			if appended_right:
 				var right_result := _dedupe_route_points(approach_route)
 				return right_result
 		else:
-			_print_queue_route_candidate_debug("right_marker_fallback", from_position, queue_index, approach_node, queue_target, [], {"valid": false, "blocked_reason": "no_reachable_graph_node"}, approach_start)
+			pass
 
 	return []
 
@@ -334,7 +318,7 @@ func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 
 		if direct_clear:
 			var direct_result := _dedupe_route_points(direct_route)
-			_print_shelf_to_checkout_debug(shelf, access_point, graph_node, direct_target_node, direct_clear, 0, "direct", direct_result)
+			pass
 			return direct_result
 
 	var path := _find_checkout_graph_path(graph_node)
@@ -345,10 +329,10 @@ func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 	var result := _dedupe_route_points(route)
 
 	if not result.is_empty() and _is_route_clear(access_point, result, shelf, shelf.global_position):
-		_print_shelf_to_checkout_debug(shelf, access_point, graph_node, direct_target_node, direct_clear, surface_route_points, "surface_fallback", result)
+		pass
 		return result
 
-	_print_shelf_to_checkout_debug(shelf, access_point, graph_node, direct_target_node, direct_clear, surface_route_points, "empty", [])
+	pass
 	return []
 
 
@@ -465,24 +449,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 		else:
 			clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
 			blocked_candidates += 1
-			_print_shelf_vertical_candidate_debug(
-				vertical_only,
-				shelf_object,
-				candidate_position,
-				access_point,
-				access_side,
-				vertical_distance,
-				false,
-				false,
-				StringName(),
-				0,
-				false,
-				INF,
-				"blocked",
-				"invalid",
-				clear_result,
-				false
-			)
+			pass
 			continue
 		clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
 
@@ -504,24 +471,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 				score += wrong_side_dist * COUNTER_DIRECTION_PENALTY_SCALE
 			scoring_elapsed_msec += _elapsed_msec(scoring_start_usec)
 			valid_candidates += 1
-			_print_shelf_vertical_candidate_debug(
-				vertical_only,
-				shelf_object,
-				candidate_position,
-				access_point,
-				access_side,
-				vertical_distance,
-				true,
-				true,
-				graph_node,
-				0,
-				true,
-				score,
-				"valid",
-				str(direct_checkout.get("checkout_source", "direct")),
-				{},
-				false
-			)
+			pass
 
 			if score < best_score:
 				best_score = score
@@ -554,60 +504,18 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 
 		if not bool(reachable_node.get("valid", false)):
 			no_surface_route_candidates += 1
-			_print_shelf_vertical_candidate_debug(
-				vertical_only,
-				shelf_object,
-				candidate_position,
-				access_point,
-				access_side,
-				vertical_distance,
-				true,
-				false,
-				StringName(),
-				int(candidate_surface_searches[0]),
-				false,
-				INF,
-				"no_surface_route",
-				"invalid",
-				reachable_node,
-				false
-			)
+			pass
 			continue
 
 		var graph_node := reachable_node.get("node", StringName()) as StringName
-		_print_direct_checkout_fallback_debug(
-			vertical_only,
-			shelf_object,
-			candidate_position,
-			access_point,
-			access_side,
-			direct_checkout_attempts,
-			"surface_graph_candidate"
-		)
+		pass
 		var checkout_start_usec := Time.get_ticks_usec()
 		var graph_path := _find_checkout_graph_path(graph_node)
 		checkout_elapsed_msec += _elapsed_msec(checkout_start_usec)
 
 		if graph_path.is_empty():
 			no_checkout_route_candidates += 1
-			_print_shelf_vertical_candidate_debug(
-				vertical_only,
-				shelf_object,
-				candidate_position,
-				access_point,
-				access_side,
-				vertical_distance,
-				true,
-				true,
-				graph_node,
-				int(candidate_surface_searches[0]),
-				false,
-				INF,
-				"no_checkout_route",
-				"invalid",
-				{},
-				false
-			)
+			pass
 			continue
 
 		var scoring_start_usec := Time.get_ticks_usec()
@@ -625,24 +533,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 			score += wrong_side_dist * COUNTER_DIRECTION_PENALTY_SCALE
 		scoring_elapsed_msec += _elapsed_msec(scoring_start_usec)
 		valid_candidates += 1
-		_print_shelf_vertical_candidate_debug(
-			vertical_only,
-			shelf_object,
-			candidate_position,
-			access_point,
-			access_side,
-			vertical_distance,
-			true,
-			true,
-			graph_node,
-			int(candidate_surface_searches[0]),
-			true,
-			score,
-			"valid",
-			"surface_graph",
-			{},
-			false
-		)
+		pass
 
 		if score >= best_score:
 			continue
@@ -659,30 +550,10 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 		}
 
 	var total_elapsed_msec := _elapsed_msec(debug_start_usec)
-	_print_shelf_access_perf_if_needed(
-		shelf_object,
-		candidate_position,
-		vertical_only,
-		best_result,
-		{
-			"total_ms": total_elapsed_msec,
-			"candidates_ms": candidates_elapsed_msec,
-			"clear_ms": clear_check_elapsed_msec,
-			"reachable_ms": reachable_elapsed_msec,
-			"checkout_ms": checkout_elapsed_msec,
-			"scoring_ms": scoring_elapsed_msec,
-			"candidate_count": candidates.size(),
-			"checked": checked_candidates,
-			"blocked": blocked_candidates,
-			"no_surface_route": no_surface_route_candidates,
-			"no_checkout_route": no_checkout_route_candidates,
-			"valid": valid_candidates,
-			"surface_searches": int(surface_searches[0])
-		}
-	)
+	pass
 
 	if bool(best_result.get("valid", false)):
-		_print_selected_shelf_vertical_candidate_debug(vertical_only, shelf_object, candidate_position, best_result)
+		pass
 		return best_result
 
 	return {"valid": false}
@@ -945,35 +816,13 @@ func _find_surface_route_between_marker_and_access(
 	if marker == null or not access_point.is_finite():
 		var missing_result := {"valid": false}
 		surface_route_cache[cache_key] = missing_result
-		_print_surface_route_perf_if_slow(
-			debug_start_usec,
-			graph_node,
-			access_point,
-			0,
-			0,
-			initial_surface_searches,
-			surface_searches,
-			false,
-			INF,
-			"missing_marker_or_access"
-		)
+		pass
 		return missing_result.duplicate(true)
 
 	if _shelf_access_points.is_empty():
 		var empty_result := {"valid": false}
 		surface_route_cache[cache_key] = empty_result
-		_print_surface_route_perf_if_slow(
-			debug_start_usec,
-			graph_node,
-			access_point,
-			0,
-			0,
-			initial_surface_searches,
-			surface_searches,
-			false,
-			INF,
-			"empty_surface_points"
-		)
+		pass
 		return empty_result.duplicate(true)
 
 	var marker_position := marker.global_position
@@ -1003,18 +852,7 @@ func _find_surface_route_between_marker_and_access(
 			if not _reserve_surface_route_search(surface_searches):
 				var search_limit_result := {"valid": false}
 				surface_route_cache[cache_key] = search_limit_result
-				_print_surface_route_perf_if_slow(
-					debug_start_usec,
-					graph_node,
-					access_point,
-					marker_indices.size(),
-					access_indices.size(),
-					initial_surface_searches,
-					surface_searches,
-					false,
-					best_distance,
-					"search_limit"
-				)
+				pass
 				return search_limit_result.duplicate(true)
 
 			var access_anchor := _shelf_access_points[access_index]
@@ -1051,32 +889,10 @@ func _find_surface_route_between_marker_and_access(
 	if best_route.is_empty():
 		var no_route_result := {"valid": false}
 		surface_route_cache[cache_key] = no_route_result
-		_print_surface_route_perf_if_slow(
-			debug_start_usec,
-			graph_node,
-			access_point,
-			marker_indices.size(),
-			access_indices.size(),
-			initial_surface_searches,
-			surface_searches,
-			false,
-			best_distance,
-			"no_route"
-		)
+		pass
 		return no_route_result.duplicate(true)
 
-	_print_surface_route_perf_if_slow(
-		debug_start_usec,
-		graph_node,
-		access_point,
-		marker_indices.size(),
-		access_indices.size(),
-		initial_surface_searches,
-		surface_searches,
-		true,
-		best_distance,
-		"valid"
-	)
+	pass
 
 	var result := {
 		"valid": true,
@@ -1363,100 +1179,6 @@ func _elapsed_msec(start_usec: int) -> float:
 	return float(Time.get_ticks_usec() - start_usec) / 1000.0
 
 
-func _print_shelf_access_perf_if_needed(
-	shelf_object: Node2D,
-	shelf_position: Vector2,
-	vertical_only: bool,
-	result: Dictionary,
-	summary: Dictionary
-) -> void:
-	var access_point := result.get("access_point", Vector2.INF) as Vector2
-	var distance_to_shelf := shelf_position.distance_to(access_point) if access_point.is_finite() else INF
-	var total_msec := float(summary.get("total_ms", 0.0))
-	var should_print := total_msec >= PERF_SHELF_THRESHOLD_MSEC or distance_to_shelf > DEBUG_SHELF_DISTANCE_THRESHOLD or not bool(result.get("valid", false))
-
-	if not should_print:
-		return
-
-	pass
-
-
-func _print_shelf_vertical_candidate_debug(
-	vertical_only: bool,
-	shelf_object: Node2D,
-	shelf_position: Vector2,
-	access_point: Vector2,
-	access_side: String,
-	distance_to_shelf: float,
-	clear: bool,
-	reachable: bool,
-	graph_node: StringName,
-	surface_searches: int,
-	checkout_path_valid: bool,
-	score: float,
-	reject_reason: String,
-	checkout_source: String = "invalid",
-	debug_result: Dictionary = {},
-	selected: bool = false
-) -> void:
-	if not vertical_only:
-		return
-
-	pass
-
-
-func _print_selected_shelf_vertical_candidate_debug(
-	vertical_only: bool,
-	shelf_object: Node2D,
-	shelf_position: Vector2,
-	result: Dictionary
-) -> void:
-	if not vertical_only:
-		return
-
-	var access_point := result.get("access_point", Vector2.INF) as Vector2
-	_print_shelf_vertical_candidate_debug(
-		vertical_only,
-		shelf_object,
-		shelf_position,
-		access_point,
-		str(result.get("access_side", "")),
-		shelf_position.distance_to(access_point) if access_point.is_finite() else INF,
-		true,
-		true,
-		result.get("graph_node", StringName()) as StringName,
-		0,
-		true,
-		float(result.get("score", INF)),
-		"selected",
-		str(result.get("checkout_source", "")),
-		{"route": result.get("surface_route", [])},
-		true
-	)
-
-
-func _print_surface_route_perf_if_slow(
-	start_usec: int,
-	graph_node: StringName,
-	access_point: Vector2,
-	marker_index_count: int,
-	access_index_count: int,
-	initial_surface_searches: int,
-	surface_searches: Array,
-	valid: bool,
-	best_distance: float,
-	reason: String
-) -> void:
-	var elapsed_msec := _elapsed_msec(start_usec)
-
-	if elapsed_msec < PERF_SHELF_THRESHOLD_MSEC:
-		return
-
-	var final_surface_searches := int(surface_searches[0]) if not surface_searches.is_empty() else initial_surface_searches
-
-	pass
-
-
 func _get_perf_shelf_name(shelf_object: Node2D) -> String:
 	return shelf_object.name if shelf_object != null else "<null>"
 
@@ -1505,14 +1227,7 @@ func _get_entry_to_access_route(
 	for order in direct_orders:
 		var route := _make_orthogonal_route(route_start, access_point, bool(order.get("horizontal_first", true)))
 		var debug_result := _debug_route_to_access_clear(route_start, route, shelf, npc_node)
-		_print_shelf_entry_candidate_debug(
-			shelf,
-			access_point,
-			metadata_graph_node,
-			str(order.get("source", "")),
-			route,
-			debug_result
-		)
+		pass
 
 		if not _is_route_to_access_clear(route_start, route, shelf, npc_node):
 			continue
@@ -1551,14 +1266,7 @@ func _get_entry_to_access_route(
 		var debug_result := _debug_route_to_access_clear(route_start, route, shelf, npc_node)
 		debug_result["candidate_node"] = node_name
 		debug_result["graph_path"] = path
-		_print_shelf_entry_candidate_debug(
-			shelf,
-			access_point,
-			metadata_graph_node,
-			"nearest_graph",
-			route,
-			debug_result
-		)
+		pass
 
 		if not _is_route_to_access_clear(route_start, route, shelf, npc_node):
 			continue
@@ -1671,186 +1379,6 @@ func _get_direct_checkout_target_node_name(from_position: Vector2) -> StringName
 			return node_name
 
 	return queue_front_node if _get_graph_marker(queue_front_node) != null else cashier_node
-
-
-func _print_shelf_to_checkout_debug(
-	shelf: Shelf,
-	access_point: Vector2,
-	graph_node: StringName,
-	direct_target_node: StringName,
-	direct_clear: bool,
-	surface_route_points: int,
-	result_source: String,
-	route: Array[Vector2]
-) -> void:
-	var first_point := route[0] if not route.is_empty() else Vector2.INF
-	var last_point := route[route.size() - 1] if not route.is_empty() else Vector2.INF
-
-	pass
-
-
-func _print_direct_checkout_debug(
-	access_point: Vector2,
-	target_node: StringName,
-	target_position: Vector2,
-	route_order: String,
-	clear: bool,
-	route: Array[Vector2]
-) -> void:
-	if not DEBUG_DIRECT_CHECKOUT_VERBOSE and not clear:
-		return
-
-	pass
-
-
-func _print_direct_checkout_fallback_debug(
-	vertical_only: bool,
-	shelf_object: Node2D,
-	shelf_position: Vector2,
-	access_point: Vector2,
-	access_side: String,
-	attempts: Array,
-	fallback_stage: String
-) -> void:
-	if not vertical_only:
-		return
-
-	var compact_attempts: Array[Dictionary] = []
-
-	for attempt in attempts:
-		if not attempt is Dictionary:
-			continue
-
-		var attempt_dict := attempt as Dictionary
-		var debug_result := attempt_dict.get("debug", {}) as Dictionary
-		var route := attempt_dict.get("route", []) as Array
-		compact_attempts.append({
-			"target_node": attempt_dict.get("target_node", StringName()),
-			"target_position": attempt_dict.get("target_position", Vector2.INF),
-			"route_order": attempt_dict.get("route_order", ""),
-			"clear": attempt_dict.get("clear", false),
-			"blocked_segment_index": debug_result.get("blocked_segment_index", -1),
-			"blocked_point": debug_result.get("blocked_point", Vector2.INF),
-			"blocked_reason": debug_result.get("blocked_reason", ""),
-			"blocker": debug_result.get("blocker", ""),
-			"route_points": route.size(),
-			"route_distance": _get_route_distance(access_point, _variant_route_to_vector2_array(route))
-		})
-
-	pass
-
-
-func _print_queue_route_candidate_debug(
-	source: String,
-	from_position: Vector2,
-	queue_index: int,
-	target_node: StringName,
-	target_position: Vector2,
-	route: Array[Vector2],
-	debug_result: Dictionary,
-	start_result: Dictionary = {}
-) -> void:
-	if not DEBUG_QUEUE_TO_CASHIER_ROUTE:
-		return
-
-	var debug_key := "%s:%d:%d,%d:%s:%s:%s:%d" % [
-		source,
-		queue_index,
-		roundi(from_position.x),
-		roundi(from_position.y),
-		str(target_node),
-		str(debug_result.get("blocked_point", Vector2.INF)),
-		str(debug_result.get("blocked_reason", "")),
-		route.size()
-	]
-
-	if not bool(debug_result.get("valid", false)) and debug_key == _last_queue_route_candidate_debug_key:
-		return
-
-	_last_queue_route_candidate_debug_key = debug_key
-
-	pass
-
-
-func _print_queue_graph_candidate_debug(
-	from_position: Vector2,
-	goal_node: StringName,
-	candidate_node: StringName,
-	route: Array[Vector2],
-	debug_result: Dictionary,
-	graph_path: Array[StringName],
-	stage: String
-) -> void:
-	if not DEBUG_QUEUE_TO_CASHIER_ROUTE:
-		return
-
-	if not DEBUG_QUEUE_GRAPH_CANDIDATES_VERBOSE and stage == "entry_blocked":
-		return
-
-	var debug_key := "%s:%d,%d:%s:%s:%s:%s:%d" % [
-		stage,
-		roundi(from_position.x),
-		roundi(from_position.y),
-		str(goal_node),
-		str(candidate_node),
-		str(debug_result.get("blocked_point", Vector2.INF)),
-		str(debug_result.get("blocked_reason", "")),
-		route.size()
-	]
-
-	if not bool(debug_result.get("valid", false)) and debug_key == _last_queue_route_candidate_debug_key:
-		return
-
-	_last_queue_route_candidate_debug_key = debug_key
-
-	pass
-
-
-func _print_shelf_entry_route_debug(
-	shelf: Shelf,
-	access_point: Vector2,
-	metadata_graph_node: StringName,
-	result_source: String,
-	route: Array[Vector2]
-) -> void:
-	if not DEBUG_SHELF_ENTRY_ROUTE:
-		return
-
-	var first_point := route[0] if not route.is_empty() else Vector2.INF
-	var last_point := route[route.size() - 1] if not route.is_empty() else Vector2.INF
-
-	pass
-
-
-func _print_shelf_entry_candidate_debug(
-	shelf: Shelf,
-	access_point: Vector2,
-	metadata_graph_node: StringName,
-	result_source: String,
-	route: Array[Vector2],
-	debug_result: Dictionary
-) -> void:
-	if not DEBUG_SHELF_ENTRY_ROUTE:
-		return
-
-	pass
-
-
-func _print_cashier_route_debug(
-	from_position: Vector2,
-	start_node: StringName,
-	cashier_node: StringName,
-	graph_path: Array[StringName],
-	route: Array[Vector2],
-	direct_routes: Array,
-	result_source: String
-) -> void:
-	if not DEBUG_QUEUE_TO_CASHIER_ROUTE:
-		return
-
-	var first_point := route[0] if not route.is_empty() else Vector2.INF
-	var last_point := route[route.size() - 1] if not route.is_empty() else Vector2.INF
-	pass
 
 
 func _get_nearest_graph_node_names_for_access(access_point: Vector2, preferred_node: StringName, limit: int) -> Array[StringName]:
@@ -2102,13 +1630,13 @@ func _find_nearest_reachable_graph_node_for_route(position: Vector2, goal_node: 
 		var entry_route := _make_orthogonal_route(position, marker.global_position, true)
 
 		if not _is_route_clear_from_current_position(position, entry_route):
-			_print_queue_graph_candidate_debug(position, goal_node, node_name, entry_route, _debug_route_clear_from_current_position(position, entry_route), [], "entry_blocked")
+			pass
 			continue
 
 		var graph_path := _find_graph_path(node_name, goal_node)
 
 		if graph_path.is_empty():
-			_print_queue_graph_candidate_debug(position, goal_node, node_name, entry_route, {"valid": false, "blocked_reason": "no_graph_path"}, graph_path, "no_graph_path")
+			pass
 			continue
 
 		var route := entry_route.duplicate()
@@ -2117,14 +1645,14 @@ func _find_nearest_reachable_graph_node_for_route(position: Vector2, goal_node: 
 
 		if _is_queue_target_node(goal_node):
 			if not _is_queue_route_clear_from_current_position(position, route):
-				_print_queue_graph_candidate_debug(position, goal_node, node_name, route, _debug_queue_route_clear_from_current_position(position, route), graph_path, "route_blocked")
+				pass
 				continue
 		elif not _is_route_clear_from_current_position(position, route):
-			_print_queue_graph_candidate_debug(position, goal_node, node_name, route, _debug_route_clear_from_current_position(position, route), graph_path, "route_blocked")
+			pass
 			continue
 
 		var score := _get_route_distance(position, route)
-		_print_queue_graph_candidate_debug(position, goal_node, node_name, route, {"valid": true}, graph_path, "valid")
+		pass
 
 		if score >= best_score:
 			continue
