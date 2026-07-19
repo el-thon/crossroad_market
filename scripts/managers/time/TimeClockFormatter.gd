@@ -56,6 +56,17 @@ func get_world_minutes() -> int:
 	return phase_start + phase_minutes
 
 
+func get_precise_world_minutes() -> float:
+	if manager._day_finished:
+		return float(manager.END_START_MINUTES)
+
+	var phase_start: int = get_phase_start_minutes(manager.current_phase)
+	var elapsed_ratio: float = clamp((manager.PHASE_DURATION - manager.time_remaining) / manager.PHASE_DURATION, 0.0, 0.999)
+	var phase_minutes: float = elapsed_ratio * float(get_phase_world_duration_minutes(manager.current_phase))
+
+	return float(phase_start) + phase_minutes
+
+
 func get_current_clock_minutes() -> int:
 	return get_world_minutes()
 

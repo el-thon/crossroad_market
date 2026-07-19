@@ -104,6 +104,14 @@ func get_current_clock_minutes() -> int:
 	return _clock_formatter.get_current_clock_minutes()
 
 
+func get_precise_clock_minutes() -> float:
+	return _clock_formatter.get_precise_world_minutes()
+
+
+func get_phase_world_duration_minutes(phase: Phase) -> int:
+	return _clock_formatter.get_phase_world_duration_minutes(phase)
+
+
 func _advance_phase() -> void:
 	_phase_flow.advance_phase()
 

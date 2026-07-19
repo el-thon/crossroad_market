@@ -8,6 +8,16 @@ func setup(scheduler_node: Node) -> void:
 	scheduler = scheduler_node
 
 
+func load_schedule_blueprints() -> void:
+	scheduler._schedule_blueprints.clear()
+
+	for path in scheduler.SCHEDULE_BLUEPRINT_PATHS:
+		var resource := load(path)
+
+		if resource is Resource and resource.get("session_name") != null:
+			scheduler._schedule_blueprints.append(resource)
+
+
 func generate_schedule(day: int) -> void:
 	scheduler._day_schedule.clear()
 
@@ -31,6 +41,11 @@ func generate_customer_sessions_for_day(day: int) -> void:
 
 
 func get_customer_session_blueprint(day: int, session_name: StringName) -> Dictionary:
+	var configured_blueprint := find_schedule_blueprint(day, session_name)
+
+	if configured_blueprint != null:
+		return schedule_blueprint_to_dictionary(configured_blueprint)
+
 	if session_name == scheduler.SESSION_HUMAN and day == 1:
 		return {
 			"customer_count": scheduler.DAY_ONE_CUSTOMER_COUNT,
@@ -38,7 +53,8 @@ func get_customer_session_blueprint(day: int, session_name: StringName) -> Dicti
 			"window_end": scheduler.HUMAN_CUSTOMER_END_MINUTES,
 			"min_interval": scheduler.DEFAULT_MIN_INTERVAL_MINUTES,
 			"max_interval": scheduler.DEFAULT_MAX_INTERVAL_MINUTES,
-			"customer_pool": "day_one_human"
+			"customer_pool": "day_one_human",
+			"behavior_blueprints": []
 		}
 
 	var customer_count := 0
@@ -57,7 +73,28 @@ func get_customer_session_blueprint(day: int, session_name: StringName) -> Dicti
 		"window_end": scheduler.HUMAN_CUSTOMER_END_MINUTES if session_name == scheduler.SESSION_HUMAN else scheduler.NIGHT_CUSTOMER_END_MINUTES,
 		"min_interval": scheduler.DEFAULT_MIN_INTERVAL_MINUTES,
 		"max_interval": scheduler.DEFAULT_MAX_INTERVAL_MINUTES,
-		"customer_pool": String(session_name)
+		"customer_pool": String(session_name),
+		"behavior_blueprints": []
+	}
+
+
+func find_schedule_blueprint(day: int, session_name: StringName) -> Resource:
+	for blueprint in scheduler._schedule_blueprints:
+		if int(blueprint.get("day")) == day and StringName(blueprint.get("session_name")) == session_name:
+			return blueprint
+
+	return null
+
+
+func schedule_blueprint_to_dictionary(blueprint: Resource) -> Dictionary:
+	return {
+		"customer_count": int(blueprint.get("customer_count")),
+		"window_start": int(blueprint.get("window_start")),
+		"window_end": int(blueprint.get("window_end")),
+		"min_interval": int(blueprint.get("min_interval")),
+		"max_interval": int(blueprint.get("max_interval")),
+		"customer_pool": str(blueprint.get("customer_pool")),
+		"behavior_blueprints": blueprint.get("behavior_blueprints")
 	}
 
 
@@ -122,7 +159,12 @@ func make_customer_session(blueprint: Dictionary, pool: Array[NPCData]) -> Dicti
 		"slots": build_customer_session_slots(blueprint, pool.size()),
 		"index": 0,
 		"missed": 0,
-		"closed": false
+		"closed": false,
+		"window_start": int(blueprint.get("window_start", scheduler.HUMAN_CUSTOMER_START_MINUTES)),
+		"window_end": int(blueprint.get("window_end", scheduler.HUMAN_CUSTOMER_END_MINUTES)),
+		"behavior_blueprints": blueprint.get("behavior_blueprints", []),
+		"behavior_counts": {},
+		"last_behavior_minutes": {}
 	}
 
 

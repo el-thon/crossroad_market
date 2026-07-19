@@ -113,3 +113,62 @@ func finish_active_customer_session() -> void:
 	session["index"] = pool.size()
 	session["closed"] = true
 	scheduler._customer_sessions[scheduler._active_customer_session] = session
+
+
+func get_active_interaction_blueprints() -> Array:
+	var blueprints: Array = []
+
+	if scheduler._active_customer_session == scheduler.SESSION_NONE or not scheduler._customer_sessions.has(scheduler._active_customer_session):
+		return blueprints
+
+	var session := scheduler._customer_sessions[scheduler._active_customer_session] as Dictionary
+	var raw_blueprints: Array = session.get("behavior_blueprints", [])
+
+	for blueprint in raw_blueprints:
+		if blueprint is Resource and blueprint.get("id") != null:
+			blueprints.append(blueprint)
+
+	return blueprints
+
+
+func notify_npc_shelf_route_ready(travel_seconds: float) -> void:
+	if scheduler._active_customer_session == scheduler.SESSION_NONE or not scheduler._customer_sessions.has(scheduler._active_customer_session):
+		return
+
+	var session := scheduler._customer_sessions[scheduler._active_customer_session] as Dictionary
+
+	if bool(session.get("interaction_timing_adjusted", false)):
+		return
+
+	var blueprints := get_active_interaction_blueprints()
+
+	if blueprints.is_empty():
+		return
+
+	var pool := session.get("pool", []) as Array[NPCData]
+	var slots := session.get("slots", []) as Array[int]
+	var index := int(session.get("index", 0))
+
+	if index >= pool.size() or index >= slots.size():
+		return
+
+	var blueprint: Resource = blueprints[0] as Resource
+	var phase_world_minutes: int = TimeManager.get_phase_world_duration_minutes(TimeManager.current_phase)
+	var travel_minutes: float = travel_seconds * float(phase_world_minutes) / TimeManager.PHASE_DURATION
+	var delay: float = clamp(
+		travel_minutes * float(blueprint.get("meet_progress")),
+		float(blueprint.get("min_delay")),
+		float(blueprint.get("max_delay"))
+	)
+	var current_minutes: float = TimeManager.get_precise_clock_minutes()
+	var adjusted_slot := int(round(current_minutes + delay))
+	var original_slot := int(slots[index])
+	var window_end := int(session.get("window_end", scheduler.HUMAN_CUSTOMER_END_MINUTES))
+
+	adjusted_slot = mini(adjusted_slot, window_end)
+
+	if adjusted_slot < original_slot:
+		slots[index] = adjusted_slot
+		session["slots"] = slots
+		session["interaction_timing_adjusted"] = true
+		scheduler._customer_sessions[scheduler._active_customer_session] = session

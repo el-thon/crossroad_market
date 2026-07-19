@@ -9,6 +9,9 @@ const NPCSchedulerDayOneFactory = preload("res://scripts/managers/npc_scheduler/
 
 signal npc_spawn_requested(npc_data)
 
+const SCHEDULE_BLUEPRINT_PATHS: Array[String] = [
+	"res://data/npc/schedules/day_1_human.tres"
+]
 const SPAWN_INTERVAL: float = 60.0
 const DAY_ONE_NIGHT_SPAWN_INTERVAL: float = 8.0
 const DAY_ONE_SLIME_GOLD: int = 10
@@ -49,6 +52,7 @@ var _normal_spawning_unlocked: bool = false
 var _store_open: bool = false
 var _customer_sessions: Dictionary = {}
 var _active_customer_session: StringName = SESSION_NONE
+var _schedule_blueprints: Array[Resource] = []
 
 var _database: NPCSchedulerDatabase = NPCSchedulerDatabase.new()
 var _day_flow: NPCSchedulerDayFlow = NPCSchedulerDayFlow.new()
@@ -88,6 +92,7 @@ func _load_npc_database() -> void:
 
 func _load_npc_data() -> void:
 	_database.load_npc_data()
+	_session_builder.load_schedule_blueprints()
 
 
 func _on_day_started(day: int) -> void:
@@ -176,6 +181,14 @@ func _make_customer_session(blueprint: Dictionary, pool: Array[NPCData]) -> Dict
 
 func _build_customer_session_slots(blueprint: Dictionary, customer_count: int) -> Array[int]:
 	return _session_builder.build_customer_session_slots(blueprint, customer_count)
+
+
+func get_active_interaction_blueprints() -> Array:
+	return _session_runtime.get_active_interaction_blueprints()
+
+
+func notify_npc_shelf_route_ready(_npc: NPC, travel_seconds: float) -> void:
+	_session_runtime.notify_npc_shelf_route_ready(travel_seconds)
 
 
 func _process_active_customer_session() -> void:
