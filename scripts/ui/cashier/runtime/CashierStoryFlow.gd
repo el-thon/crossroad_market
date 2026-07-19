@@ -1,6 +1,8 @@
 class_name CashierStoryFlow
 extends RefCounted
 
+const IRENE_ID: String = "irene"
+
 var cashier: Cashier = null
 
 
@@ -23,6 +25,11 @@ func apply_story_interaction_trust(npc: NPC) -> int:
 		return 0
 
 	if npc.npc_data.npc_category != NPCData.NPCCategory.STORY:
+		return 0
+
+	# Irene's opening store purchase establishes her story presence only.
+	# Trust remains at zero until a later dedicated relationship event owns it.
+	if npc.npc_data.npc_id == IRENE_ID:
 		return 0
 
 	RelationshipManager.add_trust(npc.npc_data.npc_id, cashier.STORY_INTERACTION_TRUST_GAIN)
