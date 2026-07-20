@@ -29,12 +29,37 @@ static func can_unlock_customer_spawning(
 	if ghost_shelf == null or not is_instance_valid(ghost_shelf):
 		return false
 
+	_refresh_ghost_shelf_access(ghost_shelf)
+
 	# Night customers must not start until the installed ghost shelf has both
 	# stock and a valid NPC access point. Otherwise they enter WAIT_FOR_SHELF at
 	# the store exit and appear to skip the shopping sequence.
 	return (
 		ghost_shelf.has_stock()
 		and bool(ghost_shelf.get_meta("npc_path_ready", false))
+	)
+
+
+static func _refresh_ghost_shelf_access(ghost_shelf: Shelf) -> void:
+	if bool(ghost_shelf.get_meta("npc_path_ready", false)):
+		return
+
+	var tree := ghost_shelf.get_tree()
+	if tree == null:
+		return
+
+	var store := tree.get_first_node_in_group("store")
+	if store == null or not store.has_method("_get_store_path_graph"):
+		return
+
+	var graph_variant: Variant = store.call("_get_store_path_graph")
+	if not (graph_variant is StorePathGraph):
+		return
+
+	var graph := graph_variant as StorePathGraph
+	graph.store_shelf_access_metadata(
+		ghost_shelf,
+		ghost_shelf.global_position
 	)
 
 
