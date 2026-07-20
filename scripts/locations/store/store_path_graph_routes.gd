@@ -1,18 +1,18 @@
 extends RefCounted
 class_name StorePathGraphRoutes
 
-## Route building functions for StorePathGraph
-## Contains orthogonal and direct route builders
+## Route building functions for StorePathGraph.
+## Holds a back-reference to the parent graph so it can access markers and
+## clearance checks without Callable boilerplate.
 
-## Reference to constants (set by parent)
-var _constants: StorePathGraphConstants
-
-func _init(consts: StorePathGraphConstants = null) -> void:
-	_constants = consts
+var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 
-## Creates an orthogonal (L-shaped) route between two points
-## horizontal_first: if true, goes horizontal then vertical; otherwise vertical then horizontal
+func _init(graph = null) -> void:
+	_graph = graph
+
+
+## Creates an orthogonal (L-shaped) route between two points.
 func make_orthogonal_route(from_pos: Vector2, to_pos: Vector2, horizontal_first: bool = true) -> Array[Vector2]:
 	var route: Array[Vector2] = []
 
@@ -30,19 +30,18 @@ func make_orthogonal_route(from_pos: Vector2, to_pos: Vector2, horizontal_first:
 	return route
 
 
-## Creates a direct (diagonal) route between two points
-## Returns a single waypoint: from_pos -> to_pos
+## Creates a direct (diagonal) route between two points.
 func make_direct_route(from_pos: Vector2, to_pos: Vector2) -> Array[Vector2]:
 	if not from_pos.is_finite() or not to_pos.is_finite():
 		return []
 
-	if from_pos.distance_to(to_pos) <= _constants.ROUTE_CLEARANCE_EPSILON:
+	if from_pos.distance_to(to_pos) <= _graph.ROUTE_CLEARANCE_EPSILON:
 		return []
 
 	return [to_pos]
 
 
-## Removes duplicate points that are too close together
+## Removes duplicate points that are too close together.
 func dedupe_route_points(route: Array[Vector2]) -> Array[Vector2]:
 	var deduped: Array[Vector2] = []
 
@@ -58,7 +57,7 @@ func dedupe_route_points(route: Array[Vector2]) -> Array[Vector2]:
 	return deduped
 
 
-## Appends an orthogonal route to an existing route array
+## Appends an orthogonal route to an existing route array.
 func append_orthogonal_route_to(
 	route: Array[Vector2],
 	to_pos: Vector2,
@@ -77,13 +76,12 @@ func append_orthogonal_route_to(
 	route.append_array(make_orthogonal_route(from_pos, to_pos, horizontal_first))
 
 
-## Appends an orthogonal route to an existing route array, checking if clear first
+## Appends an orthogonal route, checking clearance first.
 func append_clear_orthogonal_route_to(
 	route: Array[Vector2],
 	to_pos: Vector2,
 	horizontal_first: bool = true,
-	fallback_from_pos: Vector2 = Vector2.INF,
-	is_clear_func: Callable = Callable()
+	fallback_from_pos: Vector2 = Vector2.INF
 ) -> bool:
 	var from_pos := fallback_from_pos
 
@@ -96,20 +94,19 @@ func append_clear_orthogonal_route_to(
 
 	var addition := make_orthogonal_route(from_pos, to_pos, horizontal_first)
 
-	if not is_clear_func.call(from_pos, addition):
+	if not _graph._clearance.is_route_clear(from_pos, addition):
 		return false
 
 	route.append_array(addition)
 	return true
 
 
-## Appends a direct route to queue target
+## Appends a direct route to queue target.
 func append_clear_queue_target_route_to(
 	route: Array[Vector2],
 	to_pos: Vector2,
 	horizontal_first: bool = true,
-	fallback_from_pos: Vector2 = Vector2.INF,
-	is_queue_clear_func: Callable = Callable()
+	fallback_from_pos: Vector2 = Vector2.INF
 ) -> bool:
 	var from_pos := fallback_from_pos
 
@@ -122,14 +119,14 @@ func append_clear_queue_target_route_to(
 
 	var addition: Array[Vector2] = [to_pos]
 
-	if not is_queue_clear_func.call(from_pos, addition):
+	if not _graph._clearance.is_queue_route_clear(from_pos, addition):
 		return false
 
 	route.append_array(addition)
 	return true
 
 
-## Prepends an orthogonal route to the beginning of a route
+## Prepends an orthogonal route to the beginning of a route.
 func prepend_orthogonal_route(from_pos: Vector2, route: Array[Vector2], horizontal_first: bool = true) -> Array[Vector2]:
 	if route.is_empty():
 		return []
@@ -139,7 +136,24 @@ func prepend_orthogonal_route(from_pos: Vector2, route: Array[Vector2], horizont
 	return dedupe_route_points(result)
 
 
-## Calculates total distance of a route
+## Builds a route from a graph path (list of node names → positions).
+func build_route_from_graph_path(path: Array[StringName]) -> Array[Vector2]:
+	var route: Array[Vector2] = []
+	var previous_position := Vector2.INF
+
+	for node_name in path:
+		var marker := _graph._nav.get_graph_marker(node_name)
+
+		if marker == null:
+			continue
+
+		route.append(marker.global_position)
+		previous_position = marker.global_position
+
+	return dedupe_route_points(route)
+
+
+## Calculates total distance of a route.
 func get_route_distance(start: Vector2, route: Array[Vector2]) -> float:
 	var distance := 0.0
 	var cursor := start
@@ -149,3 +163,7 @@ func get_route_distance(start: Vector2, route: Array[Vector2]) -> float:
 		cursor = point
 
 	return distance
+
+
+func get_euclidean_distance(from_pos: Vector2, to_pos: Vector2) -> float:
+	return from_pos.distance_to(to_pos)
