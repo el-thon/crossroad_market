@@ -1,15 +1,12 @@
 class_name StorePathGraph
 extends RefCounted
 
-## Thin facade over modular pathfinding components.
-## All business logic is delegated to the helper modules below:
-##   _routes     – orthogonal / direct route builders, dedup, distance
-##   _clearance  – collision queries, segment / route clearance
-##   _nav        – marker lookups, A* graph pathfinding, queue helpers
-##   _shelf      – shelf access candidate generation
-##   _surface    – A* over shelf_access_points grid
+## Facade over the modular Store pathfinding components.
+##
+## The facade owns shared state and coordinates route selection. Geometry,
+## collision checks, marker A*, shelf candidates, and surface-grid A* remain in
+## their dedicated helper classes.
 
-# ── Constants (also read by helpers via _graph.<CONST>) ──────────────────────
 const ENTRY: StringName = &"StorePathEntry"
 const EXIT: StringName = &"StorePathExit"
 const AISLE_RIGHT: StringName = &"StorePathAisleRight"
@@ -41,50 +38,34 @@ const MAX_SHELF_ACCESS_DISTANCE: float = 96.0
 const MAX_VERTICAL_SHELF_ACCESS_DISTANCE: float = 32.0
 const SHELF_ACCESS_STANDING_CLEARANCE: float = 1.0
 const MAX_SHELF_ACCESS_CANDIDATES: int = 96
-const MAX_ACCESS_GRAPH_NODE_CANDIDATES: int = 4
+const MAX_ACCESS_GRAPH_NODE_CANDIDATES: int = 12
 const SURFACE_CONNECTOR_LIMIT: int = 2
-const MAX_SURFACE_ROUTE_SEARCHES: int = 8
+const MAX_SURFACE_ROUTE_SEARCHES: int = 16
 const SURFACE_ALIGNMENT_EPSILON: float = 2.0
 const SURFACE_NEIGHBOR_MAX_DISTANCE: float = 36.0
 const SHELF_ACCESS_DISTANCE_SCORE_WEIGHT: float = 1000.0
+const COUNTER_DIRECTION_PENALTY_SCALE: float = 1000.0
 
-# ── Shared state (helpers access via _graph._store etc.) ─────────────────────
-@warning_ignore("unused_private_class_variable")
 var _store: Node2D = null
-@warning_ignore("unused_private_class_variable")
 var _markers: Node2D = null
-@warning_ignore("unused_private_class_variable")
 var _shelf_access_points: Array[Vector2] = []
-@warning_ignore("unused_private_class_variable")
-var _surface_neighbor_cache := {}
-@warning_ignore("unused_private_class_variable")
-var _surface_neighbor_signature := ""
-@warning_ignore("unused_private_class_variable")
+var _surface_neighbor_cache: Dictionary = {}
+var _surface_neighbor_signature: String = ""
 var _cached_shelf_anchor_positions: Array[Vector2] = []
-@warning_ignore("unused_private_class_variable")
 var _cached_shelf_anchor_count: int = -1
-@warning_ignore("unused_private_class_variable")
 var _cached_graph_node_names: Array[StringName] = []
-@warning_ignore("unused_private_class_variable")
 var _cached_graph_node_count: int = -1
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-@warning_ignore("unused_private_class_variable")
 var _routes: StorePathGraphRoutes
-@warning_ignore("unused_private_class_variable")
 var _clearance: StorePathGraphClearance
-@warning_ignore("unused_private_class_variable")
 var _nav: StorePathGraphGraph
-@warning_ignore("unused_private_class_variable")
 var _shelf: StorePathGraphShelfAccess
-@warning_ignore("unused_private_class_variable")
 var _surface: StorePathGraphSurface
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _init(store: Node2D = null, markers: Node2D = null) -> void:
-	_store = store
-	_markers = markers
+func _init(store_node: Node2D = null, marker_root: Node2D = null) -> void:
+	_store = store_node
+	_markers = marker_root
 	_routes = StorePathGraphRoutes.new(self)
 	_clearance = StorePathGraphClearance.new(self)
 	_nav = StorePathGraphGraph.new(self)
@@ -92,855 +73,524 @@ func _init(store: Node2D = null, markers: Node2D = null) -> void:
 	_surface = StorePathGraphSurface.new(self)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func setup(store: Node2D, markers: Node2D) -> void:
-	_store = store
-	_markers = markers
+func setup(store_node: Node2D, marker_root: Node2D) -> void:
+	_store = store_node
+	if _markers != marker_root:
+		_markers = marker_root
+		_cached_graph_node_names.clear()
+		_cached_graph_node_count = -1
+		_cached_shelf_anchor_positions.clear()
+		_cached_shelf_anchor_count = -1
 
 
-# ── Surface point management ─────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func set_shelf_access_points(points: Array[Vector2]) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var next_points := points.duplicate()
+	var next_points: Array[Vector2] = points.duplicate()
+	var next_signature := _get_surface_points_signature(next_points)
+	var current_signature := _get_surface_points_signature(_shelf_access_points)
 
-	if _get_surface_points_signature(next_points) != _get_surface_points_signature(_shelf_access_points):
+	if next_signature != current_signature:
 		_surface_neighbor_cache.clear()
 		_surface_neighbor_signature = ""
 
 	_shelf_access_points = next_points
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func invalidate_surface_graph_cache() -> void:
 	_surface_neighbor_cache.clear()
 	_surface_neighbor_signature = ""
 
 
-# ── Marker convenience ───────────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_marker_for_role(role: StringName, fallback_node_name: StringName = StringName()) -> Marker2D:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func get_marker_for_role(
+	role: StringName,
+	fallback_node_name: StringName = StringName()
+) -> Marker2D:
 	var role_node := _nav.get_role_node_name(role, fallback_node_name)
-
 	if role_node == StringName():
 		return null
-
 	return _nav.get_graph_marker(role_node)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_anchor_positions() -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
 	var graph_nodes := _nav.get_graph_node_names()
-
 	if _cached_shelf_anchor_count == graph_nodes.size():
 		return _cached_shelf_anchor_positions.duplicate()
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var positions: Array[Vector2] = []
-
 	for node_name in graph_nodes:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
+		var graph_marker: Marker2D = _nav.get_graph_marker(node_name)
+		if graph_marker == null:
 			continue
-
-		if bool(marker.get_meta(SHELF_ANCHOR_META, false)):
-			positions.append(marker.global_position)
+		if bool(graph_marker.get_meta(SHELF_ANCHOR_META, false)):
+			positions.append(graph_marker.global_position)
 
 	_cached_shelf_anchor_positions = positions
 	_cached_shelf_anchor_count = graph_nodes.size()
 	return positions.duplicate()
 
 
-# ── Queue / cashier positions ────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_queue_target_position(queue_index: int, fallback_position: Vector2) -> Vector2:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var node_name := _nav.get_queue_target_node_name(queue_index)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-	if marker == null:
+func get_queue_target_position(
+	queue_index: int,
+	fallback_position: Vector2
+) -> Vector2:
+	var queue_node := _nav.get_queue_target_node_name(queue_index)
+	var queue_marker: Marker2D = _nav.get_graph_marker(queue_node)
+	if queue_marker == null:
 		return fallback_position
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var front_node := _nav.get_role_node_name(ROLE_QUEUE_FRONT, QUEUE_FRONT)
-	if queue_index > 0 and node_name == front_node:
+	if queue_index > 0 and queue_node == front_node:
 		const QUEUE_SLOT_SPACING := Vector2(0, 22)
-		return marker.global_position + QUEUE_SLOT_SPACING * queue_index
+		return queue_marker.global_position + QUEUE_SLOT_SPACING * queue_index
 
-	return marker.global_position
+	return queue_marker.global_position
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_cashier_target_position(fallback_position: Vector2) -> Vector2:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var marker: Marker2D = get_marker_for_role(ROLE_CASHIER, CASHIER)
-	return marker.global_position if marker != null else fallback_position
+	var cashier_marker: Marker2D = get_marker_for_role(ROLE_CASHIER, CASHIER)
+	if cashier_marker == null:
+		return fallback_position
+	return cashier_marker.global_position
 
 
-# ── Route builders (public API) ──────────────────────────────────────────────
+func get_entry_route_to_shelf(
+	shelf_position: Vector2,
+	from_position: Vector2 = Vector2.INF
+) -> Array[Vector2]:
+	var route_start := from_position
+	if not route_start.is_finite():
+		route_start = _nav.get_marker_position(
+			_nav.get_role_node_name(ROLE_ENTRY, ENTRY)
+		)
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_entry_route_to_shelf(shelf_position: Vector2, from_position: Vector2 = Vector2.INF) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var entry_node := _nav.get_role_node_name(ROLE_ENTRY, ENTRY)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	if not route_start.is_finite() or not shelf_position.is_finite():
+		return []
+
+	var direct_candidates: Array[Dictionary] = []
+	_append_clear_route_variants(
+		direct_candidates,
+		route_start,
+		shelf_position,
+		null,
+		Vector2.INF,
+		false
+	)
+	var direct_route := _get_shortest_route(direct_candidates)
+	if not direct_route.is_empty():
+		return direct_route
+
 	var aisle_node := _nav.get_role_node_name(&"aisle_right", AISLE_RIGHT)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start: Dictionary = _nav.find_nearest_graph_node(from_position) if from_position.is_finite() else {
-		"valid": true,
-		"node": entry_node,
-		"route": _routes.build_route_from_graph_path([entry_node])
-	}
+	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+		route_start,
+		aisle_node
+	)
+	if not bool(graph_result.get("valid", false)):
+		return []
 
-	if not bool(start.get("valid", false)):
-		return _routes.dedupe_route_points(_routes.make_orthogonal_route(from_position, shelf_position, true))
+	var graph_route := _variant_route_to_vector2_array(
+		graph_result.get("route", [])
+	)
+	var graph_end := route_start
+	if not graph_route.is_empty():
+		graph_end = graph_route.back()
+	graph_route.append_array(
+		_routes.make_orthogonal_route(graph_end, shelf_position, true)
+	)
+	graph_route = _routes.dedupe_route_points(graph_route)
+	if not _clearance.is_route_clear_from_current_position(
+		route_start,
+		graph_route
+	):
+		return []
+	return graph_route
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var path: Array[StringName] = _nav.find_graph_path(start.get("node", entry_node) as StringName, aisle_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route := start.get("route", []) as Array[Vector2]
-	route.append_array(_routes.build_route_from_graph_path(path))
-	_routes.append_orthogonal_route_to(route, shelf_position, true, from_position)
-	return _routes.dedupe_route_points(route)
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_access_position(shelf: Shelf) -> Vector2:
 	if shelf == null:
 		return Vector2.INF
 
 	if shelf.has_meta(ACCESS_META):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var access_point: Variant = shelf.get_meta(ACCESS_META)
+		var stored_access: Variant = shelf.get_meta(ACCESS_META)
+		if stored_access is Vector2:
+			return stored_access as Vector2
 
-		if access_point is Vector2:
-			return access_point as Vector2
+	var access_result := find_best_vertical_shelf_access(
+		shelf.global_position,
+		shelf
+	)
+	_store_access_metadata_from_result(shelf, access_result)
+	return access_result.get("access_point", Vector2.INF) as Vector2
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := find_best_vertical_shelf_access(shelf.global_position, shelf)
-	_store_access_metadata_from_result(shelf, result)
-	return result.get("access_point", Vector2.INF) as Vector2
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func has_cached_shelf_access_metadata(shelf: Shelf) -> bool:
 	if shelf == null:
 		return false
-
 	return shelf.has_meta(ACCESS_META) and shelf.has_meta(ACCESS_NODE_META)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector2.INF, npc_node: Node = null) -> Array[Vector2]:
-	if shelf == null:
+func get_route_to_shelf_access(
+	shelf: Shelf,
+	from_position: Vector2 = Vector2.INF,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if shelf == null or not from_position.is_finite():
 		return []
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var access_point := get_shelf_access_position(shelf)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
-	var graph_node := get_shelf_access_graph_node(shelf)
-
-	if not access_point.is_finite() or graph_node == StringName():
+	var access_position := get_shelf_access_position(shelf)
+	var shelf_graph_node := get_shelf_access_graph_node(shelf)
+	if not access_position.is_finite() or shelf_graph_node == StringName():
 		return []
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route_start: Vector2 = from_position if from_position.is_finite() else _nav.get_marker_position(_nav.get_role_node_name(ROLE_ENTRY, ENTRY))
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var entry_route_result := _get_entry_to_access_route(access_point, shelf, graph_node, route_start, npc_node)
+	var candidates: Array[Dictionary] = []
+	_append_access_route_variants(
+		candidates,
+		from_position,
+		access_position,
+		shelf,
+		npc_node
+	)
 
-	if bool(entry_route_result.get("valid", false)):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var entry_route := entry_route_result.get("route", []) as Array[Vector2]
-		pass
-		return _routes.dedupe_route_points(entry_route)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start_node: Dictionary = _nav.find_nearest_graph_node(route_start)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var path: Array[StringName] = _nav.find_graph_path(start_node.get("node", _nav.get_role_node_name(ROLE_ENTRY, ENTRY)) as StringName, graph_node) if bool(start_node.get("valid", false)) else []
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route := (start_node.get("route", []) as Array[Vector2]).duplicate()
-	route.append_array(_routes.build_route_from_graph_path(path))
-	_append_surface_access_route_to(route, shelf, graph_node, access_point, true)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var fallback_route := _routes.dedupe_route_points(route)
-	pass
-	return fallback_route
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start: Dictionary = _nav.find_nearest_graph_node(from_position)
-
-	if not bool(start.get("valid", false)):
-		pass
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cashier_node: StringName = _nav.get_role_node_name(ROLE_CASHIER, CASHIER)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cashier_marker: Marker2D = _nav.get_graph_marker(cashier_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_routes: Array = []
-
-	if cashier_marker != null:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var direct_diagonal_route := _routes.make_direct_route(
+	for candidate_node in _get_nearest_graph_node_names_for_access(
+		access_position,
+		shelf_graph_node,
+		MAX_ACCESS_GRAPH_NODE_CANDIDATES
+	):
+		var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
 			from_position,
-			cashier_marker.global_position
+			candidate_node
 		)
+		if not bool(graph_result.get("valid", false)):
+			continue
 
-		if (
-			direct_diagonal_route.is_empty()
-			or _clearance.is_any_direction_segment_clear(
-				from_position,
-				cashier_marker.global_position,
-				null,
-				Vector2.INF,
-				null,
-				true,
-				true
-			)
+		var route := _variant_route_to_vector2_array(
+			graph_result.get("route", [])
+		)
+		var route_end := from_position
+		if not route.is_empty():
+			route_end = route.back()
+
+		var access_connection := _get_connection_from_graph_node_to_access(
+			candidate_node,
+			access_position,
+			shelf
+		)
+		if access_connection.is_empty():
+			for horizontal_first in [true, false]:
+				var fallback_connection := _routes.make_orthogonal_route(
+					route_end,
+					access_position,
+					horizontal_first
+				)
+				var fallback_route := route.duplicate()
+				fallback_route.append_array(fallback_connection)
+				fallback_route = _routes.dedupe_route_points(fallback_route)
+				if _clearance.is_route_to_access_clear(
+					from_position,
+					fallback_route,
+					shelf,
+					npc_node
+				):
+					_append_route_candidate(
+						candidates,
+						from_position,
+						fallback_route
+					)
+			continue
+
+		var complete_route := route.duplicate()
+		complete_route.append_array(access_connection)
+		complete_route = _routes.dedupe_route_points(complete_route)
+		if _clearance.is_route_to_access_clear(
+			from_position,
+			complete_route,
+			shelf,
+			npc_node
 		):
-			return _routes.dedupe_route_points(direct_diagonal_route)
+			_append_route_candidate(
+				candidates,
+				from_position,
+				complete_route
+			)
 
-		for order in [
-			{"horizontal_first": true, "label": "horizontal"},
-			{"horizontal_first": false, "label": "vertical"}
-		]:
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var direct_route := _routes.make_orthogonal_route(from_position, cashier_marker.global_position, bool(order.get("horizontal_first", true)))
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var direct_clear := _clearance.is_queue_route_clear_from_current_position(from_position, direct_route)
-			direct_routes.append({
-				"order": str(order.get("label", "")),
-				"clear": direct_clear,
-				"route": direct_route
-			})
-
-			if direct_clear:
-				@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-				var direct_result := _routes.dedupe_route_points(direct_route)
-				pass
-				return direct_result
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var path: Array[StringName] = _nav.find_graph_path(start.get("node", cashier_node) as StringName, cashier_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route := start.get("route", []) as Array[Vector2]
-	route.append_array(_routes.build_route_from_graph_path(path))
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := _routes.dedupe_route_points(route)
-
-	pass
-	return result
+	return _get_shortest_route(candidates)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
+	return _get_shortest_checkout_route(from_position, null)
+
+
 func get_shelf_wait_position(index: int = 0) -> Vector2:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var role_name := "shelf_wait"
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var all_markers: Array[Marker2D] = _nav.get_markers_by_role(role_name)
-	if all_markers.is_empty():
+	var wait_markers: Array[Marker2D] = _nav.get_markers_by_role(&"shelf_wait")
+	if wait_markers.is_empty():
 		return Vector2.INF
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var selected_marker: Marker2D = null
-	for marker in all_markers:
-		if marker.get_meta("store_wait_index", 0) == index:
-			selected_marker = marker
-			break
+	for wait_marker in wait_markers:
+		if int(wait_marker.get_meta("store_wait_index", 0)) == index:
+			return wait_marker.global_position
 
-	if selected_marker == null:
-		selected_marker = all_markers[index % all_markers.size()]
-
-	return selected_marker.global_position
+	return wait_markers[index % wait_markers.size()].global_position
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_route_to_queue_target_from(from_position: Vector2, queue_index: int) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func get_route_to_queue_target_from(
+	from_position: Vector2,
+	queue_index: int
+) -> Array[Vector2]:
 	var queue_target := get_queue_target_position(queue_index, from_position)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_node: StringName = _nav.get_queue_target_node_name(queue_index)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var direct_route: Array[Vector2] = [queue_target]
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_clear := _clearance.is_queue_route_clear_from_current_position(from_position, direct_route)
-	pass
+	if _clearance.is_queue_route_clear_from_current_position(
+		from_position,
+		direct_route
+	):
+		return direct_route
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var direct_vertical_route := _routes.make_orthogonal_route(from_position, queue_target, false)
-	pass
-
-	if direct_clear:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var direct_result := _routes.dedupe_route_points(direct_route)
-		return direct_result
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_start: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(from_position, queue_node)
-
-	if bool(queue_start.get("valid", false)):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var queue_route := queue_start.get("route", []) as Array[Vector2]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var appended_center := queue_route.is_empty() or _routes.append_clear_queue_target_route_to(queue_route, queue_target, true, from_position)
-		pass
-
-		if appended_center:
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var center_result := _routes.dedupe_route_points(queue_route)
-			return center_result
-	else:
-		pass
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var approach_node: StringName = _nav.get_queue_approach_node_name(queue_index)
-
-	if approach_node != StringName():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var approach_start: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(from_position, approach_node)
-
-		if bool(approach_start.get("valid", false)):
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var approach_route := approach_start.get("route", []) as Array[Vector2]
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var appended_right := _routes.append_clear_queue_target_route_to(approach_route, queue_target, true, from_position)
-			pass
-
-			if appended_right:
-				@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-				var right_result := _routes.dedupe_route_points(approach_route)
-				return right_result
-		else:
-			pass
-
-	return []
+	var queue_node := _nav.get_queue_target_node_name(queue_index)
+	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+		from_position,
+		queue_node
+	)
+	if not bool(graph_result.get("valid", false)):
+		return []
+	return _routes.dedupe_route_points(
+		_variant_route_to_vector2_array(graph_result.get("route", []))
+	)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 	if shelf == null:
 		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var access_point := get_shelf_access_position(shelf)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
-	var graph_node := get_shelf_access_graph_node(shelf)
-
-	if not access_point.is_finite() or graph_node == StringName():
+	var access_position := get_shelf_access_position(shelf)
+	if not access_position.is_finite():
 		return []
+	return _get_shortest_checkout_route(access_position, shelf)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_target_node := _get_direct_checkout_target_node_name(access_point)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_target_marker: Marker2D = _nav.get_graph_marker(direct_target_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_route: Array[Vector2] = []
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_clear := false
 
-	if direct_target_marker != null:
-		direct_route = _routes.make_direct_route(access_point, direct_target_marker.global_position)
-		direct_clear = (
-			direct_route.is_empty()
-			or _clearance.is_any_direction_segment_clear(
-				access_point,
-				direct_target_marker.global_position,
-				shelf,
-				shelf.global_position,
-				null,
-				true,
-				false
-			)
+func get_cashier_exit_route(
+	from_position: Vector2,
+	fallback_exit_position: Vector2
+) -> Array[Vector2]:
+	return _build_cashier_exit_route_via_queue_right(
+		from_position,
+		fallback_exit_position
+	)
+
+
+func get_exit_route_from(
+	from_position: Vector2,
+	fallback_exit_position: Vector2
+) -> Array[Vector2]:
+	var exit_node := _nav.get_role_node_name(ROLE_EXIT, EXIT)
+	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+		from_position,
+		exit_node
+	)
+	if bool(graph_result.get("valid", false)):
+		return _routes.dedupe_route_points(
+			_variant_route_to_vector2_array(graph_result.get("route", []))
 		)
 
-		if direct_clear:
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var direct_result := _routes.dedupe_route_points(direct_route)
-			pass
-			return direct_result
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var path: Array[StringName] = _nav.find_checkout_graph_path(graph_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route := _get_surface_access_route(shelf, graph_node, access_point)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var surface_route_points := route.size()
-	route.reverse()
-	route.append_array(_routes.build_route_from_graph_path(path))
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := _routes.dedupe_route_points(route)
-
-	if not result.is_empty() and _clearance.is_route_clear(access_point, result, shelf, shelf.global_position):
-		pass
-		return result
-
-	pass
+	var fallback_route := _routes.make_orthogonal_route(
+		from_position,
+		fallback_exit_position,
+		true
+	)
+	if _clearance.is_route_clear_from_current_position(
+		from_position,
+		fallback_route
+	):
+		return _routes.dedupe_route_points(fallback_route)
 	return []
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_cashier_exit_route(from_position: Vector2, fallback_exit_position: Vector2) -> Array[Vector2]:
-	return _build_cashier_exit_route_via_queue_right(from_position, fallback_exit_position)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _build_cashier_exit_route_via_queue_right(from_position: Vector2, fallback_exit_position: Vector2) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_right_nodes: Array[StringName] = _nav.get_queue_right_node_names()
-
-	if queue_right_nodes.size() < 3:
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route: Array[Vector2] = []
-
-	for node_name in queue_right_nodes:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			return []
-
-		route.append(marker.global_position)
-
-	if not _clearance.is_route_clear_from_current_position(from_position, route):
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var exit_node: StringName = _nav.get_role_node_name(ROLE_EXIT, EXIT)
-
-	if exit_node != StringName():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var last_queue_position: Vector2 = route.back()
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var graph_rejoin: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(last_queue_position, exit_node)
-
-		if bool(graph_rejoin.get("valid", false)):
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var graph_route := graph_rejoin.get("route", []) as Array[Vector2]
-
-			route.append_array(graph_route)
-			return _routes.dedupe_route_points(route)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var last_position: Vector2 = route.back()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var fallback_route := _routes.make_orthogonal_route(last_position, fallback_exit_position, true)
-
-	if not _clearance.is_route_clear_from_current_position(last_position, fallback_route):
-		return []
-
-	route.append_array(fallback_route)
-	return _routes.dedupe_route_points(route)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_exit_route_from(from_position: Vector2, fallback_exit_position: Vector2) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var exit_node: StringName = _nav.get_role_node_name(ROLE_EXIT, EXIT)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(from_position, exit_node)
-
-	if bool(start.get("valid", false)):
-		return _routes.dedupe_route_points(start.get("route", []) as Array[Vector2])
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var fallback := _routes.make_orthogonal_route(from_position, fallback_exit_position, true)
-
-	if _clearance.is_route_clear_from_current_position(from_position, fallback):
-		return _routes.dedupe_route_points(fallback)
-
-	return []
-
-
-# ── Shelf access ─────────────────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func has_reachable_shelf_access(object: Node2D, candidate: Vector2) -> bool:
+func has_reachable_shelf_access(
+	object: Node2D,
+	candidate: Vector2
+) -> bool:
 	return bool(find_best_shelf_access(candidate, object).get("valid", false))
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D) -> Dictionary:
+func find_best_shelf_access(
+	candidate_position: Vector2,
+	shelf_object: Node2D
+) -> Dictionary:
 	return _find_best_shelf_access(candidate_position, shelf_object, false)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func find_best_vertical_shelf_access(candidate_position: Vector2, shelf_object: Node2D) -> Dictionary:
+func find_best_vertical_shelf_access(
+	candidate_position: Vector2,
+	shelf_object: Node2D
+) -> Dictionary:
 	return _find_best_shelf_access(candidate_position, shelf_object, true)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, vertical_only: bool) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var debug_start_usec := Time.get_ticks_usec()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var candidates_start_usec := Time.get_ticks_usec()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var candidates := _shelf.get_shelf_access_candidates(candidate_position, vertical_only)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var candidates_elapsed_msec := _elapsed_msec(candidates_start_usec)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func _find_best_shelf_access(
+	candidate_position: Vector2,
+	shelf_object: Node2D,
+	vertical_only: bool
+) -> Dictionary:
+	var candidates := _shelf.get_shelf_access_candidates(
+		candidate_position,
+		vertical_only
+	)
 	var cashier_marker: Marker2D = get_marker_for_role(ROLE_CASHIER, CASHIER)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cashier_pos := cashier_marker.global_position if cashier_marker != null else Vector2.INF
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var prefer_below := false
-	if cashier_pos.is_finite() and candidate_position.is_finite():
-		prefer_below = candidate_position.y < cashier_pos.y - 4.0
-	const COUNTER_DIRECTION_PENALTY_SCALE: float = 1000.0
+	var cashier_position := Vector2.INF
+	if cashier_marker != null:
+		cashier_position = cashier_marker.global_position
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var surface_searches := [0]
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var surface_route_cache := {}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var surface_anchor_path_cache := {}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	var prefer_below := false
+	if cashier_position.is_finite() and candidate_position.is_finite():
+		prefer_below = candidate_position.y < cashier_position.y - 4.0
+
+	var best_result: Dictionary = {"valid": false}
 	var best_score := INF
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var checked_candidates := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var blocked_candidates := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var no_surface_route_candidates := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var no_checkout_route_candidates := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var valid_candidates := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var clear_check_elapsed_msec := 0.0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var reachable_elapsed_msec := 0.0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var checkout_elapsed_msec := 0.0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var scoring_elapsed_msec := 0.0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var preferred_side_cleared := false
+	var evaluated_count := 0
+	var surface_route_cache: Dictionary = {}
+	var surface_anchor_path_cache: Dictionary = {}
 
 	for access_candidate in candidates:
-		checked_candidates += 1
-
-		if checked_candidates > MAX_SHELF_ACCESS_CANDIDATES:
+		evaluated_count += 1
+		if evaluated_count > MAX_SHELF_ACCESS_CANDIDATES:
 			break
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var access_point := access_candidate.get("access_point", Vector2.INF) as Vector2
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var vertical_access := bool(access_candidate.get("vertical_access", false))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var access_side := str(access_candidate.get("access_side", ""))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("unused_variable")
-		var vertical_distance := float(access_candidate.get("vertical_distance", INF))
-
-		if not access_point.is_finite():
+		var access_position := access_candidate.get(
+			"access_point",
+			Vector2.INF
+		) as Vector2
+		if not access_position.is_finite():
+			continue
+		if not _clearance.is_npc_access_point_clear(
+			access_position,
+			shelf_object,
+			candidate_position
+		):
 			continue
 
-		if vertical_only and not vertical_access:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var clear_start_usec := Time.get_ticks_usec()
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var clear_result := _clearance.debug_npc_access_point_clear(access_point, shelf_object, candidate_position)
-
-		if bool(clear_result.get("valid", false)):
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var candidate_is_preferred_side := (access_side == "below") == prefer_below
-			if candidate_is_preferred_side:
-				preferred_side_cleared = true
-			elif prefer_below and cashier_pos.is_finite():
-				clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
-				blocked_candidates += 1
-				continue
-			elif not prefer_below and cashier_pos.is_finite():
-				clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
-				blocked_candidates += 1
-				continue
-		else:
-			clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
-			blocked_candidates += 1
-			pass
-			continue
-		clear_check_elapsed_msec += _elapsed_msec(clear_start_usec)
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var direct_checkout := _get_direct_checkout_access(access_point, shelf_object, candidate_position)
-
-		if bool(direct_checkout.get("valid", false)):
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			@warning_ignore("shadowed_variable")
-			var graph_node := direct_checkout.get("node", StringName()) as StringName
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			@warning_ignore("shadowed_variable")
-			var scoring_start_usec := Time.get_ticks_usec()
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			@warning_ignore("shadowed_variable")
-			var score := (
-				float(access_candidate.get("vertical_distance", 0.0)) * SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
-				+ float(direct_checkout.get("distance", 0.0))
-				+ float(access_candidate.get("horizontal_distance", 0.0)) * 0.25
-			)
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			@warning_ignore("shadowed_variable")
-			var candidate_prefer_below := access_side == "below"
-			if prefer_below != candidate_prefer_below and cashier_pos.is_finite():
-				@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-				var wrong_side_dist := absf(access_point.y - cashier_pos.y)
-				score += wrong_side_dist * COUNTER_DIRECTION_PENALTY_SCALE
-			scoring_elapsed_msec += _elapsed_msec(scoring_start_usec)
-			valid_candidates += 1
-			pass
-
-			if score < best_score:
-				best_score = score
-				best_result = {
-					"valid": true,
-					"access_point": access_point,
-					"graph_node": graph_node,
-					"surface_route": [],
-					"score": score,
-					"access_side": access_candidate.get("access_side", ""),
-					"checkout_source": direct_checkout.get("checkout_source", "")
-				}
-
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("unused_variable")
-		var direct_checkout_attempts := direct_checkout.get("attempts", []) as Array
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var candidate_surface_searches := [0]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var reachable_start_usec := Time.get_ticks_usec()
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var reachable_node := _find_reachable_graph_node_for_access(
-			access_point,
+		var surface_searches: Array = [0]
+		var reachable_result := _find_reachable_graph_node_for_access(
+			access_position,
 			access_candidate.get("graph_node", StringName()) as StringName,
 			shelf_object,
 			candidate_position,
-			candidate_surface_searches,
+			surface_searches,
 			surface_route_cache,
 			surface_anchor_path_cache
 		)
-		surface_searches[0] = int(surface_searches[0]) + int(candidate_surface_searches[0])
-		reachable_elapsed_msec += _elapsed_msec(reachable_start_usec)
-
-		if not bool(reachable_node.get("valid", false)):
-			no_surface_route_candidates += 1
-			pass
+		if not bool(reachable_result.get("valid", false)):
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var graph_node := reachable_node.get("node", StringName()) as StringName
-		pass
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var checkout_start_usec := Time.get_ticks_usec()
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var graph_path: Array[StringName] = _nav.find_checkout_graph_path(graph_node)
-		checkout_elapsed_msec += _elapsed_msec(checkout_start_usec)
-
-		if graph_path.is_empty():
-			no_checkout_route_candidates += 1
-			pass
+		var reachable_graph_node := reachable_result.get(
+			"node",
+			StringName()
+		) as StringName
+		var checkout_path := _nav.find_checkout_graph_path(
+			reachable_graph_node
+		)
+		if checkout_path.is_empty():
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var scoring_start_usec := Time.get_ticks_usec()
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var score := (
-			float(access_candidate.get("vertical_distance", 0.0)) * SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
-			+ float(reachable_node.get("distance", 0.0))
-			+ _nav.get_graph_path_cost(graph_path)
+		var access_side := str(access_candidate.get("access_side", ""))
+		var candidate_prefers_below := access_side == "below"
+		var route_score := (
+			float(access_candidate.get("vertical_distance", 0.0))
+			* SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
+			+ float(reachable_result.get("distance", 0.0))
+			+ _nav.get_graph_path_cost(checkout_path)
 			+ float(access_candidate.get("horizontal_distance", 0.0)) * 0.25
 		)
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var candidate_prefer_below := access_side == "below"
-		if prefer_below != candidate_prefer_below and cashier_pos.is_finite():
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var wrong_side_dist := absf(access_point.y - cashier_pos.y)
-			score += wrong_side_dist * COUNTER_DIRECTION_PENALTY_SCALE
-		scoring_elapsed_msec += _elapsed_msec(scoring_start_usec)
-		valid_candidates += 1
-		pass
 
-		if score >= best_score:
+		if (
+			cashier_position.is_finite()
+			and prefer_below != candidate_prefers_below
+		):
+			route_score += absf(
+				access_position.y - cashier_position.y
+			) * COUNTER_DIRECTION_PENALTY_SCALE
+
+		if route_score >= best_score:
 			continue
 
-		best_score = score
+		best_score = route_score
 		best_result = {
 			"valid": true,
-			"access_point": access_point,
-			"graph_node": graph_node,
-			"surface_route": reachable_node.get("route", []),
-			"score": score,
-			"access_side": access_candidate.get("access_side", ""),
+			"access_point": access_position,
+			"graph_node": reachable_graph_node,
+			"surface_route": reachable_result.get("route", []),
+			"score": route_score,
+			"access_side": access_side,
 			"checkout_source": "surface_graph"
 		}
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("unused_variable")
-	var total_elapsed_msec := _elapsed_msec(debug_start_usec)
-	pass
-
-	if bool(best_result.get("valid", false)):
-		pass
-		return best_result
-
-	return {"valid": false}
+	return best_result
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func store_shelf_access_metadata(object: Node2D, drop_position: Vector2) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := find_best_vertical_shelf_access(drop_position, object)
-
-	if not bool(result.get("valid", false)):
+func store_shelf_access_metadata(
+	object: Node2D,
+	drop_position: Vector2
+) -> void:
+	var access_result := find_best_vertical_shelf_access(
+		drop_position,
+		object
+	)
+	if not bool(access_result.get("valid", false)):
 		clear_shelf_access_metadata(object)
 		return
+	_store_access_metadata_from_result(object, access_result)
 
-	_store_access_metadata_from_result(object, result)
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func clear_shelf_access_metadata(object: Node2D) -> void:
 	if object == null:
 		return
 
-	if object.has_meta(ACCESS_META):
-		object.remove_meta(ACCESS_META)
-
-	if object.has_meta(ACCESS_NODE_META):
-		object.remove_meta(ACCESS_NODE_META)
-
-	if object.has_meta(ACCESS_ROUTE_META):
-		object.remove_meta(ACCESS_ROUTE_META)
-
-	if object.has_meta(ACCESS_SIDE_META):
-		object.remove_meta(ACCESS_SIDE_META)
-
-	if object.has_meta(ACCESS_CHECKOUT_SOURCE_META):
-		object.remove_meta(ACCESS_CHECKOUT_SOURCE_META)
+	for metadata_key in [
+		ACCESS_META,
+		ACCESS_NODE_META,
+		ACCESS_ROUTE_META,
+		ACCESS_SIDE_META,
+		ACCESS_CHECKOUT_SOURCE_META
+	]:
+		if object.has_meta(metadata_key):
+			object.remove_meta(metadata_key)
 
 	object.set_meta("npc_path_ready", false)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _store_access_metadata_from_result(object: Node2D, result: Dictionary) -> void:
-	if object == null:
-		return
-
-	if not bool(result.get("valid", false)):
+func _store_access_metadata_from_result(
+	object: Node2D,
+	result: Dictionary
+) -> void:
+	if object == null or not bool(result.get("valid", false)):
 		return
 
 	object.set_meta(ACCESS_META, result.get("access_point", Vector2.INF))
 	object.set_meta(ACCESS_NODE_META, result.get("graph_node", StringName()))
 	object.set_meta(ACCESS_ROUTE_META, result.get("surface_route", []))
 	object.set_meta(ACCESS_SIDE_META, result.get("access_side", ""))
-	object.set_meta(ACCESS_CHECKOUT_SOURCE_META, result.get("checkout_source", ""))
+	object.set_meta(
+		ACCESS_CHECKOUT_SOURCE_META,
+		result.get("checkout_source", "")
+	)
 	object.set_meta("npc_path_ready", true)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_access_graph_node(shelf: Shelf) -> StringName:
 	if shelf == null:
 		return StringName()
 
 	if shelf.has_meta(ACCESS_NODE_META):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var graph_node: Variant = shelf.get_meta(ACCESS_NODE_META)
+		var stored_graph_node: Variant = shelf.get_meta(ACCESS_NODE_META)
+		if stored_graph_node is StringName:
+			return stored_graph_node as StringName
+		if stored_graph_node is String:
+			return StringName(stored_graph_node)
 
-		if graph_node is StringName:
-			return graph_node as StringName
-
-		if graph_node is String:
-			return StringName(graph_node)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := find_best_vertical_shelf_access(shelf.global_position, shelf)
-	_store_access_metadata_from_result(shelf, result)
-	return result.get("graph_node", StringName()) as StringName
+	var access_result := find_best_vertical_shelf_access(
+		shelf.global_position,
+		shelf
+	)
+	_store_access_metadata_from_result(shelf, access_result)
+	return access_result.get("graph_node", StringName()) as StringName
 
 
-# ── Internal route helpers ───────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _find_nearest_reachable_graph_node(
-	access_point: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF
-) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_score := INF
-
-	for node_name in _nav.get_graph_node_names():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := _routes.make_orthogonal_route(access_point, marker.global_position, true)
-
-		if not _clearance.is_route_clear(access_point, route, shelf_object, shelf_position):
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance := _routes.get_euclidean_distance(access_point, marker.global_position)
-
-		if distance < best_score:
-			best_score = distance
-			best_result = {
-				"valid": true,
-				"node": node_name,
-				"route": route,
-				"distance": distance
-			}
-
-	return best_result
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _find_reachable_graph_node_for_access(
-	access_point: Vector2,
+	access_position: Vector2,
 	preferred_node: StringName,
 	shelf_object: Node2D = null,
 	shelf_position: Vector2 = Vector2.INF,
@@ -948,495 +598,430 @@ func _find_reachable_graph_node_for_access(
 	surface_route_cache: Dictionary = {},
 	surface_anchor_path_cache: Dictionary = {}
 ) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
-	var graph_node_names := _get_nearest_graph_node_names_for_access(
-		access_point,
+	var candidate_nodes := _get_nearest_graph_node_names_for_access(
+		access_position,
 		preferred_node,
 		MAX_ACCESS_GRAPH_NODE_CANDIDATES
 	)
+	var best_result: Dictionary = {"valid": false}
+	var best_distance := INF
 
-	if preferred_node != StringName():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var preferred_marker: Marker2D = _nav.get_graph_marker(preferred_node)
-
-		if preferred_marker != null:
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var preferred_route := _routes.make_orthogonal_route(preferred_marker.global_position, access_point, true)
-
-			if _clearance.is_route_clear(preferred_marker.global_position, preferred_route, shelf_object, shelf_position):
-				return {
-					"valid": true,
-					"node": preferred_node,
-					"route": preferred_route,
-					"distance": _routes.get_euclidean_distance(access_point, preferred_marker.global_position)
-				}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_score := INF
-
-	for node_name in graph_node_names:
-		if node_name == preferred_node:
+	for candidate_node in candidate_nodes:
+		var graph_marker: Marker2D = _nav.get_graph_marker(candidate_node)
+		if graph_marker == null:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
+		for horizontal_first in [true, false]:
+			var direct_route := _routes.make_orthogonal_route(
+				graph_marker.global_position,
+				access_position,
+				horizontal_first
+			)
+			if not _clearance.is_route_clear(
+				graph_marker.global_position,
+				direct_route,
+				shelf_object,
+				shelf_position
+			):
+				continue
 
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var direct_route := _routes.make_orthogonal_route(marker.global_position, access_point, true)
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance := _routes.get_euclidean_distance(access_point, marker.global_position)
-
-		if _clearance.is_route_clear(marker.global_position, direct_route, shelf_object, shelf_position):
-			if distance < best_score:
-				best_score = distance
+			var direct_distance := _routes.get_route_distance(
+				graph_marker.global_position,
+				direct_route
+			)
+			if direct_distance < best_distance:
+				best_distance = direct_distance
 				best_result = {
 					"valid": true,
-					"node": node_name,
+					"node": candidate_node,
 					"route": direct_route,
-					"distance": distance
+					"distance": direct_distance
 				}
 
-	if bool(best_result.get("valid", false)):
-		return best_result
-
-	for node_name in graph_node_names:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance := _routes.get_euclidean_distance(access_point, marker.global_position)
-
-		if distance >= best_score:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var surface_route := _surface.find_surface_route_between_marker_and_access(
-			node_name,
-			access_point,
+		var surface_result := _surface.find_surface_route_between_marker_and_access(
+			candidate_node,
+			access_position,
 			shelf_object,
 			shelf_position,
 			surface_searches,
 			surface_route_cache,
 			surface_anchor_path_cache
 		)
-
-		if not bool(surface_route.get("valid", false)):
+		if not bool(surface_result.get("valid", false)):
 			continue
 
-		distance = float(surface_route.get("distance", INF))
-
-		if distance < best_score:
-			best_score = distance
-			best_result = surface_route
+		var surface_distance := float(surface_result.get("distance", INF))
+		if surface_distance < best_distance:
+			best_distance = surface_distance
+			best_result = surface_result
 
 	return best_result
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _append_surface_access_route_to(
-	route: Array[Vector2],
-	shelf: Shelf,
+func _get_connection_from_graph_node_to_access(
 	graph_node: StringName,
-	access_point: Vector2,
-	route_from_graph: bool
-) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var access_route := _get_surface_access_route(shelf, graph_node, access_point)
-
-	if access_route.is_empty():
-		_routes.append_orthogonal_route_to(route, access_point, true)
-		return
-
-	if not route_from_graph:
-		access_route.reverse()
-
-	route.append_array(access_route)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_surface_access_route(shelf: Shelf, graph_node: StringName, access_point: Vector2) -> Array[Vector2]:
+	access_position: Vector2,
+	shelf: Shelf
+) -> Array[Vector2]:
 	if shelf != null and shelf.has_meta(ACCESS_ROUTE_META):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route_meta: Variant = shelf.get_meta(ACCESS_ROUTE_META)
+		var stored_node := get_shelf_access_graph_node(shelf)
+		if stored_node == graph_node:
+			var stored_route := _variant_route_to_vector2_array(
+				shelf.get_meta(ACCESS_ROUTE_META)
+			)
+			if not stored_route.is_empty():
+				return stored_route
 
-		if route_meta is Array:
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var route: Array[Vector2] = []
-
-			for point in route_meta:
-				if point is Vector2:
-					route.append(point)
-
-			if not route.is_empty():
-				return route
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var result := _surface.find_surface_route_between_marker_and_access(
+	var surface_result := _surface.find_surface_route_between_marker_and_access(
 		graph_node,
-		access_point,
+		access_position,
 		shelf,
 		shelf.global_position if shelf != null else Vector2.INF
 	)
-
-	if bool(result.get("valid", false)):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var rebuilt_route := result.get("route", []) as Array[Vector2]
-
-		if shelf != null:
-			shelf.set_meta(ACCESS_ROUTE_META, rebuilt_route)
-
-		return rebuilt_route
-
-	return []
+	if not bool(surface_result.get("valid", false)):
+		return []
+	return _variant_route_to_vector2_array(surface_result.get("route", []))
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_entry_to_access_route(
-	access_point: Vector2,
-	shelf: Shelf,
-	metadata_graph_node: StringName,
+func _get_shortest_checkout_route(
 	from_position: Vector2,
-	npc_node: Node = null
-) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route_start: Vector2 = from_position if from_position.is_finite() else _nav.get_marker_position(_nav.get_role_node_name(ROLE_ENTRY, ENTRY))
+	source_shelf: Shelf
+) -> Array[Vector2]:
+	if not from_position.is_finite():
+		return []
 
-	if not route_start.is_finite() or not access_point.is_finite():
-		return {"valid": false}
+	var candidates: Array[Dictionary] = []
+	var checkout_nodes := _nav.get_checkout_goal_node_names()
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var direct_orders := [
-		{"horizontal_first": true, "source": "direct_entry_horizontal"},
-		{"horizontal_first": false, "source": "direct_entry_vertical"}
-	]
-
-	for order in direct_orders:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := _routes.make_orthogonal_route(route_start, access_point, bool(order.get("horizontal_first", true)))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("unused_variable")
-		var debug_result := _clearance.debug_route_to_access_clear(route_start, route, shelf, npc_node)
-		pass
-
-		if not _clearance.is_route_to_access_clear(route_start, route, shelf, npc_node):
+	for checkout_node in checkout_nodes:
+		var checkout_marker: Marker2D = _nav.get_graph_marker(checkout_node)
+		if checkout_marker == null:
 			continue
 
-		return {
-			"valid": true,
-			"route": route,
-			"distance": _routes.get_route_distance(route_start, route),
-			"source": order.get("source", "")
-		}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_score := INF
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start_node: Dictionary = _nav.find_nearest_graph_node(route_start)
-
-	if not bool(start_node.get("valid", false)):
-		return best_result
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start_graph_node := start_node.get("node", _nav.get_role_node_name(ROLE_ENTRY, ENTRY)) as StringName
-
-	for node_name in _get_nearest_graph_node_names_for_access(access_point, metadata_graph_node, MAX_ACCESS_GRAPH_NODE_CANDIDATES):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var path: Array[StringName] = _nav.find_graph_path(start_graph_node, node_name)
-
-		if path.is_empty():
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := (start_node.get("route", []) as Array[Vector2]).duplicate()
-		route.append_array(_routes.build_route_from_graph_path(path))
-		_routes.append_orthogonal_route_to(route, access_point, true)
-		route = _routes.dedupe_route_points(route)
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("unused_variable")
-		var debug_result := _clearance.debug_route_to_access_clear(route_start, route, shelf, npc_node)
-		debug_result["candidate_node"] = node_name
-		debug_result["graph_path"] = path
-		pass
-
-		if not _clearance.is_route_to_access_clear(route_start, route, shelf, npc_node):
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable")
-		var score := _routes.get_route_distance(route_start, route)
-
-		if score >= best_score:
-			continue
-
-		best_score = score
-		best_result = {
-			"valid": true,
-			"route": route,
-			"distance": score,
-			"source": "nearest_graph"
-		}
-
-	return best_result
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_direct_checkout_access(access_point: Vector2, shelf_object: Node2D, shelf_position: Vector2) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_front_node: StringName = _nav.get_role_node_name(ROLE_QUEUE_FRONT, QUEUE_FRONT)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cashier_node: StringName = _nav.get_role_node_name(ROLE_CASHIER, CASHIER)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var attempts: Array[Dictionary] = []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var checkout_candidates := [
-		{
-			"node": queue_front_node,
-			"checkout_source": "direct_queue"
-		},
-		{
-			"node": cashier_node,
-			"checkout_source": "direct_cashier"
-		}
-	]
-
-	for candidate in checkout_candidates:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var node_name := candidate.get(
-			"node",
-			StringName()
-		) as StringName
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := _routes.make_direct_route(
-			access_point,
-			marker.global_position
-		)
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var clear := (
-			route.is_empty()
-			or _clearance.is_any_direction_segment_clear(
-				access_point,
-				marker.global_position,
-				shelf_object,
-				shelf_position,
-				null,
-				true,
-				false
+		var diagonal_route: Array[Vector2] = [checkout_marker.global_position]
+		if _is_checkout_route_clear(
+			from_position,
+			diagonal_route,
+			source_shelf
+		):
+			_append_route_candidate(
+				candidates,
+				from_position,
+				diagonal_route
 			)
+
+		for horizontal_first in [true, false]:
+			var direct_route := _routes.make_orthogonal_route(
+				from_position,
+				checkout_marker.global_position,
+				horizontal_first
+			)
+			if _is_checkout_route_clear(
+				from_position,
+				direct_route,
+				source_shelf
+			):
+				_append_route_candidate(
+					candidates,
+					from_position,
+					direct_route
+				)
+
+	if source_shelf == null:
+		for checkout_node in checkout_nodes:
+			var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+				from_position,
+				checkout_node
+			)
+			if not bool(graph_result.get("valid", false)):
+				continue
+			var graph_route := _variant_route_to_vector2_array(
+				graph_result.get("route", [])
+			)
+			_append_route_candidate(
+				candidates,
+				from_position,
+				graph_route
+			)
+	else:
+		var preferred_node := get_shelf_access_graph_node(source_shelf)
+		for start_node in _get_nearest_graph_node_names_for_access(
+			from_position,
+			preferred_node,
+			MAX_ACCESS_GRAPH_NODE_CANDIDATES
+		):
+			var start_marker: Marker2D = _nav.get_graph_marker(start_node)
+			if start_marker == null:
+				continue
+
+			for horizontal_first in [true, false]:
+				var start_route := _routes.make_orthogonal_route(
+					from_position,
+					start_marker.global_position,
+					horizontal_first
+				)
+				if not _is_checkout_route_clear(
+					from_position,
+					start_route,
+					source_shelf
+				):
+					continue
+
+				for checkout_node in checkout_nodes:
+					var graph_path := _nav.find_graph_path(
+						start_node,
+						checkout_node
+					)
+					if graph_path.is_empty():
+						continue
+
+					var complete_route := start_route.duplicate()
+					complete_route.append_array(
+						_routes.build_route_from_graph_path(graph_path)
+					)
+					complete_route = _routes.dedupe_route_points(
+						complete_route
+					)
+					if not _is_checkout_route_clear(
+						from_position,
+						complete_route,
+						source_shelf
+					):
+						continue
+					_append_route_candidate(
+						candidates,
+						from_position,
+						complete_route
+					)
+
+	return _get_shortest_route(candidates)
+
+
+func _is_checkout_route_clear(
+	from_position: Vector2,
+	route: Array[Vector2],
+	source_shelf: Shelf
+) -> bool:
+	if source_shelf != null and is_instance_valid(source_shelf):
+		return _clearance.is_checkout_route_from_access_clear(
+			from_position,
+			route,
+			source_shelf,
+			source_shelf.global_position
+		)
+	return _clearance.is_route_clear_from_current_position(
+		from_position,
+		route
+	)
+
+
+func _append_access_route_variants(
+	candidates: Array[Dictionary],
+	from_position: Vector2,
+	access_position: Vector2,
+	shelf: Shelf,
+	npc_node: Node
+) -> void:
+	var diagonal_route: Array[Vector2] = [access_position]
+	if _clearance.is_route_to_access_clear(
+		from_position,
+		diagonal_route,
+		shelf,
+		npc_node
+	):
+		_append_route_candidate(
+			candidates,
+			from_position,
+			diagonal_route
 		)
 
-		attempts.append({
-			"target_node": node_name,
-			"target_position": marker.global_position,
-			"route_order": "direct_diagonal",
-			"clear": clear,
-			"route": route
-		})
+	for horizontal_first in [true, false]:
+		var route := _routes.make_orthogonal_route(
+			from_position,
+			access_position,
+			horizontal_first
+		)
+		if _clearance.is_route_to_access_clear(
+			from_position,
+			route,
+			shelf,
+			npc_node
+		):
+			_append_route_candidate(
+				candidates,
+				from_position,
+				route
+			)
 
-		if not clear:
+
+func _append_clear_route_variants(
+	candidates: Array[Dictionary],
+	from_position: Vector2,
+	target_position: Vector2,
+	shelf_object: Node2D,
+	shelf_position: Vector2,
+	ignore_endpoint: bool
+) -> void:
+	var diagonal_route: Array[Vector2] = [target_position]
+	if _clearance.is_any_direction_segment_clear(
+		from_position,
+		target_position,
+		shelf_object,
+		shelf_position,
+		null,
+		true,
+		ignore_endpoint
+	):
+		_append_route_candidate(
+			candidates,
+			from_position,
+			diagonal_route
+		)
+
+	for horizontal_first in [true, false]:
+		var route := _routes.make_orthogonal_route(
+			from_position,
+			target_position,
+			horizontal_first
+		)
+		if _clearance.is_route_clear(
+			from_position,
+			route,
+			shelf_object,
+			shelf_position
+		):
+			_append_route_candidate(
+				candidates,
+				from_position,
+				route
+			)
+
+
+func _append_route_candidate(
+	candidates: Array[Dictionary],
+	from_position: Vector2,
+	route: Array[Vector2]
+) -> void:
+	var clean_route := _routes.dedupe_route_points(route)
+	if clean_route.is_empty():
+		return
+
+	for point in clean_route:
+		if not point.is_finite():
+			return
+
+	candidates.append({
+		"route": clean_route,
+		"distance": _routes.get_route_distance(from_position, clean_route)
+	})
+
+
+func _get_shortest_route(candidates: Array[Dictionary]) -> Array[Vector2]:
+	var best_route: Array[Vector2] = []
+	var best_distance := INF
+
+	for candidate in candidates:
+		var route_distance := float(candidate.get("distance", INF))
+		if route_distance >= best_distance:
 			continue
+		best_distance = route_distance
+		best_route = _variant_route_to_vector2_array(
+			candidate.get("route", [])
+		)
 
-		return {
-			"valid": true,
-			"node": node_name,
-			"route": route,
-			"distance": access_point.distance_to(
-				marker.global_position
-			),
-			"checkout_source": "%s_diagonal" % str(
-				candidate.get("checkout_source", "")
-			),
-			"attempts": attempts
-		}
-
-	return {
-		"valid": false,
-		"attempts": attempts
-	}
+	return best_route
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_direct_checkout_target_node_name(from_position: Vector2) -> StringName:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_front_node: StringName = _nav.get_role_node_name(ROLE_QUEUE_FRONT, QUEUE_FRONT)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cashier_node: StringName = _nav.get_role_node_name(ROLE_CASHIER, CASHIER)
-
-	for node_name in [queue_front_node, cashier_node]:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := _routes.make_orthogonal_route(from_position, marker.global_position, true)
-
-		if _clearance.is_route_clear(from_position, route):
-			return node_name
-
-	return queue_front_node if _nav.get_graph_marker(queue_front_node) != null else cashier_node
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_nearest_graph_node_names_for_access(access_point: Vector2, preferred_node: StringName, limit: int) -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var names: Array[StringName] = _nav.get_graph_node_names()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func _get_nearest_graph_node_names_for_access(
+	access_position: Vector2,
+	preferred_node: StringName,
+	limit: int
+) -> Array[StringName]:
 	var ranked: Array[Dictionary] = []
-
-	for node_name in names:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var marker: Marker2D = _nav.get_graph_marker(node_name)
-
-		if marker == null:
+	for node_name in _nav.get_graph_node_names():
+		if _nav.is_queue_target_node(node_name):
 			continue
-
+		var graph_marker: Marker2D = _nav.get_graph_marker(node_name)
+		if graph_marker == null:
+			continue
 		ranked.append({
 			"node": node_name,
-			"distance": _routes.get_euclidean_distance(access_point, marker.global_position)
+			"distance": access_position.distance_to(
+				graph_marker.global_position
+			)
 		})
 
 	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return float(a.get("distance", INF)) < float(b.get("distance", INF))
 	)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var selected: Array[StringName] = []
-
 	if preferred_node != StringName() and _nav.get_graph_marker(preferred_node) != null:
 		selected.append(preferred_node)
 
-	for item in ranked:
+	for ranked_entry in ranked:
 		if selected.size() >= limit:
 			break
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var node_name := item.get("node", StringName()) as StringName
-
-		if node_name == StringName() or node_name in selected:
+		var ranked_node := ranked_entry.get("node", StringName()) as StringName
+		if ranked_node == StringName() or ranked_node in selected:
 			continue
-
-		selected.append(node_name)
+		selected.append(ranked_node)
 
 	return selected
 
 
-# ── Exit route via queue right ───────────────────────────────────────────────
+func _build_cashier_exit_route_via_queue_right(
+	from_position: Vector2,
+	fallback_exit_position: Vector2
+) -> Array[Vector2]:
+	var right_nodes := _nav.get_queue_right_node_names()
+	if right_nodes.is_empty():
+		return get_exit_route_from(from_position, fallback_exit_position)
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _build_exit_route_via_queue_right(from_position: Vector2, fallback_exit_position: Vector2) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_right_nodes: Array[StringName] = _nav.get_queue_right_node_names()
-	if queue_right_nodes.is_empty():
-		return []
+	var nearest_right_node := _nav.get_nearest_queue_right_node_name(
+		from_position
+	)
+	if nearest_right_node == StringName():
+		return get_exit_route_from(from_position, fallback_exit_position)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_right_node: StringName = _nav.get_nearest_queue_right_node_name(from_position)
+	var start_index := right_nodes.find(nearest_right_node)
+	var route: Array[Vector2] = []
+	for index in range(start_index, right_nodes.size()):
+		var route_marker: Marker2D = _nav.get_graph_marker(right_nodes[index])
+		if route_marker != null:
+			route.append(route_marker.global_position)
 
-	if queue_right_node == StringName():
-		return []
+	if not _clearance.is_route_clear_from_current_position(
+		from_position,
+		route
+	):
+		return get_exit_route_from(from_position, fallback_exit_position)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_right_marker: Marker2D = _nav.get_graph_marker(queue_right_node)
-
-	if queue_right_marker == null:
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route: Array[Vector2] = [queue_right_marker.global_position]
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start_index: int = queue_right_nodes.find(queue_right_node)
-	for i in range(start_index + 1, queue_right_nodes.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var next_marker: Marker2D = _nav.get_graph_marker(queue_right_nodes[i])
-		if next_marker != null:
-			route.append(next_marker.global_position)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var last_node := queue_right_nodes.back() as StringName
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var exit_node: StringName = _nav.get_role_node_name(ROLE_EXIT, EXIT)
-
-	if exit_node != StringName():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var exit_path: Array[StringName] = _nav.find_graph_path(last_node, exit_node)
-
-		if not exit_path.is_empty():
-			route.append_array(_routes.build_route_from_graph_path(exit_path))
-			return _routes.dedupe_route_points(route)
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var last_pos: Vector2 = route.back() as Vector2 if not route.is_empty() else from_position
-	route.append_array(_routes.make_orthogonal_route(last_pos, fallback_exit_position, true))
+	var route_end := from_position
+	if not route.is_empty():
+		route_end = route.back()
+	var exit_route := get_exit_route_from(route_end, fallback_exit_position)
+	route.append_array(exit_route)
 	return _routes.dedupe_route_points(route)
 
 
-# ── Utility ──────────────────────────────────────────────────────────────────
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _variant_route_to_vector2_array(route: Array) -> Array[Vector2]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var points: Array[Vector2] = []
-
-	for point in route:
-		if point is Vector2:
-			points.append(point as Vector2)
-
-	return points
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _elapsed_msec(start_usec: int) -> float:
-	return float(Time.get_ticks_usec() - start_usec) / 1000.0
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_perf_shelf_name(shelf_object: Node2D) -> String:
-	return shelf_object.name if shelf_object != null else "<null>"
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_debug_route_point_count(route_variant: Variant) -> int:
+func _variant_route_to_vector2_array(route_variant: Variant) -> Array[Vector2]:
+	var route: Array[Vector2] = []
 	if not (route_variant is Array):
-		return 0
+		return route
 
-	return (route_variant as Array).size()
+	for point_variant in route_variant:
+		if point_variant is Vector2:
+			var point := point_variant as Vector2
+			if route.is_empty() or route.back().distance_to(point) > 2.0:
+				route.append(point)
+	return route
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _get_surface_points_signature(points: Array[Vector2]) -> String:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var parts: Array[String] = []
-
+	var signature_parts := PackedStringArray()
 	for point in points:
-		parts.append("%d,%d" % [roundi(point.x), roundi(point.y)])
-
-	return "|".join(parts)
+		signature_parts.append(
+			"%.3f,%.3f" % [point.x, point.y]
+		)
+	return "|".join(signature_parts)
