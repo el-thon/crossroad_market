@@ -3,6 +3,8 @@ extends "res://scripts/locations/Storage.gd"
 
 const STORED_IN_STORAGE_META: StringName = &"stored_in_storage"
 const STORAGE_POSITION_META: StringName = &"stored_storage_position"
+const HUMAN_SHELF_NAME: StringName = &"ShelfHuman"
+const GHOST_SHELF_NAME: StringName = &"ShelfGhost"
 
 
 func _ready() -> void:
@@ -19,8 +21,8 @@ func prepare_for_scene_exit() -> void:
 	if store == null:
 		return
 
-	_park_store_shelf(store, store.get("human_shelf") as Shelf)
-	_park_store_shelf(store, store.get("ghost_shelf") as Shelf)
+	_park_store_shelf(store, _get_store_shelf(store, &"human_shelf"))
+	_park_store_shelf(store, _get_store_shelf(store, &"ghost_shelf"))
 
 
 func _restore_persisted_store_shelves() -> void:
@@ -28,19 +30,28 @@ func _restore_persisted_store_shelves() -> void:
 	if store == null:
 		return
 
-	var persisted_human := store.get("human_shelf") as Shelf
+	var persisted_human := _get_store_shelf(store, &"human_shelf")
 	if _can_restore_shelf(store, persisted_human):
 		if shelf_human != null and shelf_human != persisted_human:
-			shelf_human.queue_free()
+			# Remove immediately. queue_free() leaves the old ShelfHuman name in the
+			# parent until the frame ends and Godot would rename the persistent shelf.
+			shelf_human.free()
 		shelf_human = persisted_human
-		_restore_shelf_to_storage(persisted_human)
+		_restore_shelf_to_storage(persisted_human, HUMAN_SHELF_NAME)
 
-	var persisted_ghost := store.get("ghost_shelf") as Shelf
+	var persisted_ghost := _get_store_shelf(store, &"ghost_shelf")
 	if _can_restore_shelf(store, persisted_ghost):
 		if shelf_ghost != null and shelf_ghost != persisted_ghost:
-			shelf_ghost.queue_free()
+			shelf_ghost.free()
 		shelf_ghost = persisted_ghost
-		_restore_shelf_to_storage(persisted_ghost)
+		_restore_shelf_to_storage(persisted_ghost, GHOST_SHELF_NAME)
+
+
+func _get_store_shelf(store: Node, property_name: StringName) -> Shelf:
+	var shelf_variant: Variant = store.get(property_name)
+	if shelf_variant is Shelf and is_instance_valid(shelf_variant):
+		return shelf_variant as Shelf
+	return null
 
 
 func _can_restore_shelf(store: Node, shelf: Shelf) -> bool:
@@ -57,7 +68,10 @@ func _can_restore_shelf(store: Node, shelf: Shelf) -> bool:
 	return true
 
 
-func _restore_shelf_to_storage(shelf: Shelf) -> void:
+func _restore_shelf_to_storage(
+	shelf: Shelf,
+	expected_name: StringName
+) -> void:
 	var shelf_root := get_node_or_null("StorageShelves")
 	if shelf_root == null:
 		shelf_root = self
@@ -71,6 +85,7 @@ func _restore_shelf_to_storage(shelf: Shelf) -> void:
 		saved_position = saved_variant as Vector2
 
 	shelf.reparent(shelf_root, true)
+	shelf.name = expected_name
 	shelf.global_position = saved_position
 	shelf.z_index = 0
 	shelf.visible = true
