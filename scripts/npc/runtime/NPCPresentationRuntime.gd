@@ -44,7 +44,7 @@ func should_show_trust_display() -> bool:
 	return (
 		npc.npc_data != null
 		and npc.npc_data.npc_category == NPCData.NPCCategory.STORY
-		and npc.npc_data.npc_id != ""
+		and RelationshipManager.is_main_npc(npc.npc_data.npc_id)
 	)
 
 

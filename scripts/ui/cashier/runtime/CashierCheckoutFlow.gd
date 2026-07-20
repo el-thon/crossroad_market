@@ -65,7 +65,6 @@ func process_paid() -> void:
 				3.0
 			)
 		else:
-			cashier._apply_story_interaction_trust(npc)
 			cashier._show_notification("Checkout rejected. The item returns to the shelf.", 2.0)
 		add_history(npc, item_label, 0, "REJECTED")
 		clear_scan()
@@ -94,7 +93,7 @@ func process_gooby_gift() -> void:
 	else:
 		npc.complete_checkout()
 
-	var trust_gain := cashier._apply_story_interaction_trust(npc)
+	var trust_gain := cashier._story_flow.apply_gooby_gift_trust(npc)
 	cashier._notify_store_gooby_resolved()
 	add_history(npc, item_label, 0, "GIFT")
 	cashier._show_notification(
@@ -158,7 +157,6 @@ func on_ask_again_pressed() -> void:
 	if cashier._ask_again_count > 3:
 		if cashier._has_scanned_customer() and cashier._scanned_npc.has_method("cancel_checkout_and_leave"):
 			cashier._scanned_npc.cancel_checkout_and_leave()
-
 		add_history(cashier._scanned_npc, cashier._scanned_item_label, 0, "LEFT")
 		cashier._show_notification("Customer left.", 1.2)
 		clear_scan()
