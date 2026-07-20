@@ -1,9 +1,10 @@
 name: Refactor StorePathGraph
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - agent/block-store-entry-isolate-location-ui-refactor-graph
+      - main
 
 permissions:
   contents: write
