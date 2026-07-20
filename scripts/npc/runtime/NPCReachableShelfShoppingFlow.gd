@@ -1,5 +1,9 @@
 extends "res://scripts/npc/runtime/NPCShoppingFlow.gd"
 
+const PATH_REFRESH_COOLDOWN_MSEC: int = 500
+
+var _path_refresh_after_msec: Dictionary = {}
+
 
 func choose_available_item_to_buy() -> void:
 	if npc.npc_data == null:
@@ -87,8 +91,17 @@ func _ensure_shelf_path_ready(shelf: Shelf) -> bool:
 	if shelf == null or not is_instance_valid(shelf):
 		return false
 
+	var shelf_id := shelf.get_instance_id()
+
 	if bool(shelf.get_meta("npc_path_ready", false)):
+		_path_refresh_after_msec.erase(shelf_id)
 		return get_shelf_visit_position(shelf).is_finite()
+
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < int(_path_refresh_after_msec.get(shelf_id, 0)):
+		return false
+
+	_path_refresh_after_msec[shelf_id] = now_msec + PATH_REFRESH_COOLDOWN_MSEC
 
 	var store: Node = npc._get_store_route_provider()
 	if store == null or not store.has_method("_get_store_path_graph"):
@@ -101,7 +114,12 @@ func _ensure_shelf_path_ready(shelf: Shelf) -> bool:
 	var graph := graph_variant as StorePathGraph
 	graph.store_shelf_access_metadata(shelf, shelf.global_position)
 
-	return (
+	var path_ready := (
 		bool(shelf.get_meta("npc_path_ready", false))
 		and get_shelf_visit_position(shelf).is_finite()
 	)
+
+	if path_ready:
+		_path_refresh_after_msec.erase(shelf_id)
+
+	return path_ready
