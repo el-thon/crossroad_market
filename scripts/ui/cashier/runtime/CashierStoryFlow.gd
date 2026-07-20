@@ -1,6 +1,9 @@
 class_name CashierStoryFlow
 extends RefCounted
 
+const INTERACTION_PURCHASE: StringName = &"purchase"
+const INTERACTION_GIFT: StringName = &"gift"
+
 var cashier: Cashier = null
 
 
@@ -18,15 +21,36 @@ func is_story_gift_checkout() -> bool:
 	return is_gooby_npc(cashier._scanned_npc)
 
 
-func apply_story_interaction_trust(npc: NPC) -> int:
+func apply_story_interaction_trust(
+	npc: NPC,
+	interaction_type: StringName = INTERACTION_PURCHASE
+) -> int:
 	if npc == null or npc.npc_data == null:
 		return 0
 
 	if npc.npc_data.npc_category != NPCData.NPCCategory.STORY:
 		return 0
 
-	RelationshipManager.add_trust(npc.npc_data.npc_id, cashier.STORY_INTERACTION_TRUST_GAIN)
-	return cashier.STORY_INTERACTION_TRUST_GAIN
+	var npc_id := npc.npc_data.npc_id
+	if not RelationshipManager.is_main_npc(npc_id):
+		return 0
+
+	# Day 1 introduces Irene through a normal Painkiller purchase, but that
+	# purchase does not establish trust yet. Only gifting Phantom Ice Cream to
+	# Gooby is a positive relationship action on the first day.
+	if TimeManager.current_day == 1:
+		if npc_id != cashier.GOOBY_ID or interaction_type != INTERACTION_GIFT:
+			return 0
+
+	RelationshipManager.add_trust(
+		npc_id,
+		RelationshipManager.INTERACTION_TRUST_GAIN
+	)
+	return RelationshipManager.INTERACTION_TRUST_GAIN
+
+
+func apply_gooby_gift_trust(npc: NPC) -> int:
+	return apply_story_interaction_trust(npc, INTERACTION_GIFT)
 
 
 func is_gooby_npc(npc: NPC) -> bool:
