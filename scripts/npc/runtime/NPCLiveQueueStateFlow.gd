@@ -1,5 +1,10 @@
 extends "res://scripts/npc/runtime/NPCStableShelfStateFlow.gd"
 
+const SHELF_WAIT_WARNING_SECONDS: float = 5.0
+const SHELF_WAIT_ABANDON_SECONDS: float = 20.0
+
+var _shelf_wait_announced: bool = false
+
 
 func finish_checkout_and_exit() -> void:
 	# The exit lane must reflect the queue at checkout completion, not the
@@ -9,25 +14,75 @@ func finish_checkout_and_exit() -> void:
 	super.finish_checkout_and_exit()
 
 
-func _begin_wait_for_shelf(reason: String) -> void:
-	super._begin_wait_for_shelf(reason)
-
-	# Some store layouts do not define a dedicated shelf-wait marker. Never
-	# leave the NPC with Vector2.INF as a movement target; wait in place instead.
-	if (
-		npc.current_state == NPC.State.WAIT_FOR_SHELF
-		and not npc.target_position.is_finite()
-	):
-		npc.target_position = npc.global_position
-		npc._movement_route.clear()
-		npc._movement_route_destination = Vector2.INF
+func _begin_wait_for_shelf(_reason: String) -> void:
+	# Shelf pickup is recoverable. Keep the customer in a dedicated wait state
+	# instead of converting the missing shelf directly into an EXIT request.
+	npc._waiting_for_shelf_return = true
+	npc._shelf_wait_timer = 0.0
+	_shelf_wait_announced = false
+	npc.target_position = npc.global_position
+	npc.velocity = Vector2.ZERO
+	npc._movement_route.clear()
+	npc._movement_route_destination = Vector2.INF
+	set_state(NPC.State.WAIT_FOR_SHELF)
 
 
 func process_wait_for_shelf(delta: float) -> void:
-	super.process_wait_for_shelf(delta)
+	npc.velocity = Vector2.ZERO
+	npc.move_and_slide()
+	npc._shelf_wait_timer += delta
 
-	# WAIT_FOR_SHELF is an intentional pause, not a movement failure. Prevent
-	# the stuck watchdog from forcing the NPC into EXIT while access metadata is
-	# being refreshed or the player is repositioning/restocking the shelf.
-	if npc.current_state == NPC.State.WAIT_FOR_SHELF:
+	# A generic customer whose previous choice is no longer stocked may choose
+	# again from the items available after the player replaces the shelf.
+	if not npc._has_any_requested_item_available():
+		npc._choose_available_item_to_buy()
+
+	var replacement_shelf: Shelf = npc._find_reachable_matching_shelf()
+	if replacement_shelf != null:
+		var visit_position: Vector2 = npc._get_shelf_visit_position(
+			replacement_shelf
+		)
+
+		if visit_position.is_finite():
+			npc.skip_dialog()
+			npc._target_shelf = replacement_shelf
+			npc.target_position = visit_position
+			npc._waiting_for_shelf_return = false
+			npc._shelf_wait_timer = 0.0
+			_shelf_wait_announced = false
+			set_state(NPC.State.WALK_TO_SHELF)
+			return
+
+	if (
+		npc._shelf_wait_timer >= SHELF_WAIT_WARNING_SECONDS
+		and not _shelf_wait_announced
+	):
+		_shelf_wait_announced = true
+		npc._show_dialog("Where'd the shelf go?")
+
+	# The first dialog is only a warning. Give the player enough time to place
+	# the shelf back before the customer actually abandons the visit.
+	if npc._shelf_wait_timer < SHELF_WAIT_ABANDON_SECONDS:
 		npc._reset_stuck_watchdog()
+		return
+
+	npc._waiting_for_shelf_return = false
+	npc._shelf_wait_timer = 0.0
+	_shelf_wait_announced = false
+	npc._show_dialog("I can't keep waiting. I'll come back another time.")
+	npc._exit_after_checkout = false
+	npc.target_position = npc._get_exit_position()
+	set_state(NPC.State.EXIT)
+
+
+func process_exit() -> void:
+	# Show departure feedback before checking whether the NPC already overlaps
+	# the shared entry/exit marker. Without this guard, an NPC waiting near the
+	# door can be deleted on the same frame the exit dialog is requested.
+	if npc._dialog_timer > 0.0:
+		npc.velocity = Vector2.ZERO
+		npc.move_and_slide()
+		npc._reset_stuck_watchdog()
+		return
+
+	super.process_exit()
