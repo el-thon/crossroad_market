@@ -26,19 +26,19 @@ func process_enter() -> void:
 			or elapsed_msec >= SLOW_ENTER_THRESHOLD_MSEC
 		)
 	):
-		print(
+		var message := (
 			"[NPC_ENTER_PROFILE] npc=%s elapsed_ms=%.3f state=%d->%d "
 			+ "item=%s target_shelf=%s target=%s"
-			% [
-				_get_npc_label(),
-				elapsed_msec,
-				state_before,
-				npc.current_state,
-				npc.item_to_buy,
-				_get_target_shelf_label(),
-				str(npc.target_position)
-			]
-		)
+		) % [
+			_get_npc_label(),
+			elapsed_msec,
+			state_before,
+			npc.current_state,
+			npc.item_to_buy,
+			_get_target_shelf_label(),
+			str(npc.target_position)
+		]
+		print(message)
 
 
 func _get_npc_label() -> String:
