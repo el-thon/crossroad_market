@@ -26,7 +26,7 @@
 [ext_resource type="Script" uid="uid://buelulwhe2nld" path="res://scripts/locations/store/StoreOpenCloseController.gd" id="30_open_close"]
 [ext_resource type="Script" uid="uid://graw0neyc5gu" path="res://scripts/locations/store/StoreDayRuntime.gd" id="31_day_runtime"]
 [ext_resource type="Script" uid="uid://b21eo20ciw08h" path="res://scripts/locations/store/StoreTaskCompletion.gd" id="32_task_completion"]
-[ext_resource type="Script" path="res://scripts/debug/StoreNpcRoutesDebug.gd" id="33_npc_routes"]
+[ext_resource type="Script" uid="uid://c8yp2nc8o1ilx" path="res://scripts/locations/store/StoreNpcRoutes.gd" id="33_npc_routes"]
 [ext_resource type="Script" uid="uid://d22cxs4dwn38b" path="res://scripts/locations/store/StoreWorldStateController.gd" id="34_world_state"]
 [ext_resource type="Script" uid="uid://41gwmbg6y0iu" path="res://scripts/locations/store/StoreNpcInteractionRuntime.gd" id="35_npc_interaction"]
 
@@ -82,36 +82,3 @@ offset_right = 512.0
 offset_bottom = 288.0
 color = Color(0.12, 0.1, 0.08, 1)
 mouse_filter = 2
-
-[node name="FrontInterior" parent="." unique_id=1551880087 instance=ExtResource("2_hlkfw")]
-
-[node name="Cashier" parent="." unique_id=877852882 instance=ExtResource("3_cashier")]
-
-[node name="StoreStructure" parent="." unique_id=746283515 instance=ExtResource("6_e2t5y")]
-
-[node name="StorePlacementSurface" parent="." unique_id=1293279406 instance=ExtResource("6_hqne6")]
-
-[node name="StoreCustomerPathZones" parent="." unique_id=1861190642 instance=ExtResource("8_3ehvo")]
-
-[node name="StorageDoor" parent="." unique_id=592852320 instance=ExtResource("3_7ootk")]
-
-[node name="YardDoor" parent="." unique_id=1067037575 instance=ExtResource("4_yn1i0")]
-
-[node name="StorePathMarkers" parent="." unique_id=241050301 instance=ExtResource("5_vejfy")]
-
-[node name="Player" parent="." unique_id=2101237598 instance=ExtResource("1_player")]
-
-[node name="WorldLighting" type="Node2D" parent="." unique_id=1806444921]
-script = ExtResource("6_lighting")
-
-[node name="HUD" parent="." unique_id=314117643 instance=ExtResource("5_hud")]
-
-[node name="ActivityCompletionNotification" parent="." unique_id=933367233 instance=ExtResource("7_0h4lu")]
-
-[node name="NpcFeedbackBoard" parent="." unique_id=1143130373 instance=ExtResource("8_opsjd")]
-
-[node name="OpenCloseBoard" parent="." unique_id=2114527324 instance=ExtResource("9_x8823")]
-
-[node name="BoardTax" parent="." unique_id=1648160672 instance=ExtResource("12_opsjd")]
-
-[node name="ActivityBoard" parent="." unique_id=1793613288 instance=ExtResource("20_vfc65")]
