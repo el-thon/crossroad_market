@@ -1,67 +1,54 @@
 extends RefCounted
 class_name StorePathGraphGraph
 
-## Graph navigation functions for StorePathGraph.
-## Handles marker lookups, A* pathfinding, neighbor discovery, and queue logic.
+## Marker lookup and A* navigation for StorePathGraph.
 
-@warning_ignore("unused_private_class_variable")
-var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
+var _graph = null
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _init(graph = null) -> void:
-	_graph = graph
+func _init(graph_owner = null) -> void:
+	_graph = graph_owner
 
 
-# ---------------------------------------------------------------------------
-#  Marker lookups
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_graph_marker(node_name: StringName) -> Marker2D:
-	if _graph._markers == null:
+	if _graph == null or _graph._markers == null:
 		return null
-
 	return _graph._markers.get_node_or_null(String(node_name)) as Marker2D
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_marker_position(node_name: StringName) -> Vector2:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-	var marker := get_graph_marker(node_name)
-	return marker.global_position if marker != null else Vector2.INF
+	var graph_marker := get_graph_marker(node_name)
+	if graph_marker == null:
+		return Vector2.INF
+	return graph_marker.global_position
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_markers_by_role(role: StringName) -> Array[Marker2D]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var results: Array[Marker2D] = []
-	if _graph._markers == null or not is_instance_valid(_graph._markers):
-		return results
+	var result: Array[Marker2D] = []
+	if (
+		_graph == null
+		or _graph._markers == null
+		or not is_instance_valid(_graph._markers)
+	):
+		return result
 
 	for child in _graph._markers.get_children():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-		var marker := child as Marker2D
-		if marker != null and marker.has_meta("store_path_role"):
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var marker_role = marker.get_meta("store_path_role")
-			if str(marker_role) == str(role):
-				results.append(marker)
+		var role_marker := child as Marker2D
+		if role_marker == null:
+			continue
+		if get_marker_role(role_marker) == role:
+			result.append(role_marker)
 
-	return results
+	return result
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_graph_node_names() -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var node_names: Array[StringName] = []
-
-	if _graph._markers == null:
+	if _graph == null or _graph._markers == null:
 		return node_names
 
-	if _graph._cached_graph_node_count == _graph._markers.get_child_count():
+	var child_count := _graph._markers.get_child_count()
+	if _graph._cached_graph_node_count == child_count:
 		return _graph._cached_graph_node_names.duplicate()
 
 	for child in _graph._markers.get_children():
@@ -73,287 +60,265 @@ func get_graph_node_names() -> Array[StringName]:
 	)
 
 	_graph._cached_graph_node_names = node_names
-	_graph._cached_graph_node_count = _graph._markers.get_child_count()
+	_graph._cached_graph_node_count = child_count
 	return node_names
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_marker_role(marker: Marker2D) -> StringName:
-	if marker == null or not marker.has_meta(_graph.PATH_ROLE_META):
+func get_marker_role(role_marker: Marker2D) -> StringName:
+	if role_marker == null or not role_marker.has_meta(_graph.PATH_ROLE_META):
 		return StringName()
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var role: Variant = marker.get_meta(_graph.PATH_ROLE_META)
-
-	if role is StringName:
-		return role as StringName
-
-	if role is String:
-		return StringName(role)
-
+	var stored_role: Variant = role_marker.get_meta(_graph.PATH_ROLE_META)
+	if stored_role is StringName:
+		return stored_role as StringName
+	if stored_role is String:
+		return StringName(stored_role)
 	return StringName()
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func is_shelf_access_marker(marker: Marker2D) -> bool:
-	if marker == null:
+func is_shelf_access_marker(access_marker: Marker2D) -> bool:
+	if access_marker == null:
 		return false
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var role := get_marker_role(marker)
-
-	if role == _graph.ROLE_QUEUE_FRONT or role == _graph.ROLE_QUEUE_BACK or role == _graph.ROLE_CASHIER:
+	var marker_role := get_marker_role(access_marker)
+	if (
+		marker_role == _graph.ROLE_QUEUE_FRONT
+		or marker_role == _graph.ROLE_QUEUE_BACK
+		or marker_role == _graph.ROLE_CASHIER
+	):
 		return false
 
-	if bool(marker.get_meta(_graph.SHELF_ANCHOR_META, false)):
+	if bool(access_marker.get_meta(_graph.SHELF_ANCHOR_META, false)):
 		return true
 
-	return role == _graph.ROLE_ENTRY or role == _graph.ROLE_EXIT
+	return (
+		marker_role == _graph.ROLE_ENTRY
+		or marker_role == _graph.ROLE_EXIT
+	)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_role_node_name(role: StringName, fallback_node_name: StringName = StringName()) -> StringName:
+func get_role_node_name(
+	role: StringName,
+	fallback_node_name: StringName = StringName()
+) -> StringName:
 	for node_name in get_graph_node_names():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-		var marker := get_graph_marker(node_name)
-
-		if get_marker_role(marker) == role:
+		var role_marker := get_graph_marker(node_name)
+		if get_marker_role(role_marker) == role:
 			return node_name
 
-	if fallback_node_name != StringName() and get_graph_marker(fallback_node_name) != null:
+	if (
+		fallback_node_name != StringName()
+		and get_graph_marker(fallback_node_name) != null
+	):
 		return fallback_node_name
 
 	return StringName()
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_checkout_goal_node_names() -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var goals: Array[StringName] = []
 
-	for role in _graph.CHECKOUT_GOAL_ROLES:
+	for checkout_role in _graph.CHECKOUT_GOAL_ROLES:
 		for node_name in get_graph_node_names():
-			if get_marker_role(get_graph_marker(node_name)) == role and node_name not in goals:
+			var goal_marker := get_graph_marker(node_name)
+			if (
+				get_marker_role(goal_marker) == checkout_role
+				and node_name not in goals
+			):
 				goals.append(node_name)
 
 	if goals.is_empty() and get_graph_marker(_graph.QUEUE_FRONT) != null:
 		goals.append(_graph.QUEUE_FRONT)
 
-	if get_graph_marker(_graph.CASHIER) != null and _graph.CASHIER not in goals:
+	if (
+		get_graph_marker(_graph.CASHIER) != null
+		and _graph.CASHIER not in goals
+	):
 		goals.append(_graph.CASHIER)
 
 	return goals
 
 
-# ---------------------------------------------------------------------------
-#  Queue node helpers
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_target_node_name(queue_index: int) -> StringName:
 	if queue_index <= 0:
-		return get_role_node_name(_graph.ROLE_QUEUE_FRONT, _graph.QUEUE_FRONT)
+		return get_role_node_name(
+			_graph.ROLE_QUEUE_FRONT,
+			_graph.QUEUE_FRONT
+		)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var queue_back_nodes := get_queue_back_node_names()
-
 	if queue_back_nodes.is_empty():
-		return get_role_node_name(_graph.ROLE_QUEUE_FRONT, _graph.QUEUE_FRONT)
+		return get_role_node_name(
+			_graph.ROLE_QUEUE_FRONT,
+			_graph.QUEUE_FRONT
+		)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var back_index := mini(queue_index - 1, queue_back_nodes.size() - 1)
 	return queue_back_nodes[back_index]
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_approach_node_name(queue_index: int) -> StringName:
 	if queue_index <= 0:
-		return get_role_node_name(_graph.ROLE_QUEUE_FRONT_RIGHT, StringName())
+		return get_role_node_name(
+			_graph.ROLE_QUEUE_FRONT_RIGHT,
+			StringName()
+		)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_back_right_nodes := get_queue_back_right_node_names()
+	var right_nodes := get_queue_back_right_node_names()
+	if right_nodes.is_empty():
+		return get_role_node_name(
+			_graph.ROLE_QUEUE_FRONT_RIGHT,
+			StringName()
+		)
 
-	if queue_back_right_nodes.is_empty():
-		return get_role_node_name(_graph.ROLE_QUEUE_FRONT_RIGHT, StringName())
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var back_index := mini(queue_index - 1, queue_back_right_nodes.size() - 1)
-	return queue_back_right_nodes[back_index]
+	var back_index := mini(queue_index - 1, right_nodes.size() - 1)
+	return right_nodes[back_index]
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_back_node_names() -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_back_nodes: Array[StringName] = []
-
+	var result: Array[StringName] = []
 	for node_name in get_graph_node_names():
 		if get_marker_role(get_graph_marker(node_name)) == _graph.ROLE_QUEUE_BACK:
-			queue_back_nodes.append(node_name)
+			result.append(node_name)
 
-	queue_back_nodes.sort_custom(func(a: StringName, b: StringName) -> bool:
+	result.sort_custom(func(a: StringName, b: StringName) -> bool:
 		return get_queue_marker_index(a) < get_queue_marker_index(b)
 	)
+	return result
 
-	return queue_back_nodes
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_back_right_node_names() -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_back_right_nodes: Array[StringName] = []
-
+	var result: Array[StringName] = []
 	for node_name in get_graph_node_names():
-		if get_marker_role(get_graph_marker(node_name)) == _graph.ROLE_QUEUE_BACK_RIGHT:
-			queue_back_right_nodes.append(node_name)
+		if (
+			get_marker_role(get_graph_marker(node_name))
+			== _graph.ROLE_QUEUE_BACK_RIGHT
+		):
+			result.append(node_name)
 
-	queue_back_right_nodes.sort_custom(func(a: StringName, b: StringName) -> bool:
+	result.sort_custom(func(a: StringName, b: StringName) -> bool:
 		return get_queue_marker_index(a) < get_queue_marker_index(b)
 	)
+	return result
 
-	return queue_back_right_nodes
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_right_node_names() -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_right_nodes: Array[StringName] = []
+	var result: Array[StringName] = []
+	var front_right_node := get_role_node_name(
+		_graph.ROLE_QUEUE_FRONT_RIGHT,
+		StringName()
+	)
+	if front_right_node != StringName():
+		result.append(front_right_node)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_front_right: StringName = get_role_node_name(_graph.ROLE_QUEUE_FRONT_RIGHT, StringName())
-
-	if queue_front_right != StringName():
-		queue_right_nodes.append(queue_front_right)
-
-	queue_right_nodes.append_array(get_queue_back_right_node_names())
-	queue_right_nodes.sort_custom(func(a: StringName, b: StringName) -> bool:
+	result.append_array(get_queue_back_right_node_names())
+	result.sort_custom(func(a: StringName, b: StringName) -> bool:
 		return get_queue_marker_index(a) < get_queue_marker_index(b)
 	)
-	return queue_right_nodes
+	return result
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_nearest_queue_right_node_name(position: Vector2) -> StringName:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_node := StringName()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_distance := INF
 
 	for node_name in get_queue_right_node_names():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-		var marker := get_graph_marker(node_name)
-
-		if marker == null:
+		var right_marker := get_graph_marker(node_name)
+		if right_marker == null:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance := position.distance_to(marker.global_position)
-
-		if distance >= best_distance:
+		var marker_distance := position.distance_to(right_marker.global_position)
+		if marker_distance >= best_distance:
 			continue
 
 		best_node = node_name
-		best_distance = distance
+		best_distance = marker_distance
 
 	return best_node
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_queue_marker_index(node_name: StringName) -> int:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-	var marker := get_graph_marker(node_name)
-
-	if marker == null or not marker.has_meta(&"store_queue_index"):
+	var queue_marker := get_graph_marker(node_name)
+	if queue_marker == null or not queue_marker.has_meta(&"store_queue_index"):
 		return 999
+	return int(queue_marker.get_meta(&"store_queue_index"))
 
-	return int(marker.get_meta(&"store_queue_index"))
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func is_queue_target_node(node_name: StringName) -> bool:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var role := get_marker_role(get_graph_marker(node_name))
+	var marker_role := get_marker_role(get_graph_marker(node_name))
 	return (
-		role == _graph.ROLE_QUEUE_FRONT
-		or role == _graph.ROLE_QUEUE_BACK
-		or role == _graph.ROLE_QUEUE_FRONT_RIGHT
-		or role == _graph.ROLE_QUEUE_BACK_RIGHT
+		marker_role == _graph.ROLE_QUEUE_FRONT
+		or marker_role == _graph.ROLE_QUEUE_BACK
+		or marker_role == _graph.ROLE_QUEUE_FRONT_RIGHT
+		or marker_role == _graph.ROLE_QUEUE_BACK_RIGHT
 	)
 
 
-# ---------------------------------------------------------------------------
-#  Graph pathfinding (A*)
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func find_graph_path(start_node: StringName, goal_node: StringName) -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func find_graph_path(
+	start_node: StringName,
+	goal_node: StringName
+) -> Array[StringName]:
 	var result: Array[StringName] = []
-
 	if start_node == StringName() or goal_node == StringName():
 		return result
+	if get_graph_marker(start_node) == null or get_graph_marker(goal_node) == null:
+		return result
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var goal_position := get_marker_position(goal_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var frontier: Array[StringName] = [start_node]
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var g_score := {start_node: 0.0}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var f_score: Dictionary = {start_node: _graph._routes.get_euclidean_distance(get_marker_position(start_node), goal_position)}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var previous := {}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var visited := {}
+	var g_score: Dictionary = {start_node: 0.0}
+	var f_score: Dictionary = {
+		start_node: get_marker_position(start_node).distance_to(goal_position)
+	}
+	var previous: Dictionary = {}
+	var visited: Dictionary = {}
 
 	while not frontier.is_empty():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var current := _pop_lowest_cost_node(frontier, f_score)
-
-		if visited.has(current):
+		var current_node := _pop_lowest_cost_node(frontier, f_score)
+		if visited.has(current_node):
 			continue
 
-		visited[current] = true
-
-		if current == goal_node:
+		visited[current_node] = true
+		if current_node == goal_node:
 			break
 
-		for neighbor in get_graph_neighbors(current):
-			if visited.has(neighbor):
+		for neighbor_node in get_graph_neighbors(current_node):
+			if visited.has(neighbor_node):
+				continue
+			if (
+				neighbor_node != goal_node
+				and is_queue_target_node(neighbor_node)
+			):
 				continue
 
-			if neighbor != goal_node and is_queue_target_node(neighbor):
-				continue
-
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var edge_cost := get_graph_edge_cost(current, neighbor)
-
+			var edge_cost := get_graph_edge_cost(
+				current_node,
+				neighbor_node
+			)
 			if edge_cost >= INF:
 				continue
 
-			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-			var next_g := float(g_score[current]) + edge_cost
-
-			if not g_score.has(neighbor) or next_g < float(g_score[neighbor]):
-				g_score[neighbor] = next_g
-				f_score[neighbor] = next_g + _graph._routes.get_euclidean_distance(get_marker_position(neighbor), goal_position)
-				previous[neighbor] = current
-
-				if neighbor not in frontier:
-					frontier.append(neighbor)
+			var tentative_cost := float(g_score[current_node]) + edge_cost
+			if (
+				not g_score.has(neighbor_node)
+				or tentative_cost < float(g_score[neighbor_node])
+			):
+				g_score[neighbor_node] = tentative_cost
+				f_score[neighbor_node] = (
+					tentative_cost
+					+ get_marker_position(neighbor_node).distance_to(goal_position)
+				)
+				previous[neighbor_node] = current_node
+				if neighbor_node not in frontier:
+					frontier.append(neighbor_node)
 
 	if not g_score.has(goal_node):
 		return result
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var cursor := goal_node
-
 	while cursor != start_node:
 		result.push_front(cursor)
 		cursor = previous.get(cursor, StringName()) as StringName
-
 		if cursor == StringName():
 			result.clear()
 			return result
@@ -362,158 +327,180 @@ func find_graph_path(start_node: StringName, goal_node: StringName) -> Array[Str
 	return result
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func find_checkout_graph_path(start_node: StringName) -> Array[StringName]:
 	return find_best_graph_path(start_node, get_checkout_goal_node_names())
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func find_best_graph_path(start_node: StringName, goal_nodes: Array[StringName]) -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func find_best_graph_path(
+	start_node: StringName,
+	goal_nodes: Array[StringName]
+) -> Array[StringName]:
 	var best_path: Array[StringName] = []
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_cost := INF
 
 	for goal_node in goal_nodes:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var path := find_graph_path(start_node, goal_node)
-
-		if path.is_empty():
+		var candidate_path := find_graph_path(start_node, goal_node)
+		if candidate_path.is_empty():
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var cost := get_graph_path_cost(path)
-
-		if cost < best_cost:
-			best_cost = cost
-			best_path = path
+		var candidate_cost := get_graph_path_cost(candidate_path)
+		if candidate_cost < best_cost:
+			best_cost = candidate_cost
+			best_path = candidate_path
 
 	return best_path
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func find_nearest_graph_node(position: Vector2) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_score := INF
+	var best_result: Dictionary = {"valid": false}
+	var best_distance := INF
 
 	for node_name in get_graph_node_names():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-		var marker := get_graph_marker(node_name)
-
-		if marker == null:
+		var graph_marker := get_graph_marker(node_name)
+		if graph_marker == null:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance: float = _graph._routes.get_euclidean_distance(position, marker.global_position)
-
-		if distance < best_score:
-			best_score = distance
-			best_result = {
-				"valid": true,
-				"node": node_name,
-				"route": _graph._routes.make_orthogonal_route(position, marker.global_position, true),
-				"distance": distance
-			}
-
-	return best_result
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func find_nearest_reachable_graph_node_for_route(position: Vector2, goal_node: StringName) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var goal_marker := get_graph_marker(goal_node)
-
-	if goal_marker == null:
-		return {"valid": false}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_result := {"valid": false}
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var best_score := INF
-
-	for node_name in get_graph_node_names():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-		var marker := get_graph_marker(node_name)
-
-		if marker == null:
+		var marker_distance := position.distance_to(graph_marker.global_position)
+		if marker_distance >= best_distance:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var entry_route: Array[Vector2] = _graph._routes.make_orthogonal_route(position, marker.global_position, true)
-
-		if not _graph._clearance.is_route_clear_from_current_position(position, entry_route):
-			pass
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var graph_path := find_graph_path(node_name, goal_node)
-
-		if graph_path.is_empty():
-			pass
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var route := entry_route.duplicate()
-		route.append_array(_graph._routes.build_route_from_graph_path(graph_path))
-		route = _graph._routes.dedupe_route_points(route)
-
-		if is_queue_target_node(goal_node):
-			if not _graph._clearance.is_queue_route_clear_from_current_position(position, route):
-				pass
-				continue
-		elif not _graph._clearance.is_route_clear_from_current_position(position, route):
-			pass
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var score: float = _graph._routes.get_route_distance(position, route)
-		pass
-
-		if score >= best_score:
-			continue
-
-		best_score = score
+		best_distance = marker_distance
 		best_result = {
 			"valid": true,
 			"node": node_name,
-			"route": route,
-			"distance": score
+			"route": _graph._routes.make_orthogonal_route(
+				position,
+				graph_marker.global_position,
+				true
+			),
+			"distance": marker_distance
+		}
+
+	return best_result
+
+
+func find_nearest_reachable_graph_node_for_route(
+	position: Vector2,
+	goal_node: StringName
+) -> Dictionary:
+	if get_graph_marker(goal_node) == null:
+		return {"valid": false}
+
+	var best_result: Dictionary = {"valid": false}
+	var best_route_distance := INF
+
+	for start_node in get_graph_node_names():
+		var start_marker := get_graph_marker(start_node)
+		if start_marker == null:
+			continue
+
+		var graph_path := find_graph_path(start_node, goal_node)
+		if graph_path.is_empty():
+			continue
+
+		for horizontal_first in [true, false]:
+			var entry_route := _graph._routes.make_orthogonal_route(
+				position,
+				start_marker.global_position,
+				horizontal_first
+			)
+			if not _graph._clearance.is_route_clear_from_current_position(
+				position,
+				entry_route
+			):
+				continue
+
+			var complete_route := entry_route.duplicate()
+			complete_route.append_array(
+				_graph._routes.build_route_from_graph_path(graph_path)
+			)
+			complete_route = _graph._routes.dedupe_route_points(complete_route)
+
+			var route_is_clear := false
+			if is_queue_target_node(goal_node):
+				route_is_clear = _graph._clearance.is_queue_route_clear_from_current_position(
+					position,
+					complete_route
+				)
+			else:
+				route_is_clear = _graph._clearance.is_route_clear_from_current_position(
+					position,
+					complete_route
+				)
+
+			if not route_is_clear:
+				continue
+
+			var route_distance := _graph._routes.get_route_distance(
+				position,
+				complete_route
+			)
+			if route_distance >= best_route_distance:
+				continue
+
+			best_route_distance = route_distance
+			best_result = {
+				"valid": true,
+				"node": start_node,
+				"route": complete_route,
+				"distance": route_distance
 			}
 
 	return best_result
 
 
-# ---------------------------------------------------------------------------
-#  Graph neighbor discovery
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_graph_neighbors(node_name: StringName) -> Array[StringName]:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
-	var marker := get_graph_marker(node_name)
-
-	if marker == null:
+	var source_marker := get_graph_marker(node_name)
+	if source_marker == null:
 		return []
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var neighbors: Array[StringName] = []
-	_append_axis_neighbor(neighbors, node_name, marker.global_position, true, -1.0)
-	_append_axis_neighbor(neighbors, node_name, marker.global_position, true, 1.0)
-	_append_axis_neighbor(neighbors, node_name, marker.global_position, false, -1.0)
-	_append_axis_neighbor(neighbors, node_name, marker.global_position, false, 1.0)
-	_append_diagonal_neighbor(neighbors, node_name, marker.global_position, -1.0, -1.0)
-	_append_diagonal_neighbor(neighbors, node_name, marker.global_position, 1.0, -1.0)
-	_append_diagonal_neighbor(neighbors, node_name, marker.global_position, -1.0, 1.0)
-	_append_diagonal_neighbor(neighbors, node_name, marker.global_position, 1.0, 1.0)
+	_append_axis_neighbor(
+		neighbors,
+		node_name,
+		source_marker.global_position,
+		true,
+		-1.0
+	)
+	_append_axis_neighbor(
+		neighbors,
+		node_name,
+		source_marker.global_position,
+		true,
+		1.0
+	)
+	_append_axis_neighbor(
+		neighbors,
+		node_name,
+		source_marker.global_position,
+		false,
+		-1.0
+	)
+	_append_axis_neighbor(
+		neighbors,
+		node_name,
+		source_marker.global_position,
+		false,
+		1.0
+	)
+
+	for direction in [
+		Vector2(-1, -1),
+		Vector2(1, -1),
+		Vector2(-1, 1),
+		Vector2(1, 1)
+	]:
+		_append_diagonal_neighbor(
+			neighbors,
+			node_name,
+			source_marker.global_position,
+			direction.x,
+			direction.y
+		)
+
 	return neighbors
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _append_axis_neighbor(
 	neighbors: Array[StringName],
 	source_name: StringName,
@@ -521,160 +508,145 @@ func _append_axis_neighbor(
 	horizontal: bool,
 	direction: float
 ) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_name := StringName()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_distance := INF
 
 	for candidate_name in get_graph_node_names():
 		if candidate_name == source_name:
 			continue
-
 		if is_queue_target_node(candidate_name) or is_queue_target_node(source_name):
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var candidate := get_graph_marker(candidate_name)
-
-		if candidate == null:
+		var candidate_marker := get_graph_marker(candidate_name)
+		if candidate_marker == null:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var candidate_position := candidate.global_position
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var same_axis: bool = (
-			absf(candidate_position.y - source_position.y) <= _graph.MARKER_ALIGNMENT_EPSILON
-			if horizontal
-			else absf(candidate_position.x - source_position.x) <= _graph.MARKER_ALIGNMENT_EPSILON
+		var candidate_position := candidate_marker.global_position
+		var aligned := false
+		var offset := 0.0
+		if horizontal:
+			aligned = (
+				absf(candidate_position.y - source_position.y)
+				<= _graph.MARKER_ALIGNMENT_EPSILON
+			)
+			offset = candidate_position.x - source_position.x
+		else:
+			aligned = (
+				absf(candidate_position.x - source_position.x)
+				<= _graph.MARKER_ALIGNMENT_EPSILON
+			)
+			offset = candidate_position.y - source_position.y
+
+		if not aligned or signf(offset) != signf(direction):
+			continue
+
+		var candidate_distance := absf(offset)
+		if (
+			candidate_distance <= _graph.MARKER_ALIGNMENT_EPSILON
+			or candidate_distance >= best_distance
+		):
+			continue
+
+		var segment_route := _graph._routes.make_orthogonal_route(
+			source_position,
+			candidate_position,
+			horizontal
 		)
-
-		if not same_axis:
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var offset: float = (
-			candidate_position.x - source_position.x
-			if horizontal
-			else candidate_position.y - source_position.y
-		)
-
-		if signf(offset) != signf(direction):
-			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance := absf(offset)
-
-		if distance <= _graph.MARKER_ALIGNMENT_EPSILON or distance >= best_distance:
-			continue
-
-		if not _graph._clearance.is_route_clear(source_position, _graph._routes.make_orthogonal_route(source_position, candidate_position, true)):
+		if not _graph._clearance.is_route_clear(
+			source_position,
+			segment_route
+		):
 			continue
 
 		best_name = candidate_name
-		best_distance = distance
+		best_distance = candidate_distance
 
 	if best_name != StringName() and best_name not in neighbors:
 		neighbors.append(best_name)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _append_diagonal_neighbor(
 	neighbors: Array[StringName],
 	source_name: StringName,
 	source_position: Vector2,
-	dir_x: float,
-	dir_y: float
+	direction_x: float,
+	direction_y: float
 ) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_name := StringName()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_distance := INF
 
 	for candidate_name in get_graph_node_names():
 		if candidate_name == source_name:
 			continue
-
 		if is_queue_target_node(candidate_name) or is_queue_target_node(source_name):
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var candidate := get_graph_marker(candidate_name)
-
-		if candidate == null:
+		var candidate_marker := get_graph_marker(candidate_name)
+		if candidate_marker == null:
 			continue
 
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var candidate_position := candidate.global_position
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var dx: float = candidate_position.x - source_position.x
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var dy: float = candidate_position.y - source_position.y
-
-		if absf(dx) <= _graph.MARKER_ALIGNMENT_EPSILON or absf(dy) <= _graph.MARKER_ALIGNMENT_EPSILON:
+		var candidate_position := candidate_marker.global_position
+		var delta_x := candidate_position.x - source_position.x
+		var delta_y := candidate_position.y - source_position.y
+		if (
+			absf(delta_x) <= _graph.MARKER_ALIGNMENT_EPSILON
+			or absf(delta_y) <= _graph.MARKER_ALIGNMENT_EPSILON
+		):
+			continue
+		if signf(delta_x) != signf(direction_x):
+			continue
+		if signf(delta_y) != signf(direction_y):
 			continue
 
-		if signf(dx) != signf(dir_x) or signf(dy) != signf(dir_y):
+		var candidate_distance := source_position.distance_to(candidate_position)
+		if (
+			candidate_distance <= _graph.MARKER_ALIGNMENT_EPSILON
+			or candidate_distance >= best_distance
+		):
 			continue
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var distance: float = source_position.distance_to(candidate_position)
-
-		if distance <= _graph.MARKER_ALIGNMENT_EPSILON or distance >= best_distance:
-			continue
-
-		if not _graph._clearance.is_route_segment_clear(source_position, candidate_position):
+		if not _graph._clearance.is_route_segment_clear(
+			source_position,
+			candidate_position
+		):
 			continue
 
 		best_name = candidate_name
-		best_distance = distance
+		best_distance = candidate_distance
 
 	if best_name != StringName() and best_name not in neighbors:
 		neighbors.append(best_name)
 
 
-# ---------------------------------------------------------------------------
-#  Edge cost helpers
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_graph_edge_cost(from_node: StringName, to_node: StringName) -> float:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func get_graph_edge_cost(
+	from_node: StringName,
+	to_node: StringName
+) -> float:
 	var from_marker := get_graph_marker(from_node)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var to_marker := get_graph_marker(to_node)
-
 	if from_marker == null or to_marker == null:
 		return INF
+	return from_marker.global_position.distance_to(to_marker.global_position)
 
-	return _graph._routes.get_euclidean_distance(from_marker.global_position, to_marker.global_position)
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_graph_path_cost(path: Array[StringName]) -> float:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var cost := 0.0
-
+	var total_cost := 0.0
 	for index in range(1, path.size()):
-		cost += get_graph_edge_cost(path[index - 1], path[index])
+		total_cost += get_graph_edge_cost(path[index - 1], path[index])
+	return total_cost
 
-	return cost
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _pop_lowest_cost_node(frontier: Array[StringName], distances: Dictionary) -> StringName:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+func _pop_lowest_cost_node(
+	frontier: Array[StringName],
+	distances: Dictionary
+) -> StringName:
 	var best_index := 0
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var best_cost := INF
 
 	for index in range(frontier.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var node_name := frontier[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var cost := float(distances.get(node_name, INF))
-
-		if cost < best_cost:
-			best_cost = cost
+		var candidate_node := frontier[index]
+		var candidate_cost := float(distances.get(candidate_node, INF))
+		if candidate_cost < best_cost:
+			best_cost = candidate_cost
 			best_index = index
 
 	return frontier.pop_at(best_index)

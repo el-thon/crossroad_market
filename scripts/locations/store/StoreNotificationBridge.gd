@@ -12,32 +12,39 @@ static func show(
 	if tree == null:
 		return
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
-	var hud := tree.get_first_node_in_group("hud")
+	var hud_node := tree.get_first_node_in_group("hud")
+	if hud_node != null and hud_node.has_method("show_notification"):
+		hud_node.call(
+			"show_notification",
+			text,
+			duration,
+			blocks_actions,
+			instant_text
+		)
 
-	if hud != null and hud.has_method("show_notification"):
-		hud.call("show_notification", text, duration, blocks_actions, instant_text)
 
-
-static func show_sequence(owner: Node, messages: Array[String], duration: float = 2.5) -> void:
+static func show_sequence(
+	owner: Node,
+	messages: Array[String],
+	duration: float = 2.5
+) -> void:
 	if owner == null:
 		return
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	@warning_ignore("shadowed_variable")
-	var hud := owner.get_tree().get_first_node_in_group("hud")
-
-	if hud != null and hud.has_method("begin_action_lock"):
-		hud.call("begin_action_lock")
+	var hud_node := owner.get_tree().get_first_node_in_group("hud")
+	if hud_node != null and hud_node.has_method("begin_action_lock"):
+		hud_node.call("begin_action_lock")
 
 	for message in messages:
 		show(owner.get_tree(), message, duration)
 
-		if hud != null and hud.has_method("wait_for_notification_finished"):
-			await hud.call("wait_for_notification_finished")
+		if (
+			hud_node != null
+			and hud_node.has_method("wait_for_notification_finished")
+		):
+			await hud_node.call("wait_for_notification_finished")
 		else:
 			await owner.get_tree().create_timer(duration + 0.15).timeout
 
-	if hud != null and hud.has_method("end_action_lock"):
-		hud.call("end_action_lock")
+	if hud_node != null and hud_node.has_method("end_action_lock"):
+		hud_node.call("end_action_lock")
