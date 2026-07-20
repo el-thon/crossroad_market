@@ -30,20 +30,19 @@ func build_movement_route(destination: Vector2) -> Array[Vector2]:
 			str(destination),
 			route_text
 		]
-		_log_throttled(
-			key,
+		var message := (
 			"[NPC_ROUTE_PROFILE] npc=%s state=%d queue_index=%d "
 			+ "elapsed_ms=%.3f destination=%s points=%d route=%s"
-			% [
-				_get_npc_label(),
-				npc.current_state,
-				queue_index,
-				elapsed_msec,
-				str(destination),
-				result.size(),
-				route_text
-			]
-		)
+		) % [
+			_get_npc_label(),
+			npc.current_state,
+			queue_index,
+			elapsed_msec,
+			str(destination),
+			result.size(),
+			route_text
+		]
+		_log_throttled(key, message)
 
 	return result
 
@@ -62,18 +61,18 @@ func get_shelf_egress_queue_route(
 	var elapsed_msec := float(Time.get_ticks_usec() - started_usec) / 1000.0
 
 	if DEBUG_ROUTE_PROFILE:
-		print(
+		var message := (
 			"[NPC_QUEUE_EGRESS] npc=%s queue_index=%d elapsed_ms=%.3f "
 			+ "destination=%s points=%d route=%s"
-			% [
-				_get_npc_label(),
-				queue_index,
-				elapsed_msec,
-				str(destination),
-				result.size(),
-				_format_route(result, store)
-			]
-		)
+		) % [
+			_get_npc_label(),
+			queue_index,
+			elapsed_msec,
+			str(destination),
+			result.size(),
+			_format_route(result, store)
+		]
+		print(message)
 
 	return result
 
