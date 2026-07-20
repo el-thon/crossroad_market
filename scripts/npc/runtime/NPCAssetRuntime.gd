@@ -136,6 +136,7 @@ func configure_character_direction(config: AnimatedCharacterSpriteConfig, direct
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+@warning_ignore("unused_parameter")
 func validate_character_sprite(label: String, sprite: CharacterSprite, expected_frames: int) -> void:
 	if sprite == null or sprite.direction_config == null:
 		pass

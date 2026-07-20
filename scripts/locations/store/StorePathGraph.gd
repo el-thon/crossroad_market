@@ -134,6 +134,7 @@ func get_marker_for_role(role: StringName, fallback_node_name: StringName = Stri
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_anchor_positions() -> Array[Vector2]:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var graph_nodes := _nav.get_graph_node_names()
 
 	if _cached_shelf_anchor_count == graph_nodes.size():
@@ -246,6 +247,7 @@ func get_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector2.IN
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var access_point := get_shelf_access_position(shelf)
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var graph_node := get_shelf_access_graph_node(shelf)
 
 	if not access_point.is_finite() or graph_node == StringName():
@@ -380,6 +382,7 @@ func get_route_to_queue_target_from(from_position: Vector2, queue_index: int) ->
 	pass
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var direct_vertical_route := _routes.make_orthogonal_route(from_position, queue_target, false)
 	pass
 
@@ -437,6 +440,7 @@ func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var access_point := get_shelf_access_position(shelf)
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var graph_node := get_shelf_access_graph_node(shelf)
 
 	if not access_point.is_finite() or graph_node == StringName():
@@ -477,6 +481,7 @@ func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var route := _get_surface_access_route(shelf, graph_node, access_point)
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var surface_route_points := route.size()
 	route.reverse()
 	route.append_array(_routes.build_route_from_graph_path(path))
@@ -586,12 +591,14 @@ func find_best_vertical_shelf_access(candidate_position: Vector2, shelf_object: 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, vertical_only: bool) -> Dictionary:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var debug_start_usec := Time.get_ticks_usec()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var candidates_start_usec := Time.get_ticks_usec()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var candidates := _shelf.get_shelf_access_candidates(candidate_position, vertical_only)
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var candidates_elapsed_msec := _elapsed_msec(candidates_start_usec)
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var cashier_marker: Marker2D = get_marker_for_role(ROLE_CASHIER, CASHIER)
@@ -616,6 +623,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var checked_candidates := 0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var blocked_candidates := 0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var no_surface_route_candidates := 0
@@ -624,14 +632,19 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var valid_candidates := 0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var clear_check_elapsed_msec := 0.0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var reachable_elapsed_msec := 0.0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var checkout_elapsed_msec := 0.0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var scoring_elapsed_msec := 0.0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var preferred_side_cleared := false
 
 	for access_candidate in candidates:
@@ -647,6 +660,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var access_side := str(access_candidate.get("access_side", ""))
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("unused_variable")
 		var vertical_distance := float(access_candidate.get("vertical_distance", INF))
 
 		if not access_point.is_finite():
@@ -685,16 +699,20 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 
 		if bool(direct_checkout.get("valid", false)):
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+			@warning_ignore("shadowed_variable")
 			var graph_node := direct_checkout.get("node", StringName()) as StringName
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+			@warning_ignore("shadowed_variable")
 			var scoring_start_usec := Time.get_ticks_usec()
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+			@warning_ignore("shadowed_variable")
 			var score := (
 				float(access_candidate.get("vertical_distance", 0.0)) * SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
 				+ float(direct_checkout.get("distance", 0.0))
 				+ float(access_candidate.get("horizontal_distance", 0.0)) * 0.25
 			)
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+			@warning_ignore("shadowed_variable")
 			var candidate_prefer_below := access_side == "below"
 			if prefer_below != candidate_prefer_below and cashier_pos.is_finite():
 				@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -719,6 +737,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 			continue
 
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("unused_variable")
 		var direct_checkout_attempts := direct_checkout.get("attempts", []) as Array
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var candidate_surface_searches := [0]
@@ -743,6 +762,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 			continue
 
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var graph_node := reachable_node.get("node", StringName()) as StringName
 		pass
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -757,8 +777,10 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 			continue
 
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var scoring_start_usec := Time.get_ticks_usec()
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var score := (
 			float(access_candidate.get("vertical_distance", 0.0)) * SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
 			+ float(reachable_node.get("distance", 0.0))
@@ -766,6 +788,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 			+ float(access_candidate.get("horizontal_distance", 0.0)) * 0.25
 		)
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var candidate_prefer_below := access_side == "below"
 		if prefer_below != candidate_prefer_below and cashier_pos.is_finite():
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -790,6 +813,7 @@ func _find_best_shelf_access(candidate_position: Vector2, shelf_object: Node2D, 
 		}
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var total_elapsed_msec := _elapsed_msec(debug_start_usec)
 	pass
 
@@ -858,6 +882,7 @@ func get_shelf_access_graph_node(shelf: Shelf) -> StringName:
 
 	if shelf.has_meta(ACCESS_NODE_META):
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var graph_node: Variant = shelf.get_meta(ACCESS_NODE_META)
 
 		if graph_node is StringName:
@@ -924,6 +949,7 @@ func _find_reachable_graph_node_for_access(
 	surface_anchor_path_cache: Dictionary = {}
 ) -> Dictionary:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var graph_node_names := _get_nearest_graph_node_names_for_access(
 		access_point,
 		preferred_node,
@@ -1097,6 +1123,7 @@ func _get_entry_to_access_route(
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var route := _routes.make_orthogonal_route(route_start, access_point, bool(order.get("horizontal_first", true)))
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("unused_variable")
 		var debug_result := _clearance.debug_route_to_access_clear(route_start, route, shelf, npc_node)
 		pass
 
@@ -1142,6 +1169,7 @@ func _get_entry_to_access_route(
 		_routes.append_orthogonal_route_to(route, access_point, true)
 		route = _routes.dedupe_route_points(route)
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("unused_variable")
 		var debug_result := _clearance.debug_route_to_access_clear(route_start, route, shelf, npc_node)
 		debug_result["candidate_node"] = node_name
 		debug_result["graph_path"] = path
@@ -1151,6 +1179,7 @@ func _get_entry_to_access_route(
 			continue
 
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var score := _routes.get_route_distance(route_start, route)
 
 		if score >= best_score:

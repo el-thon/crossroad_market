@@ -214,6 +214,7 @@ func try_show_tax_panel() -> bool:
 	store._connect_hud_signals()
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud == null or not hud.has_method("show_tax_notice"):
@@ -261,6 +262,7 @@ func show_tax_panel(warning: String = "") -> bool:
 
 	store._connect_hud_signals()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud == null or not hud.has_method("show_tax_notice"):
@@ -285,6 +287,7 @@ func on_tax_ignore_requested() -> void:
 	store._tax_pending = false
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("hide_tax_notice"):
@@ -327,6 +330,7 @@ func on_tax_payment_requested() -> void:
 
 	if EconomyManager.gold < tax:
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var hud := store.get_tree().get_first_node_in_group("hud")
 		if hud != null and hud.has_method("show_tax_notice"):
 			hud.call("show_tax_notice", store._latest_daily_report, "Not enough gold to pay today's tax.")
@@ -334,6 +338,7 @@ func on_tax_payment_requested() -> void:
 
 	if not EconomyManager.pay_tax():
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable")
 		var hud := store.get_tree().get_first_node_in_group("hud")
 		if hud != null and hud.has_method("show_tax_notice"):
 			hud.call("show_tax_notice", store._latest_daily_report, "Not enough gold to pay today's tax.")
@@ -349,6 +354,7 @@ func on_tax_payment_requested() -> void:
 	store._tax_restock_retry_token += 1
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("hide_tax_notice"):

@@ -58,6 +58,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+@warning_ignore("unused_parameter")
 func show_dialog(
 		dialogue_name: String,
 		dialogue_content: String,

@@ -9,6 +9,7 @@ static func show_player_sequence(owner: Node, messages: Array[String]) -> void:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := owner.get_tree().get_first_node_in_group("hud")
 	if hud == null or not hud.has_method("show_dialog_sequence"):
 		return

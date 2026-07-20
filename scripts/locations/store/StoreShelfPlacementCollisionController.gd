@@ -100,6 +100,7 @@ func get_drop_block_markers_for_roles(
 
 	for child in store.store_path_markers.get_children():
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 		var marker := child as Marker2D
 		if marker == null or not marker.has_meta("store_path_role"):
 			continue

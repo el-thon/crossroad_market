@@ -1,6 +1,7 @@
 class_name ActivityCompletionNotificationFlow
 extends RefCounted
 
+@warning_ignore("shadowed_variable_base_class")
 var notification: Control = null
 
 

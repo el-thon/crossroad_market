@@ -201,6 +201,7 @@ func get_cashier_target() -> Vector2:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_cashier_face_target() -> Vector2:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var standing_target := get_cashier_target()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var store: Node = npc._get_store_route_provider()
@@ -237,8 +238,10 @@ func get_queue_target() -> Vector2:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+@warning_ignore("unused_parameter")
 func face_queue_forward(queue_index: int, reason: String) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var standing_target := get_queue_target()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var face_target := get_cashier_face_target()
@@ -254,6 +257,7 @@ func face_queue_forward(queue_index: int, reason: String) -> void:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var previous_direction: CharacterSprite.Direction = npc._move_direction
 	npc._move_direction = npc._get_direction(direction)
 	npc._update_character_sprite()

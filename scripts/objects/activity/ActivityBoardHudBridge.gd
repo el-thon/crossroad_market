@@ -15,6 +15,7 @@ func lock_player_actions() -> void:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := board.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("begin_action_lock"):
@@ -28,6 +29,7 @@ func unlock_player_actions() -> void:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := board.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("end_action_lock"):
@@ -83,6 +85,7 @@ func setup_cursor_hover() -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func on_cursor_mouse_entered() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := board.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("show_cursor_tooltip"):
@@ -92,6 +95,7 @@ func on_cursor_mouse_entered() -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func on_cursor_mouse_exited() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := board.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("hide_cursor_tooltip"):

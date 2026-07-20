@@ -254,6 +254,7 @@ func update_objective() -> void:
 	store._last_objective_text = objective_text
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("set_objective"):

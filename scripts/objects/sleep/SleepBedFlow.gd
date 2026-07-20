@@ -69,6 +69,7 @@ func get_fade_overlay() -> ColorRect:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_notification(text: String, duration: float) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := bed.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("show_notification"):

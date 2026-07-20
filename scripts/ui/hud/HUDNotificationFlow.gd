@@ -50,6 +50,7 @@ func show_notification(
 	instant_text: bool = false
 ) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var action_lock_before: float = hud._action_lock_timer
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var readable_duration := get_readable_notification_duration(text, duration)

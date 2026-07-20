@@ -112,6 +112,7 @@ func _get_markers_between(
 
 	for child in markers.get_children():
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 		var marker := child as Marker2D
 		if marker == null:
 			continue

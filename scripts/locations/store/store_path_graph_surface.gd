@@ -30,8 +30,10 @@ func find_surface_route_between_marker_and_access(
 		return surface_route_cache[cache_key].duplicate(true)
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var debug_start_usec := Time.get_ticks_usec()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var initial_surface_searches := int(surface_searches[0]) if not surface_searches.is_empty() else 0
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var marker: Marker2D = _graph._nav.get_graph_marker(graph_node)

@@ -116,6 +116,7 @@ func append_clear_orthogonal_route_to(
 
 ## Appends a direct route to queue target.
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+@warning_ignore("unused_parameter")
 func append_clear_queue_target_route_to(
 	route: Array[Vector2],
 	to_pos: Vector2,
@@ -160,6 +161,7 @@ func build_route_from_graph_path(path: Array[StringName]) -> Array[Vector2]:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var route: Array[Vector2] = []
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var previous_position := Vector2.INF
 
 	for node_name in path:

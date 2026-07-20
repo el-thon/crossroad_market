@@ -17,6 +17,7 @@ func show_task_complete_notice(key: String, message: String) -> void:
 	store._completed_task_notices[key] = true
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var text := "Task Complete! %s Check the Activity Board." % message

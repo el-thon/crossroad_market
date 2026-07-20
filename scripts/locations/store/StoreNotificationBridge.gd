@@ -13,6 +13,7 @@ static func show(
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := tree.get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("show_notification"):
@@ -24,6 +25,7 @@ static func show_sequence(owner: Node, messages: Array[String], duration: float 
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := owner.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("begin_action_lock"):

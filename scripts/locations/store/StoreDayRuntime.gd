@@ -118,6 +118,7 @@ func on_day_started(_day: int) -> void:
 	store._update_store_status_board(false)
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := store.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("hide_tax_report"):

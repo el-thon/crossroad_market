@@ -58,6 +58,7 @@ func on_cursor_mouse_exited() -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_cursor_tooltip(text: String) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := supply_box.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("show_cursor_tooltip"):
@@ -67,6 +68,7 @@ func show_cursor_tooltip(text: String) -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func hide_cursor_tooltip() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := supply_box.get_tree().get_first_node_in_group("hud")
 
 	if hud != null and hud.has_method("hide_cursor_tooltip"):

@@ -297,6 +297,7 @@ func _get_named_markers(
 
 	for marker_name in marker_names:
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 		var marker := store.store_path_markers.get_node_or_null(
 			String(marker_name)
 		) as Marker2D

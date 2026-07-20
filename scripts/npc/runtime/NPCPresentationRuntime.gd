@@ -112,6 +112,7 @@ func face_target_shelf() -> void:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("unused_variable")
 	var previous_direction: CharacterSprite.Direction = npc._move_direction
 	npc.velocity = Vector2.ZERO
 	npc._move_direction = CharacterSprite.Direction.UP if npc.global_position.y >= npc._target_shelf.global_position.y else CharacterSprite.Direction.DOWN
@@ -120,6 +121,7 @@ func face_target_shelf() -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+@warning_ignore("unused_parameter")
 func show_dialog(text: String) -> void:
 	NPCDialogController.show_dialog(npc, npc.npc_data, text)
 	npc._dialog_timer = npc.DIALOG_DURATION

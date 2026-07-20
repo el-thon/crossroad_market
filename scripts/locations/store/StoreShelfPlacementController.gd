@@ -607,6 +607,7 @@ func get_queue_drop_block_markers() -> Array[Marker2D]:
 
 	for child in store.store_path_markers.get_children():
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+		@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 		var marker := child as Marker2D
 		if marker == null:
 			continue

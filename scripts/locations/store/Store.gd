@@ -464,6 +464,7 @@ func _connect_manager_signals() -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _connect_hud_signals() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable")
 	var hud := get_tree().get_first_node_in_group("hud")
 
 	if hud == null or not hud.has_signal("tax_payment_requested"):
@@ -818,6 +819,7 @@ func _get_shelf_placement_grid_positions() -> Array[Vector2]:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _get_marker2d(primary_path: NodePath, fallback_path: NodePath = NodePath("")) -> Marker2D:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 	var marker := get_node_or_null(primary_path) as Marker2D
 
 	if marker != null:
@@ -841,6 +843,7 @@ func _get_store_path_marker_by_role(
 				continue
 
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+			@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 			var marker := child as Marker2D
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 			var marker_role: Variant = marker.get_meta(&"store_path_role", StringName())
@@ -852,6 +855,7 @@ func _get_store_path_marker_by_role(
 				return marker
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	@warning_ignore("shadowed_variable", "shadowed_variable_base_class")
 	var marker := _get_marker2d(fallback_path, legacy_fallback_path)
 
 	if marker != null:
