@@ -7,7 +7,9 @@ extends Control
 ## `show_dialog()` when creating the scene from code. Portraits can be a
 ## single image or a horizontal six-frame animation strip.
 
+@warning_ignore("unused_signal")
 signal next_requested
+@warning_ignore("unused_signal")
 signal dialog_finished
 
 @export_category("Dialog")

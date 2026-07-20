@@ -4,6 +4,7 @@ class_name StorePathGraphGraph
 ## Graph navigation functions for StorePathGraph.
 ## Handles marker lookups, A* pathfinding, neighbor discovery, and queue logic.
 
+@warning_ignore("unused_private_class_variable")
 var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 

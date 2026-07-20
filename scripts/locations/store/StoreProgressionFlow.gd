@@ -1,9 +1,6 @@
 class_name StoreProgressionFlow
 extends Node
 
-const StoreProgressionController = preload("res://scripts/locations/store/StoreProgressionController.gd")
-const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
-const StoreDialogBridge = preload("res://scripts/locations/store/StoreDialogBridge.gd")
 
 const NORMAL_STOCK_REQUIRED: int = 4
 

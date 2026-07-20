@@ -4,8 +4,11 @@ extends RefCounted
 const DEBUG_SHELF_FLOW: bool = true
 
 var npc = null
+@warning_ignore("unused_private_class_variable")
 var _interaction_status: String = ""
+@warning_ignore("unused_private_class_variable")
 var _pending_dialog_text: String = ""
+@warning_ignore("unused_private_class_variable")
 var _interaction_target_position: Vector2 = Vector2.INF
 
 

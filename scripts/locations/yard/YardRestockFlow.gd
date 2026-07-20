@@ -1,7 +1,6 @@
 class_name YardRestockFlow
 extends Node
 
-const RestockPackage = preload("res://scripts/objects/RestockPackage.gd")
 
 var yard: Node = null
 

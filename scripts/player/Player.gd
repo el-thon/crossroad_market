@@ -1,13 +1,5 @@
 extends CharacterBody2D
 
-const PlayerMovementController = preload("res://scripts/player/PlayerMovementController.gd")
-const PlayerVisualController = preload("res://scripts/player/PlayerVisualController.gd")
-const PlayerInteractionFlow = preload("res://scripts/player/PlayerInteractionFlow.gd")
-const PlayerLocationFlow = preload("res://scripts/player/PlayerLocationFlow.gd")
-const PlayerGuidanceFlow = preload("res://scripts/player/PlayerGuidanceFlow.gd")
-const PlayerShelfFlow = preload("res://scripts/player/PlayerShelfFlow.gd")
-const PlayerSupplyFlow = preload("res://scripts/player/PlayerSupplyFlow.gd")
-const PlayerNotificationBridge = preload("res://scripts/player/PlayerNotificationBridge.gd")
 
 @export var speed: float = 120.0
 @export var interaction_distance: float = 20.0
@@ -20,19 +12,31 @@ const PlayerNotificationBridge = preload("res://scripts/player/PlayerNotificatio
 @onready var sprite_action_sprint: AnimatedSprite2D = $VisualRoot/SpriteActionSprint
 
 var facing_direction: Vector2 = Vector2.DOWN
+@warning_ignore("unused_private_class_variable")
 var _supply_box_cursor: int = 0
+@warning_ignore("unused_private_class_variable")
 var _wrong_shelf_attempts: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _seen_item_ids: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _seen_guidance_keys: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _move_direction: CharacterSprite.Direction = CharacterSprite.Direction.DOWN
 var is_sprinting: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _movement_controller: PlayerMovementController
+@warning_ignore("unused_private_class_variable")
 var _visual_controller: PlayerVisualController
+@warning_ignore("unused_private_class_variable")
 var _interaction_flow: PlayerInteractionFlow
+@warning_ignore("unused_private_class_variable")
 var _location_flow: PlayerLocationFlow
+@warning_ignore("unused_private_class_variable")
 var _guidance_flow: PlayerGuidanceFlow
+@warning_ignore("unused_private_class_variable")
 var _shelf_flow: PlayerShelfFlow
+@warning_ignore("unused_private_class_variable")
 var _supply_flow: PlayerSupplyFlow
 
 

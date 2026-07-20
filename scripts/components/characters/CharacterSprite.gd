@@ -9,15 +9,25 @@ enum Direction {
 	UP
 }
 
+@warning_ignore("unused_private_class_variable")
 var _animation_fps: float = 5.0
+@warning_ignore("unused_private_class_variable")
 var _default_direction: Direction = Direction.DOWN
+@warning_ignore("unused_private_class_variable")
 var _animate_idle: bool = true
+@warning_ignore("unused_private_class_variable")
 var _direction_config: AnimatedCharacterSpriteConfig
+@warning_ignore("unused_private_class_variable")
 var _idle_direction_config: AnimatedCharacterSpriteConfig
+@warning_ignore("unused_private_class_variable")
 var _current_direction: Direction = Direction.DOWN
+@warning_ignore("unused_private_class_variable")
 var _is_moving: bool = false
+@warning_ignore("unused_private_class_variable")
 var _is_direction_loop_forced: bool = false
+@warning_ignore("unused_private_class_variable")
 var _is_ready: bool = false
+@warning_ignore("unused_private_class_variable")
 var _needs_refresh: bool = true
 
 @export var animation_fps: float:

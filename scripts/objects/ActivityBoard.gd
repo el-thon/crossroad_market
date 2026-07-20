@@ -1,9 +1,6 @@
 class_name ActivityBoard
 extends StaticBody2D
 
-const ActivityBoardPanelFlow = preload("res://scripts/objects/activity/ActivityBoardPanelFlow.gd")
-const ActivityBoardHudBridge = preload("res://scripts/objects/activity/ActivityBoardHudBridge.gd")
-const ActivityBoardGlowController = preload("res://scripts/objects/activity/ActivityBoardGlowController.gd")
 
 const DEFAULT_TITLE: String = "Today's Work"
 const DEFAULT_LINES: Array[String] = [
@@ -14,14 +11,22 @@ const PANEL_SIZE := Vector2(292, 164)
 const BOARD_GLOW_CYCLES: int = 3
 const BOARD_GLOW_CYCLE_DURATION: float = 0.45
 
+@warning_ignore("unused_private_class_variable")
 var _board_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _board_panel: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _glow_line: Line2D = null
+@warning_ignore("unused_private_class_variable")
 var _glow_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _board_lock_active: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _panel_flow: ActivityBoardPanelFlow = ActivityBoardPanelFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _hud_bridge: ActivityBoardHudBridge = ActivityBoardHudBridge.new()
+@warning_ignore("unused_private_class_variable")
 var _glow_controller: ActivityBoardGlowController = ActivityBoardGlowController.new()
 
 

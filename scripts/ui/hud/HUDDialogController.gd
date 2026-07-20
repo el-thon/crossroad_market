@@ -6,13 +6,17 @@ extends RefCounted
 ## Dialog lines are dictionaries with `name`, `content`, and optional `portrait`
 ## and `frame` fields.
 
+@warning_ignore("unused_signal")
 signal sequence_finished
+@warning_ignore("unused_signal")
 signal _next_line_requested
 
 var hud: CanvasLayer = null
 var dialog: Dialog = null
 
+@warning_ignore("unused_private_class_variable")
 var _active: bool = false
+@warning_ignore("unused_private_class_variable")
 var _advance_requested: bool = false
 
 

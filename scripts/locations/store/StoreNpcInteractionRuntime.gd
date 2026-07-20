@@ -2,8 +2,11 @@ class_name StoreNpcInteractionRuntime
 extends Node
 
 var store: Node = null
+@warning_ignore("unused_private_class_variable")
 var _pair_cooldowns: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _interaction_counts: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _last_day: int = -1
 
 

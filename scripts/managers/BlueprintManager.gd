@@ -1,7 +1,5 @@
 extends Node
 
-const BlueprintDialogResolver = preload("res://scripts/managers/blueprint/BlueprintDialogResolver.gd")
-const BlueprintActionResolver = preload("res://scripts/managers/blueprint/BlueprintActionResolver.gd")
 
 enum Action {
 	LEAVE,

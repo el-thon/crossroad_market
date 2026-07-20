@@ -2,6 +2,7 @@ extends "res://scripts/npc/runtime/NPCShoppingFlow.gd"
 
 const PATH_REFRESH_COOLDOWN_MSEC: int = 500
 
+@warning_ignore("unused_private_class_variable")
 var _path_refresh_after_msec: Dictionary = {}
 
 

@@ -4,6 +4,7 @@ class_name SettingsMenu
 ## A modal settings overlay. Built entirely in code so it can be instantiated
 ## from any scene that needs it (typically the HUD).
 
+@warning_ignore("unused_signal")
 signal closed()
 
 const PANEL_WIDTH: float = 220.0
@@ -12,9 +13,13 @@ const BUTTON_HEIGHT: float = 22.0
 const FONT_SIZE: int = 9
 const TITLE_FONT_SIZE: int = 10
 
+@warning_ignore("unused_private_class_variable")
 var _overlay: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _panel: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _vbox: VBoxContainer = null
+@warning_ignore("unused_private_class_variable")
 var _difficulty_buttons: Array[Button] = []
 
 

@@ -1,7 +1,6 @@
 class_name StoreNpcRuntime
 extends Node
 
-const StoreNpcSpawner = preload("res://scripts/locations/store/StoreNpcSpawner.gd")
 const NPCResolvedExitRouteController = preload("res://scripts/npc/runtime/NPCResolvedExitRouteController.gd")
 const NPCLiveQueueStateFlow = preload("res://scripts/npc/runtime/NPCLiveQueueStateFlow.gd")
 const NPCReachableShelfShoppingFlow = preload("res://scripts/npc/runtime/NPCReachableShelfShoppingFlow.gd")

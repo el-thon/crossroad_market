@@ -4,6 +4,7 @@ class_name StorePathGraphShelfAccess
 ## Shelf access candidate functions for StorePathGraph.
 ## Handles finding and scoring shelf access points.
 
+@warning_ignore("unused_private_class_variable")
 var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 

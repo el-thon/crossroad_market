@@ -1,7 +1,6 @@
 class_name StoreLocationFlow
 extends Node
 
-const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
 
 const STORE_ENTRY_FALLBACK_POSITION := Vector2(240, 204)
 const STORE_STORAGE_RETURN_FALLBACK_POSITION := Vector2(383, 76)

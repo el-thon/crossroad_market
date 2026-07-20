@@ -1,8 +1,6 @@
 class_name StorePresentation
 extends Node
 
-const StoreNotificationBridge = preload("res://scripts/locations/store/StoreNotificationBridge.gd")
-const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
 
 const LOCATION_TITLE_DURATION: float = 1.25
 

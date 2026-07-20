@@ -5,8 +5,11 @@ const StoreRouteSafetyScript = preload("res://scripts/npc/runtime/StoreRouteSafe
 const DEBUG_NPC_ROUTE_BUILD: bool = true
 
 var npc = null
+@warning_ignore("unused_private_class_variable")
 var _route_safety = null
+@warning_ignore("unused_private_class_variable")
 var _last_route_debug_key: String = ""
+@warning_ignore("unused_private_class_variable")
 var _last_stuck_debug_key: String = ""
 
 

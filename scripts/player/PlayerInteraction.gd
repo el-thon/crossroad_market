@@ -1,11 +1,6 @@
 class_name PlayerInteraction
 extends RefCounted
 
-const ActivityBoard = preload("res://scripts/objects/ActivityBoard.gd")
-const OpenCloseBoard = preload("res://scripts/objects/OpenCloseBoard.gd")
-const SleepBed = preload("res://scripts/objects/SleepBed.gd")
-const StorageRestockTerminal = preload("res://scripts/objects/StorageRestockTerminal.gd")
-const RestockPackage = preload("res://scripts/objects/RestockPackage.gd")
 
 
 static func get_storage_door_type(area: Area2D) -> String:

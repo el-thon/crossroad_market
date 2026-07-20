@@ -1,20 +1,25 @@
 class_name SupplyBox
 extends Node2D
 
-const SupplyBoxInventoryFlow = preload("res://scripts/objects/supply/SupplyBoxInventoryFlow.gd")
-const SupplyBoxPresentation = preload("res://scripts/objects/supply/SupplyBoxPresentation.gd")
 
 @export var items_to_give: Array[String] = []
 @export var one_time_only: bool = true
 
+@warning_ignore("unused_signal")
 signal items_collected(item_ids: Array[String])
+@warning_ignore("unused_signal")
 signal item_taken(item_id: String)
 
+@warning_ignore("unused_private_class_variable")
 var _already_collected: bool = false
+@warning_ignore("unused_private_class_variable")
 var _collected_items: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _all_items_taken: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _inventory_flow: SupplyBoxInventoryFlow = SupplyBoxInventoryFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _presentation: SupplyBoxPresentation = SupplyBoxPresentation.new()
 
 

@@ -1,12 +1,7 @@
 extends Node
 
-const NPCSchedulerDatabase = preload("res://scripts/managers/npc_scheduler/NPCSchedulerDatabase.gd")
-const NPCSchedulerDayFlow = preload("res://scripts/managers/npc_scheduler/NPCSchedulerDayFlow.gd")
-const NPCSchedulerSessionBuilder = preload("res://scripts/managers/npc_scheduler/NPCSchedulerSessionBuilder.gd")
-const NPCSchedulerSessionRuntime = preload("res://scripts/managers/npc_scheduler/NPCSchedulerSessionRuntime.gd")
-const NPCSchedulerSpawnRuntime = preload("res://scripts/managers/npc_scheduler/NPCSchedulerSpawnRuntime.gd")
-const NPCSchedulerDayOneFactory = preload("res://scripts/managers/npc_scheduler/NPCSchedulerDayOneFactory.gd")
 
+@warning_ignore("unused_signal")
 signal npc_spawn_requested(npc_data)
 
 const SCHEDULE_BLUEPRINT_PATHS: Array[String] = [
@@ -44,26 +39,46 @@ const NIGHT_STOCK_ITEM_IDS: Array[String] = [
 	"potion_bottle_empty"
 ]
 
+@warning_ignore("unused_private_class_variable")
 var _npc_database: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _day_schedule: Array = []
+@warning_ignore("unused_private_class_variable")
 var _spawn_queue: Array = []
+@warning_ignore("unused_private_class_variable")
 var _spawn_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _spawn_interval: float = SPAWN_INTERVAL
+@warning_ignore("unused_private_class_variable")
 var _is_spawning: bool = false
+@warning_ignore("unused_private_class_variable")
 var _day_one_night_monster_spawned: bool = false
+@warning_ignore("unused_private_class_variable")
 var _day_one_night_monster_follow_up_requested: bool = false
+@warning_ignore("unused_private_class_variable")
 var _spawning_unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _normal_spawning_unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _store_open: bool = false
+@warning_ignore("unused_private_class_variable")
 var _customer_sessions: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _active_customer_session: StringName = SESSION_NONE
+@warning_ignore("unused_private_class_variable")
 var _schedule_blueprints: Array[Resource] = []
 
+@warning_ignore("unused_private_class_variable")
 var _database: NPCSchedulerDatabase = NPCSchedulerDatabase.new()
+@warning_ignore("unused_private_class_variable")
 var _day_flow: NPCSchedulerDayFlow = NPCSchedulerDayFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _session_builder: NPCSchedulerSessionBuilder = NPCSchedulerSessionBuilder.new()
+@warning_ignore("unused_private_class_variable")
 var _session_runtime: NPCSchedulerSessionRuntime = NPCSchedulerSessionRuntime.new()
+@warning_ignore("unused_private_class_variable")
 var _spawn_runtime: NPCSchedulerSpawnRuntime = NPCSchedulerSpawnRuntime.new()
+@warning_ignore("unused_private_class_variable")
 var _day_one_factory: NPCSchedulerDayOneFactory = NPCSchedulerDayOneFactory.new()
 
 

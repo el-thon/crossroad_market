@@ -48,8 +48,11 @@ static var entrance_position: Vector2 = Vector2.ZERO
 static var exit_position: Vector2 = Vector2.ZERO
 static var store_path_position: Vector2 = Vector2.INF
 
+@warning_ignore("unused_signal")
 signal purchase_completed(npc: NPC, item_id: String, price: int)
+@warning_ignore("unused_signal")
 signal npc_exited(npc: NPC)
+@warning_ignore("unused_signal")
 signal shelf_route_ready(npc: NPC, travel_seconds: float)
 
 var npc_data: NPCData
@@ -62,50 +65,90 @@ var shopping_list: Array[String] = []
 var checkout_total_override: int = -1
 var checkout_outcome: String = "paid"
 
+@warning_ignore("unused_private_class_variable")
 var _browse_item: String = ""
+@warning_ignore("unused_private_class_variable")
 var _cart_items: Array[String] = []
+@warning_ignore("unused_private_class_variable")
 var _enter_pause_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _dialog_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _checkout_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _search_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _search_announced: bool = false
+@warning_ignore("unused_private_class_variable")
 var _take_item_pause_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _has_taken_shelf_item: bool = false
+@warning_ignore("unused_private_class_variable")
 var _trust_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _movement_route: Array[Vector2] = []
+@warning_ignore("unused_private_class_variable")
 var _movement_route_destination: Vector2 = Vector2.INF
+@warning_ignore("unused_private_class_variable")
 var _target_shelf: Shelf = null
+@warning_ignore("unused_private_class_variable")
 var _queue_entry_shelf: Shelf = null
+@warning_ignore("unused_private_class_variable")
 var _queue_egress_route_pending: bool = false
+@warning_ignore("unused_private_class_variable")
 var _last_queue_index: int = -1
+@warning_ignore("unused_private_class_variable")
 var _last_watchdog_position: Vector2 = Vector2.INF
+@warning_ignore("unused_private_class_variable")
 var _stuck_watchdog_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _stuck_watchdog_rebuilds: int = 0
+@warning_ignore("unused_private_class_variable")
 var _exit_completed: bool = false
+@warning_ignore("unused_private_class_variable")
 var _exit_after_checkout: bool = false
+@warning_ignore("unused_private_class_variable")
 var _interaction_pause_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _interaction_partner: NPC = null
+@warning_ignore("unused_private_class_variable")
 var _queue_advance_delay_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _queue_advance_clear_wait_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _queue_advance_waiting_for_clear: bool = false
+@warning_ignore("unused_private_class_variable")
 var _is_moving_from_queue_to_cashier: bool = false
+@warning_ignore("unused_private_class_variable")
 var _queue_back_facing_done: bool = false
+@warning_ignore("unused_private_class_variable")
 var _queue_back_facing_logged: bool = false
+@warning_ignore("unused_private_class_variable")
 var _waiting_for_shelf_return: bool = false
+@warning_ignore("unused_private_class_variable")
 var _shelf_wait_timer: float = 0.0
 
+@warning_ignore("unused_private_class_variable")
 var _state_flow = null
+@warning_ignore("unused_private_class_variable")
 var _route_controller = null
+@warning_ignore("unused_private_class_variable")
 var _shopping_flow = null
+@warning_ignore("unused_private_class_variable")
 var _queue_flow = null
+@warning_ignore("unused_private_class_variable")
 var _checkout_flow = null
+@warning_ignore("unused_private_class_variable")
 var _presentation_runtime = null
+@warning_ignore("unused_private_class_variable")
 var _asset_runtime = null
+@warning_ignore("unused_private_class_variable")
 var _metadata_flow = null
 
 @onready var sprite_move: CharacterSprite = $VisualRoot/SpriteMove
 @onready var sprite_idle: CharacterSprite = $VisualRoot/SpriteIdle
 
+@warning_ignore("unused_private_class_variable")
 var _move_direction: CharacterSprite.Direction = CharacterSprite.Direction.DOWN
 
 

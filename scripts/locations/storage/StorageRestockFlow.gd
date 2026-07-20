@@ -1,7 +1,6 @@
 class_name StorageRestockFlow
 extends Node
 
-const StorageRestockPanel = preload("res://scripts/ui/storage/StorageRestockPanel.gd")
 
 const RESTOCK_SCROLL_STEP: int = 28
 const RESTOCK_ACTION_BUTTON_HEIGHT: float = 20.0

@@ -1,10 +1,10 @@
 class_name SleepBed
 extends Area2D
 
-const SleepBedFlow = preload("res://scripts/objects/sleep/SleepBedFlow.gd")
 
 const FADE_DURATION: float = 2.0
 
+@warning_ignore("unused_private_class_variable")
 var _sleep_flow: SleepBedFlow = SleepBedFlow.new()
 
 

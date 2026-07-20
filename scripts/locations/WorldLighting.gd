@@ -7,6 +7,7 @@ extends CanvasLayer
 
 @onready var overlay: ColorRect = $Overlay
 
+@warning_ignore("unused_private_class_variable")
 var _tween: Tween = null
 
 

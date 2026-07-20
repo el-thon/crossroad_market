@@ -1,11 +1,8 @@
 class_name MysterySupplyBox
 extends SupplyBox
 
-const MysterySupplyTriggerFlow = preload("res://scripts/objects/mystery/MysterySupplyTriggerFlow.gd")
-const MysterySupplyDialogFlow = preload("res://scripts/objects/mystery/MysterySupplyDialogFlow.gd")
-const MysterySupplyAutoCollectFlow = preload("res://scripts/objects/mystery/MysterySupplyAutoCollectFlow.gd")
-const MysterySupplyVisualController = preload("res://scripts/objects/mystery/MysterySupplyVisualController.gd")
 
+@warning_ignore("unused_signal")
 signal discovered()
 
 @export var trigger_area_path: NodePath = NodePath("Area2D")
@@ -13,18 +10,28 @@ signal discovered()
 
 const REQUIRED: int = 4
 
+@warning_ignore("unused_private_class_variable")
 var _discovered: bool = false
+@warning_ignore("unused_private_class_variable")
 var _unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _items_taken: int = 0
+@warning_ignore("unused_private_class_variable")
 var _items_placed: int = 0
+@warning_ignore("unused_private_class_variable")
 var _discovery_running: bool = false
+@warning_ignore("unused_private_class_variable")
 var _player_inside_trigger: bool = false
 
 @onready var trigger_area: Area2D = get_node_or_null(trigger_area_path) as Area2D
 
+@warning_ignore("unused_private_class_variable")
 var _trigger_flow: MysterySupplyTriggerFlow = MysterySupplyTriggerFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _dialog_flow: MysterySupplyDialogFlow = MysterySupplyDialogFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _auto_collect_flow: MysterySupplyAutoCollectFlow = MysterySupplyAutoCollectFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _visual_controller: MysterySupplyVisualController = MysterySupplyVisualController.new()
 
 

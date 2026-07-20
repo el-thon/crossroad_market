@@ -1,10 +1,11 @@
 extends Node
 
-const EconomyWalletFlow = preload("res://scripts/managers/economy/EconomyWalletFlow.gd")
-const EconomyDailyReportFlow = preload("res://scripts/managers/economy/EconomyDailyReportFlow.gd")
 
+@warning_ignore("unused_signal")
 signal gold_changed(new_amount: int)
+@warning_ignore("unused_signal")
 signal daily_target_reached()
+@warning_ignore("unused_signal")
 signal daily_report_ready(report: Dictionary)
 
 var gold: int = 0
@@ -19,9 +20,12 @@ const DAILY_TAX_INCREASE: int = 20
 const MAX_DAILY_TAX: int = 150
 
 var daily_target: int = BASE_DAILY_TARGET
+@warning_ignore("unused_private_class_variable")
 var _daily_target_reached: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _wallet_flow: EconomyWalletFlow = EconomyWalletFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _daily_report_flow: EconomyDailyReportFlow = EconomyDailyReportFlow.new()
 
 

@@ -4,6 +4,7 @@ class_name StorePathGraphClearance
 ## Clearance checking functions for StorePathGraph.
 ## Handles collision detection along routes and physics queries.
 
+@warning_ignore("unused_private_class_variable")
 var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 

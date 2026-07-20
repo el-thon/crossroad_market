@@ -1,22 +1,27 @@
 class_name Shelf
 extends Node2D
 
-const ShelfStockController = preload("res://scripts/objects/shelf/ShelfStockController.gd")
-const ShelfVisualController = preload("res://scripts/objects/shelf/ShelfVisualController.gd")
-const ShelfHoverController = preload("res://scripts/objects/shelf/ShelfHoverController.gd")
 
 @export var shelf_type: ItemData.ShelfType = ItemData.ShelfType.HUMAN
 @export var max_slots: int = 9
 
+@warning_ignore("unused_signal")
 signal item_placed(slot_index: int, item_id: String)
+@warning_ignore("unused_signal")
 signal item_removed(slot_index: int, item_id: String)
 
+@warning_ignore("unused_private_class_variable")
 var _slots: Array = []
+@warning_ignore("unused_private_class_variable")
 var _slot_quantities: Array[int] = []
+@warning_ignore("unused_private_class_variable")
 var _is_shelf_hovered: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _stock_controller: ShelfStockController = ShelfStockController.new()
+@warning_ignore("unused_private_class_variable")
 var _visual_controller: ShelfVisualController = ShelfVisualController.new()
+@warning_ignore("unused_private_class_variable")
 var _hover_controller: ShelfHoverController = ShelfHoverController.new()
 
 

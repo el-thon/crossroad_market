@@ -1,7 +1,7 @@
 extends Node
 
-const RelationshipTrustStore = preload("res://scripts/managers/relationship/RelationshipTrustStore.gd")
 
+@warning_ignore("unused_signal")
 signal trust_changed(npc_id: String, new_trust: int, delta: int)
 
 const MIN_TRUST: int = 0
@@ -9,7 +9,9 @@ const MAX_TRUST: int = 100
 const INTERACTION_TRUST_GAIN: int = 25
 const MAIN_NPC_IDS: Array[String] = ["irene", "gooby"]
 
+@warning_ignore("unused_private_class_variable")
 var _trust_by_npc: Dictionary[String, int] = {}
+@warning_ignore("unused_private_class_variable")
 var _trust_store: RelationshipTrustStore = RelationshipTrustStore.new()
 
 

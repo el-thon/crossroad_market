@@ -1,10 +1,12 @@
 extends Node
 
-const InventoryStore = preload("res://scripts/managers/inventory/InventoryStore.gd")
 
+@warning_ignore("unused_signal")
 signal inventory_changed(item_id: String, new_quantity: int)
 
+@warning_ignore("unused_private_class_variable")
 var _items: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _store: InventoryStore = InventoryStore.new()
 
 

@@ -1,9 +1,9 @@
 extends Control
 
-const InventoryListRenderer = preload("res://scripts/ui/inventory/InventoryListRenderer.gd")
 
 @onready var item_container: VBoxContainer = $Panel/VBoxContainer
 
+@warning_ignore("unused_private_class_variable")
 var _list_renderer: InventoryListRenderer = InventoryListRenderer.new()
 
 

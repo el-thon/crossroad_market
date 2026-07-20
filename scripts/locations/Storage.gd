@@ -5,14 +5,23 @@ extends Node2D
 ## behind the dark storage section until the human shelf has been installed
 ## and stocked in the store.
 
+@warning_ignore("unused_signal")
 signal return_to_store(door_type: String)
+@warning_ignore("unused_signal")
 signal mystery_discovered()
+@warning_ignore("unused_signal")
 signal mystery_item_taken(item_id: String)
+@warning_ignore("unused_signal")
 signal mystery_supply_depleted()
+@warning_ignore("unused_signal")
 signal ghost_shelf_item_placed(slot_index: int, item_id: String)
+@warning_ignore("unused_signal")
 signal restock_item_purchased(item_id: String, quantity: int)
+@warning_ignore("unused_signal")
 signal restock_order_purchased(order_items: Array)
+@warning_ignore("unused_signal")
 signal restock_panel_opened()
+@warning_ignore("unused_signal")
 signal restock_panel_closed(had_checkout: bool)
 
 @export var pickup_distance: float = 70.0
@@ -36,24 +45,43 @@ signal restock_panel_closed(had_checkout: bool)
 @onready var mystery_flow: Node = get_node_or_null("MysteryFlow")
 @onready var presentation: Node = get_node_or_null("Presentation")
 
+@warning_ignore("unused_private_class_variable")
 var _entry_door: String = "storage"
+@warning_ignore("unused_private_class_variable")
 var _mystery_phase_unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_discovered: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_supply_depleted: bool = false
+@warning_ignore("unused_private_class_variable")
 var _human_shelf_installed: bool = false
+@warning_ignore("unused_private_class_variable")
 var _ghost_shelf_installed: bool = false
+@warning_ignore("unused_private_class_variable")
 var _normal_supply_depleted: bool = false
+@warning_ignore("unused_private_class_variable")
 var _player: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _carried_object: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _restock_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _restock_panel: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _restock_item_list: VBoxContainer = null
+@warning_ignore("unused_private_class_variable")
 var _restock_wallet_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _restock_selected_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _restock_guide_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _restock_action_row: Container = null
+@warning_ignore("unused_private_class_variable")
 var _selected_restock_item_id: String = ""
+@warning_ignore("unused_private_class_variable")
 var _restock_cart: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _restock_checkout_completed_this_session: bool = false
 
 

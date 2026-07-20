@@ -5,6 +5,7 @@ class_name StorePathGraphRoutes
 ## Holds a back-reference to the parent graph so it can access markers and
 ## clearance checks without Callable boilerplate.
 
+@warning_ignore("unused_private_class_variable")
 var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 

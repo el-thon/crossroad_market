@@ -13,8 +13,11 @@ const DEFAULT_FPS: float = 5.0
 
 @onready var frame_view: TextureRect = $Frame
 
+@warning_ignore("unused_private_class_variable")
 var _current_frame: int = 0
+@warning_ignore("unused_private_class_variable")
 var _frame_elapsed: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _frame_width: float = 0.0
 
 

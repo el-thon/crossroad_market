@@ -1,8 +1,6 @@
 class_name StoreShelfPlacementController
 extends Node
 
-const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacementGrid.gd")
-const StoreShelfController = preload("res://scripts/locations/store/StoreShelfController.gd")
 
 const STORE_SHELF_PICKUP_DISTANCE: float = 60.0
 const CARRY_SHELF_CASHIER_BLOCKER_SIZE := Vector2(96, 36)

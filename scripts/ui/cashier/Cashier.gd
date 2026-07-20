@@ -1,12 +1,6 @@
 class_name Cashier
 extends StaticBody2D
 
-const CashierCustomerDetector = preload("res://scripts/ui/cashier/runtime/CashierCustomerDetector.gd")
-const CashierCheckoutFlow = preload("res://scripts/ui/cashier/runtime/CashierCheckoutFlow.gd")
-const CashierStoreOSRenderer = preload("res://scripts/ui/cashier/runtime/CashierStoreOSRenderer.gd")
-const CashierCartController = preload("res://scripts/ui/cashier/runtime/CashierCartController.gd")
-const CashierStoryFlow = preload("res://scripts/ui/cashier/runtime/CashierStoryFlow.gd")
-const CashierHudBridge = preload("res://scripts/ui/cashier/runtime/CashierHudBridge.gd")
 
 const GOOBY_ID: String = "gooby"
 const STORY_INTERACTION_TRUST_GAIN: int = 20
@@ -20,41 +14,75 @@ const STORE_OS_APP_POS: StringName = &"pos"
 
 @onready var interaction_area: Area2D = $InteractionArea
 
+@warning_ignore("unused_signal")
 signal checkout_done(npc: NPC, item_id: String, price: int)
 
+@warning_ignore("unused_private_class_variable")
 var _scanned_npc: NPC = null
+@warning_ignore("unused_private_class_variable")
 var _scanned_item_id: String = ""
+@warning_ignore("unused_private_class_variable")
 var _scanned_item_label: String = ""
+@warning_ignore("unused_private_class_variable")
 var _scanned_total: int = 0
+@warning_ignore("unused_private_class_variable")
 var _checkout_history: Array[Dictionary] = []
+@warning_ignore("unused_private_class_variable")
 var _target_item_ids: Array[String] = []
+@warning_ignore("unused_private_class_variable")
 var _cart_quantities: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _pending_item_id: String = ""
+@warning_ignore("unused_private_class_variable")
 var _ask_again_count: int = 0
+@warning_ignore("unused_private_class_variable")
 var _cashier_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _cashier_panel: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _panel_title: Label = null
+@warning_ignore("unused_private_class_variable")
 var _customer_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _request_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _selected_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _guide_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _item_title: Label = null
+@warning_ignore("unused_private_class_variable")
 var _item_list: VBoxContainer = null
+@warning_ignore("unused_private_class_variable")
 var _item_scroll: ScrollContainer = null
+@warning_ignore("unused_private_class_variable")
 var _action_row: Container = null
+@warning_ignore("unused_private_class_variable")
 var _cashier_lock_active: bool = false
+@warning_ignore("unused_private_class_variable")
 var _seen_panel_guidance: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _active_store_os_app: StringName = STORE_OS_APP_POS
+@warning_ignore("unused_private_class_variable")
 var _patience_bar: ProgressBar = null
+@warning_ignore("unused_private_class_variable")
 var _patience_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _patience_duration: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _patience_active: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _customer_detector: CashierCustomerDetector = CashierCustomerDetector.new()
+@warning_ignore("unused_private_class_variable")
 var _checkout_flow: CashierCheckoutFlow = CashierCheckoutFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _store_os_renderer: CashierStoreOSRenderer = CashierStoreOSRenderer.new()
+@warning_ignore("unused_private_class_variable")
 var _cart_controller: CashierCartController = CashierCartController.new()
+@warning_ignore("unused_private_class_variable")
 var _story_flow: CashierStoryFlow = CashierStoryFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _hud_bridge: CashierHudBridge = CashierHudBridge.new()
 
 

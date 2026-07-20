@@ -1,7 +1,6 @@
 class_name OpenCloseBoard
 extends StaticBody2D
 
-const OpenCloseBoardVisualController = preload("res://scripts/objects/board/OpenCloseBoardVisualController.gd")
 
 const CLOSED_COLOR := Color(0.36, 0.10, 0.06, 1.0)
 const OPEN_COLOR := Color(0.42, 0.78, 0.28, 1.0)
@@ -13,9 +12,12 @@ const STATUS_PULSE_SCALE := Vector2(1.08, 1.08)
 @onready var status_label: Label = get_node_or_null("VisualRoot/StatusLabel") as Label
 @onready var interaction_area: Area2D = get_node_or_null("InteractionArea") as Area2D
 
+@warning_ignore("unused_private_class_variable")
 var _status_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _is_open: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _visual_controller: OpenCloseBoardVisualController = OpenCloseBoardVisualController.new()
 
 

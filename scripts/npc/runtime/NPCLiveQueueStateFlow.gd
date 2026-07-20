@@ -3,6 +3,7 @@ extends "res://scripts/npc/runtime/NPCStableShelfStateFlow.gd"
 const SHELF_WAIT_WARNING_SECONDS: float = 5.0
 const SHELF_WAIT_ABANDON_SECONDS: float = 20.0
 
+@warning_ignore("unused_private_class_variable")
 var _shelf_wait_announced: bool = false
 
 

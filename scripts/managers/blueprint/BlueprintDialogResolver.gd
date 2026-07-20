@@ -1,7 +1,6 @@
 class_name BlueprintDialogResolver
 extends RefCounted
 
-const BlueprintActionResolver = preload("res://scripts/managers/blueprint/BlueprintActionResolver.gd")
 
 static var _bp_cache_initialized: bool = false
 static var _bp_immediate: BlueprintData

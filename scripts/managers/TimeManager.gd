@@ -1,8 +1,5 @@
 extends Node
 
-const TimeRuntime = preload("res://scripts/managers/time/TimeRuntime.gd")
-const TimePhaseFlow = preload("res://scripts/managers/time/TimePhaseFlow.gd")
-const TimeClockFormatter = preload("res://scripts/managers/time/TimeClockFormatter.gd")
 
 enum Phase { MORNING, DAY, NIGHT }
 
@@ -14,19 +11,27 @@ const DAY_START_MINUTES: int = 12 * 60
 const NIGHT_START_MINUTES: int = 18 * 60
 const END_START_MINUTES: int = 24 * 60
 
+@warning_ignore("unused_signal")
 signal phase_changed(new_phase: Phase)
+@warning_ignore("unused_signal")
 signal day_started(day: int)
+@warning_ignore("unused_signal")
 signal day_ended(day: int)
+@warning_ignore("unused_signal")
 signal time_updated(seconds_remaining: float)
 
 var current_day: int = 1
 var current_phase: Phase = Phase.MORNING
 var time_remaining: float = PHASE_DURATION
 var is_running: bool = false
+@warning_ignore("unused_private_class_variable")
 var _day_finished: bool = false
 
+@warning_ignore("unused_private_class_variable")
 var _runtime: TimeRuntime = TimeRuntime.new()
+@warning_ignore("unused_private_class_variable")
 var _phase_flow: TimePhaseFlow = TimePhaseFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _clock_formatter: TimeClockFormatter = TimeClockFormatter.new()
 
 

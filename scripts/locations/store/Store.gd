@@ -1,7 +1,6 @@
 class_name Store
 extends Node2D
 
-const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacementGrid.gd")
 
 const SHELF_ACCESS_WARMUP_DELAY: float = 1.0
 const STORE_ENTRY_FALLBACK_POSITION := Vector2(240, 204)
@@ -50,67 +49,128 @@ var home_scene: PackedScene = preload("res://scenes/locations/Home.tscn")
 @onready var world_state_controller: Node = get_node_or_null("WorldStateController")
 @onready var npc_interaction_runtime: Node = get_node_or_null("NpcInteractionRuntime")
 
+@warning_ignore("unused_private_class_variable")
 var _current_storage: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _current_yard: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _current_home: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _fade_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _fade_rect: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _location_title_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _location_title_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _location_title_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _carry_shelf_blocker: StaticBody2D = null
+@warning_ignore("unused_private_class_variable")
 var _carry_shelf_blocker_shape: CollisionShape2D = null
+@warning_ignore("unused_private_class_variable")
 var _restricted_placement_warning: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _restricted_placement_warning_line: Line2D = null
+@warning_ignore("unused_private_class_variable")
 var _restricted_placement_warning_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _store_path_graph: StorePathGraph = null
+@warning_ignore("unused_private_class_variable")
 var _placement_grid: StorePlacementGrid = null
+@warning_ignore("unused_private_class_variable")
 var _placement_surface: Node = null
+@warning_ignore("unused_private_class_variable")
 var _placement_surface_anchor_cache: Array[Vector2] = []
+@warning_ignore("unused_private_class_variable")
 var _shelf_access_metadata_update_token: int = 0
+@warning_ignore("unused_private_class_variable")
 var _shelf_access_warmup_token: int = 0
+@warning_ignore("unused_private_class_variable")
 var _is_transitioning: bool = false
+@warning_ignore("unused_private_class_variable")
 var _is_store_world_active: bool = true
+@warning_ignore("unused_private_class_variable")
 var _shown_location_titles: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _completed_task_notices: Dictionary = {}
 
+@warning_ignore("unused_private_class_variable")
 var _normal_items_taken: int = 0
+@warning_ignore("unused_private_class_variable")
 var _human_items_placed: int = 0
+@warning_ignore("unused_private_class_variable")
 var _normal_supply_depleted: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_phase_unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_discovered: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_supply_depleted: bool = false
+@warning_ignore("unused_private_class_variable")
 var _mystery_items_taken: Array[String] = []
+@warning_ignore("unused_private_class_variable")
 var _human_shelf_installed: bool = false
+@warning_ignore("unused_private_class_variable")
 var _ghost_shelf_installed: bool = false
+@warning_ignore("unused_private_class_variable")
 var _customer_spawning_unlocked: bool = false
+@warning_ignore("unused_private_class_variable")
 var _store_open: bool = false
+@warning_ignore("unused_private_class_variable")
 var _store_opened_today: bool = false
+@warning_ignore("unused_private_class_variable")
 var _customer_open_notification_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _suppress_next_day_open_notification: bool = false
+@warning_ignore("unused_private_class_variable")
 var _intro_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _yard_intro_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _pending_store_intro_after_yard: bool = true
+@warning_ignore("unused_private_class_variable")
 var _first_activity_board_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _ghost_shelf_lesson_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _gooby_resolved: bool = false
+@warning_ignore("unused_private_class_variable")
 var _last_objective_text: String = ""
+@warning_ignore("unused_private_class_variable")
 var _restricted_drop_feedback_token: int = 0
+@warning_ignore("unused_private_class_variable")
 var _pending_restock_deliveries: Array[Dictionary] = []
+@warning_ignore("unused_private_class_variable")
 var _restock_delivery_counter: int = 0
+@warning_ignore("unused_private_class_variable")
 var _restock_ordered_today: bool = false
+@warning_ignore("unused_private_class_variable")
 var _restock_panel_open: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_waiting_for_restock_close: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_ready_after_restock_close: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_restock_close_ready_at_msec: int = 0
+@warning_ignore("unused_private_class_variable")
 var _tax_restock_retry_token: int = 0
+@warning_ignore("unused_private_class_variable")
 var _tax_pending: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_paid_today: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_ignored_today: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_notice_active: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_home_warning_shown: bool = false
+@warning_ignore("unused_private_class_variable")
 var _tax_panel_showing: bool = false
+@warning_ignore("unused_private_class_variable")
 var _end_day_transition_started: bool = false
+@warning_ignore("unused_private_class_variable")
 var _latest_daily_report: Dictionary = {}
 
 var human_shelf: Shelf = null

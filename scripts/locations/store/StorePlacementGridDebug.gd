@@ -2,7 +2,6 @@
 class_name StorePlacementSurface
 extends Node2D
 
-const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacementGrid.gd")
 
 @export var surface_polygon: PackedVector2Array = PackedVector2Array([
 	Vector2(0, 0),
@@ -35,6 +34,7 @@ const StorePlacementGrid = preload("res://scripts/locations/store/StorePlacement
 		point_color = value
 		queue_redraw()
 
+@warning_ignore("unused_private_class_variable")
 var _sampler := StorePlacementGrid.new()
 
 

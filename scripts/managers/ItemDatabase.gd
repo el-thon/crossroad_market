@@ -1,8 +1,9 @@
 extends Node
 
-const ItemDatabaseLoader = preload("res://scripts/managers/items/ItemDatabaseLoader.gd")
 
+@warning_ignore("unused_private_class_variable")
 var _items: Dictionary[StringName, ItemData] = {}
+@warning_ignore("unused_private_class_variable")
 var _loader: ItemDatabaseLoader = ItemDatabaseLoader.new()
 
 

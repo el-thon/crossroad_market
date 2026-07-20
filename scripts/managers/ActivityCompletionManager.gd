@@ -1,9 +1,10 @@
 extends Node
 
-const ActivityCompletionNotifier = preload("res://scripts/managers/activity/ActivityCompletionNotifier.gd")
 
+@warning_ignore("unused_signal")
 signal activity_completion(message: String)
 
+@warning_ignore("unused_private_class_variable")
 var _notifier: ActivityCompletionNotifier = ActivityCompletionNotifier.new()
 
 

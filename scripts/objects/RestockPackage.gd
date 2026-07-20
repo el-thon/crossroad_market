@@ -1,9 +1,8 @@
 class_name RestockPackage
 extends Area2D
 
-const RestockPackageDataFlow = preload("res://scripts/objects/restock/RestockPackageDataFlow.gd")
-const RestockPackagePresentation = preload("res://scripts/objects/restock/RestockPackagePresentation.gd")
 
+@warning_ignore("unused_signal")
 signal collected(delivery_id: int)
 
 var delivery_id: int = -1
@@ -11,9 +10,12 @@ var item_id: String = ""
 var quantity: int = 1
 var deliveries: Array[Dictionary] = []
 
+@warning_ignore("unused_private_class_variable")
 var _label: Label = null
 
+@warning_ignore("unused_private_class_variable")
 var _data_flow: RestockPackageDataFlow = RestockPackageDataFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _presentation: RestockPackagePresentation = RestockPackagePresentation.new()
 
 

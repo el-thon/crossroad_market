@@ -1,16 +1,11 @@
 extends CanvasLayer
 
-const HUDStatusLabels = preload("res://scripts/ui/hud/HUDStatusLabels.gd")
-const HUDNotificationFlow = preload("res://scripts/ui/hud/HUDNotificationFlow.gd")
-const HUDDialogController = preload("res://scripts/ui/hud/HUDDialogController.gd")
-const HUDDialogSkipFlow = preload("res://scripts/ui/hud/HUDDialogSkipFlow.gd")
-const HUDTaxPanel = preload("res://scripts/ui/hud/HUDTaxPanel.gd")
-const HUDHintDialog = preload("res://scripts/ui/hud/HUDHintDialog.gd")
-const HUDCursorTooltip = preload("res://scripts/ui/hud/HUDCursorTooltip.gd")
-const HUDObjectiveToast = preload("res://scripts/ui/hud/HUDObjectiveToast.gd")
 
+@warning_ignore("unused_signal")
 signal notification_finished()
+@warning_ignore("unused_signal")
 signal tax_payment_requested()
+@warning_ignore("unused_signal")
 signal tax_ignore_requested()
 
 @onready var gold_label: Label = $TopLeftHUD/GoldLabel
@@ -36,45 +31,82 @@ const CURSOR_HOVER_QUERY_LIMIT: int = 32
 const OBJECTIVE_TOAST_DURATION: float = 5.0
 const OBJECTIVE_ANIM_DURATION: float = 0.22
 
+@warning_ignore("unused_private_class_variable")
 var _settings_menu: SettingsMenu = null
 
+@warning_ignore("unused_private_class_variable")
 var _notify_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _notify_duration: float = NOTIFY_DURATION
+@warning_ignore("unused_private_class_variable")
 var _notify_full_chars: int = 0
+@warning_ignore("unused_private_class_variable")
 var _notify_instant_text: bool = false
+@warning_ignore("unused_private_class_variable")
 var _action_lock_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _action_lock_sessions: int = 0
+@warning_ignore("unused_private_class_variable")
 var _notification_finished_emitted: bool = true
+@warning_ignore("unused_private_class_variable")
 var _hint_dialog: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _hint_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _hint_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _hint_dialog_visible: bool = false
+@warning_ignore("unused_private_class_variable")
 var _hint_dialog_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip_visible: bool = false
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip_text: String = ""
+@warning_ignore("unused_private_class_variable")
 var _objective_tween: Tween = null
+@warning_ignore("unused_private_class_variable")
 var _objective_timer: float = 0.0
+@warning_ignore("unused_private_class_variable")
 var _objective_base_position: Vector2 = Vector2.ZERO
+@warning_ignore("unused_private_class_variable")
 var _tax_layer: CanvasLayer = null
+@warning_ignore("unused_private_class_variable")
 var _tax_panel: ColorRect = null
+@warning_ignore("unused_private_class_variable")
 var _tax_title_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _tax_report_label: Label = null
+@warning_ignore("unused_private_class_variable")
 var _tax_warning_label: Label = null
 
+@warning_ignore("unused_private_class_variable")
 var _tax_notice_button: Button = null
+@warning_ignore("unused_private_class_variable")
 var _pending_tax_report: Dictionary = {}
+@warning_ignore("unused_private_class_variable")
 var _pending_tax_warning: String = ""
 
+@warning_ignore("unused_private_class_variable")
 var _status_labels: HUDStatusLabels = HUDStatusLabels.new()
+@warning_ignore("unused_private_class_variable")
 var _notification_flow: HUDNotificationFlow = HUDNotificationFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _dialog_controller: HUDDialogController = HUDDialogController.new()
+@warning_ignore("unused_private_class_variable")
 var _dialog_skip_flow: HUDDialogSkipFlow = HUDDialogSkipFlow.new()
+@warning_ignore("unused_private_class_variable")
 var _tax_panel_flow: HUDTaxPanel = HUDTaxPanel.new()
+@warning_ignore("unused_private_class_variable")
 var _hint_dialog_flow: HUDHintDialog = HUDHintDialog.new()
+@warning_ignore("unused_private_class_variable")
 var _cursor_tooltip_flow: HUDCursorTooltip = HUDCursorTooltip.new()
+@warning_ignore("unused_private_class_variable")
 var _objective_toast_flow: HUDObjectiveToast = HUDObjectiveToast.new()
 
 

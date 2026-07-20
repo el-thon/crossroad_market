@@ -49,21 +49,35 @@ const SURFACE_NEIGHBOR_MAX_DISTANCE: float = 36.0
 const SHELF_ACCESS_DISTANCE_SCORE_WEIGHT: float = 1000.0
 
 # ── Shared state (helpers access via _graph._store etc.) ─────────────────────
+@warning_ignore("unused_private_class_variable")
 var _store: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _markers: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _shelf_access_points: Array[Vector2] = []
+@warning_ignore("unused_private_class_variable")
 var _surface_neighbor_cache := {}
+@warning_ignore("unused_private_class_variable")
 var _surface_neighbor_signature := ""
+@warning_ignore("unused_private_class_variable")
 var _cached_shelf_anchor_positions: Array[Vector2] = []
+@warning_ignore("unused_private_class_variable")
 var _cached_shelf_anchor_count: int = -1
+@warning_ignore("unused_private_class_variable")
 var _cached_graph_node_names: Array[StringName] = []
+@warning_ignore("unused_private_class_variable")
 var _cached_graph_node_count: int = -1
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+@warning_ignore("unused_private_class_variable")
 var _routes: StorePathGraphRoutes
+@warning_ignore("unused_private_class_variable")
 var _clearance: StorePathGraphClearance
+@warning_ignore("unused_private_class_variable")
 var _nav: StorePathGraphGraph
+@warning_ignore("unused_private_class_variable")
 var _shelf: StorePathGraphShelfAccess
+@warning_ignore("unused_private_class_variable")
 var _surface: StorePathGraphSurface
 
 

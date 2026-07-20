@@ -1,9 +1,9 @@
 extends Control
 
-const ActivityCompletionNotificationFlow = preload("res://scripts/ui/activity/ActivityCompletionNotificationFlow.gd")
 
 @onready var message: Label = $Panel/Message
 
+@warning_ignore("unused_private_class_variable")
 var _notification_flow: ActivityCompletionNotificationFlow = ActivityCompletionNotificationFlow.new()
 
 

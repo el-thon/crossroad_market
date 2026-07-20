@@ -1,8 +1,11 @@
 class_name Yard
 extends Node2D
 
+@warning_ignore("unused_signal")
 signal return_to_store(door_type: String)
+@warning_ignore("unused_signal")
 signal enter_home()
+@warning_ignore("unused_signal")
 signal restock_delivery_collected(delivery_id: int)
 
 @onready var return_door: Area2D = get_node_or_null("ReturnDoor") as Area2D
@@ -11,6 +14,7 @@ signal restock_delivery_collected(delivery_id: int)
 @onready var scene_flow: Node = get_node_or_null("SceneFlow")
 @onready var restock_flow: Node = get_node_or_null("RestockFlow")
 
+@warning_ignore("unused_private_class_variable")
 var _restock_deliveries: Array[Dictionary] = []
 
 

@@ -1,6 +1,7 @@
 class_name Home
 extends Node2D
 
+@warning_ignore("unused_signal")
 signal return_to_yard(door_type: String)
 
 @onready var return_door: Area2D = get_node_or_null("ReturnDoor") as Area2D

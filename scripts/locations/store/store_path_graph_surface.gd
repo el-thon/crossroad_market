@@ -4,6 +4,7 @@ class_name StorePathGraphSurface
 ## Surface-graph pathfinding for StorePathGraph.
 ## Handles A* over _shelf_access_points and neighbor caching.
 
+@warning_ignore("unused_private_class_variable")
 var _graph  # StorePathGraph – untyped to avoid cyclic class_name reference
 
 

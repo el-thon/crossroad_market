@@ -2,7 +2,6 @@ class_name StoreWorldStateController
 extends Node
 
 const PUT_ACTION: StringName = &"put"
-const StoreTransitionController = preload("res://scripts/locations/store/StoreTransitionController.gd")
 
 var store: Node = null
 
