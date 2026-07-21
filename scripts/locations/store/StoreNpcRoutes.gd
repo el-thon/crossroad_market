@@ -139,11 +139,22 @@ func get_npc_marker_lane_route_to_queue_egress(
 		return []
 
 	var route: Array[Vector2] = []
-	_append_unique_route_point(route, shelf_quad.global_position)
-	_append_unique_route_point(route, egress_marker.global_position)
+	var current := from_position
+	current = _append_orthogonal_route_leg(
+		route,
+		current,
+		shelf_quad.global_position,
+		false
+	)
+	current = _append_orthogonal_route_leg(
+		route,
+		current,
+		egress_marker.global_position,
+		true
+	)
 
 	if route.is_empty() and fallback_position.is_finite():
-		_append_unique_route_point(route, fallback_position)
+		_append_orthogonal_route_leg(route, current, fallback_position, true)
 
 	_record_route_probe(&"npc_marker_lane_egress_route", {
 		"reason": "built",
@@ -260,14 +271,25 @@ func get_npc_exit_route_from_cashier(
 		return []
 
 	var route: Array[Vector2] = []
+	var current := from_position
 	var start_index = _get_checkout_route_start_index(
 		from_position,
 		mandatory_markers
 	)
 	for index in range(start_index, mandatory_markers.size()):
-		route.append(mandatory_markers[index].global_position)
+		current = _append_orthogonal_route_leg(
+			route,
+			current,
+			mandatory_markers[index].global_position,
+			true
+		)
 
-	_append_unique_route_point(route, rejoin_marker.global_position)
+	current = _append_orthogonal_route_leg(
+		route,
+		current,
+		rejoin_marker.global_position,
+		true
+	)
 	var exit_position = get_marker_position_or(
 		store.npc_exit_marker,
 		STORE_ENTRY_FALLBACK_POSITION
@@ -277,11 +299,11 @@ func get_npc_exit_route_from_cashier(
 		exit_position
 	)
 	for point in graph_route:
-		_append_unique_route_point(route, point)
+		current = _append_orthogonal_route_leg(route, current, point, true)
 
 	# Keep the real exit as the final mandatory waypoint even when the graph is
 	# already rejoined at AisleRight.
-	_append_unique_route_point(route, exit_position)
+	_append_orthogonal_route_leg(route, current, exit_position, true)
 	return route
 
 
@@ -326,14 +348,17 @@ func _build_named_marker_route(
 		return []
 
 	var route: Array[Vector2] = []
+	var current := from_position
 	var start_index = _get_checkout_route_start_index(
 		from_position,
 		route_markers
 	)
 	for index in range(start_index, route_markers.size()):
-		_append_unique_route_point(
+		current = _append_orthogonal_route_leg(
 			route,
-			route_markers[index].global_position
+			current,
+			route_markers[index].global_position,
+			true
 		)
 	return route
 
@@ -359,10 +384,13 @@ func _build_checkout_approach_route(from_position: Vector2) -> Array[Vector2]:
 		start_index = mini(nearest_index + 1, route_markers.size() - 1)
 
 	var route: Array[Vector2] = []
+	var current := from_position
 	for index in range(start_index, route_markers.size()):
-		_append_unique_route_point(
+		current = _append_orthogonal_route_leg(
 			route,
-			route_markers[index].global_position
+			current,
+			route_markers[index].global_position,
+			true
 		)
 	return route
 
@@ -455,6 +483,38 @@ func _append_unique_route_point(
 	if not route.is_empty() and route.back().distance_to(point) <= 2.0:
 		return
 	route.append(point)
+
+
+func _append_orthogonal_route_leg(
+	route: Array[Vector2],
+	from_position: Vector2,
+	to_position: Vector2,
+	horizontal_first: bool = true
+) -> Vector2:
+	if not to_position.is_finite():
+		return from_position
+
+	if not from_position.is_finite():
+		_append_unique_route_point(route, to_position)
+		return to_position
+
+	if from_position.distance_to(to_position) <= 2.0:
+		_append_unique_route_point(route, to_position)
+		return to_position
+
+	if (
+		absf(from_position.x - to_position.x) > 0.5
+		and absf(from_position.y - to_position.y) > 0.5
+	):
+		var intermediate := (
+			Vector2(to_position.x, from_position.y)
+			if horizontal_first
+			else Vector2(from_position.x, to_position.y)
+		)
+		_append_unique_route_point(route, intermediate)
+
+	_append_unique_route_point(route, to_position)
+	return to_position
 
 
 func _record_route_probe(label: StringName, context: Dictionary) -> void:

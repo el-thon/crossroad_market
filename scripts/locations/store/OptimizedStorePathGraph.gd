@@ -500,6 +500,40 @@ func _append_shelf_quad_access_fallback_routes(
 		"added_candidates": candidates.size() - before_count
 	})
 
+	if candidates.size() > before_count:
+		return
+
+	# Live NPCs should not become permanently stuck at the door just because the
+	# conservative shelf-entry validator rejected every candidate. Return a
+	# marker-driven orthogonal fallback and let StoreRouteSafety perform the
+	# final standing-rectangle collision check before movement starts.
+	for horizontal_first in [false, true]:
+		var fallback_route: Array[Vector2] = _routes.make_orthogonal_route(
+			from_position,
+			quad_marker.global_position,
+			horizontal_first
+		)
+		fallback_route.append_array(
+			_routes.make_orthogonal_route(
+				quad_marker.global_position,
+				access_position,
+				horizontal_first
+			)
+		)
+		fallback_route = _routes.dedupe_route_points(fallback_route)
+		if fallback_route.is_empty():
+			continue
+		_append_route_candidate(candidates, from_position, fallback_route)
+
+	_record_path_graph_probe(&"npc_shelf_access_route_relaxed_fallback", {
+		"reason": "conservative_candidates_empty",
+		"from": _format_vector(from_position),
+		"access": _format_vector(access_position),
+		"shelf_quad": String(quad_marker.name),
+		"shelf_quad_position": _format_vector(quad_marker.global_position),
+		"added_candidates": candidates.size() - before_count
+	})
+
 
 func _get_nearest_shelf_quad_marker(from_position: Vector2) -> Marker2D:
 	if _markers == null:
