@@ -1,13 +1,14 @@
 extends StorePathGraphSurface
 class_name StorePathGraphSurfaceGrid
 
-## Surface-grid implementation with row/column buckets.
+## Surface-grid implementation with stable row/column topology.
 ##
-## The previous cache builder compared every anchor with every other anchor for
-## each axis direction. With 525 placement points that produced more than one
-## million candidate comparisons and physics queries on the first surface A*.
-## This implementation groups points by their shared row and column, then only
-## inspects nearby points on that axis.
+## The previous cache builder compared every anchor with every other anchor and
+## performed physics queries while constructing the cache. With 525 placement
+## points this produced more than one million comparisons and could bake a
+## temporary NPC/player position into the cached graph. This implementation
+## groups anchors by row/column and connects only adjacent geometric neighbors.
+## Collision remains evaluated dynamically by _find_surface_anchor_path().
 
 
 func _ensure_surface_neighbor_cache() -> void:
@@ -34,8 +35,8 @@ func _build_axis_buckets(horizontal: bool) -> Dictionary:
 	for index in range(_graph._shelf_access_points.size()):
 		var point: Vector2 = _graph._shelf_access_points[index]
 		var axis_value := point.y if horizontal else point.x
-		# Placement anchors are generated from a stable grid. Three decimals keep
-		# rows/columns deterministic without merging neighboring grid lines.
+		# Placement anchors use a stable 12px grid. Three decimals preserve exact
+		# rows and columns without merging neighboring grid lines.
 		var bucket_key := "%.3f" % axis_value
 		var indices: Array = buckets.get(bucket_key, [])
 		indices.append(index)
@@ -43,7 +44,10 @@ func _build_axis_buckets(horizontal: bool) -> Dictionary:
 	return buckets
 
 
-func _connect_axis_buckets(buckets: Dictionary, horizontal: bool) -> void:
+func _connect_axis_buckets(
+	buckets: Dictionary,
+	horizontal: bool
+) -> void:
 	for bucket_variant in buckets.values():
 		if not (bucket_variant is Array):
 			continue
@@ -52,17 +56,21 @@ func _connect_axis_buckets(buckets: Dictionary, horizontal: bool) -> void:
 		ordered_indices.sort_custom(func(a: Variant, b: Variant) -> bool:
 			var point_a: Vector2 = _graph._shelf_access_points[int(a)]
 			var point_b: Vector2 = _graph._shelf_access_points[int(b)]
-			return point_a.x < point_b.x if horizontal else point_a.y < point_b.y
+			return (
+				point_a.x < point_b.x
+				if horizontal
+				else point_a.y < point_b.y
+			)
 		)
 
 		for ordered_index in range(ordered_indices.size()):
-			_append_nearest_clear_axis_neighbor(
+			_append_adjacent_axis_neighbor(
 				ordered_indices,
 				ordered_index,
 				-1,
 				horizontal
 			)
-			_append_nearest_clear_axis_neighbor(
+			_append_adjacent_axis_neighbor(
 				ordered_indices,
 				ordered_index,
 				1,
@@ -70,44 +78,44 @@ func _connect_axis_buckets(buckets: Dictionary, horizontal: bool) -> void:
 			)
 
 
-func _append_nearest_clear_axis_neighbor(
+func _append_adjacent_axis_neighbor(
 	ordered_indices: Array,
 	ordered_index: int,
 	step: int,
 	horizontal: bool
 ) -> void:
+	var candidate_ordered_index := ordered_index + step
+	if (
+		candidate_ordered_index < 0
+		or candidate_ordered_index >= ordered_indices.size()
+	):
+		return
+
 	var source_index := int(ordered_indices[ordered_index])
+	var candidate_index := int(
+		ordered_indices[candidate_ordered_index]
+	)
 	var source_position: Vector2 = _graph._shelf_access_points[source_index]
-	var cursor := ordered_index + step
+	var candidate_position: Vector2 = _graph._shelf_access_points[
+		candidate_index
+	]
+	var distance := (
+		absf(candidate_position.x - source_position.x)
+		if horizontal
+		else absf(candidate_position.y - source_position.y)
+	)
+	if (
+		distance <= _graph.SURFACE_ALIGNMENT_EPSILON
+		or distance > _graph.SURFACE_NEIGHBOR_MAX_DISTANCE
+	):
+		return
 
-	while cursor >= 0 and cursor < ordered_indices.size():
-		var candidate_index := int(ordered_indices[cursor])
-		var candidate_position: Vector2 = _graph._shelf_access_points[candidate_index]
-		var distance := (
-			absf(candidate_position.x - source_position.x)
-			if horizontal
-			else absf(candidate_position.y - source_position.y)
-		)
+	var neighbors: Array = _graph._surface_neighbor_cache.get(
+		source_index,
+		[]
+	)
+	if candidate_index in neighbors:
+		return
 
-		if distance > _graph.SURFACE_NEIGHBOR_MAX_DISTANCE:
-			return
-		if distance <= _graph.SURFACE_ALIGNMENT_EPSILON:
-			cursor += step
-			continue
-
-		if _graph._clearance.is_route_segment_clear(
-			source_position,
-			candidate_position
-		):
-			var neighbors: Array = _graph._surface_neighbor_cache.get(
-				source_index,
-				[]
-			)
-			if candidate_index not in neighbors:
-				neighbors.append(candidate_index)
-				_graph._surface_neighbor_cache[source_index] = neighbors
-			return
-
-		# Preserve the previous behavior: when the nearest point is blocked, a
-		# farther point on the same axis may still be selected within the limit.
-		cursor += step
+	neighbors.append(candidate_index)
+	_graph._surface_neighbor_cache[source_index] = neighbors
