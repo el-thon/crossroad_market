@@ -22,8 +22,6 @@ const DROP_REJECTION_CASHIER_FLOW: StringName = &"cashier_flow"
 const DROP_REJECTION_COLLISION: StringName = &"collision"
 const SHELF_DROP_FALLBACK_DISTANCE: float = 44.0
 const QUEUE_MARKER_DROP_BLOCK_SIZE := Vector2(56, 18)
-const PENDING_ACCESS_UPDATE_META: StringName = &"pending_shelf_access_update_token"
-const SHELF_ACCESS_WARMUP_DELAY: float = 1.0
 
 var store: Node = null
 
@@ -715,121 +713,46 @@ func set_shelf_carried_state(object: Node2D, is_carried: bool) -> void:
 		store._set_node_enabled_recursive(object, true)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func store_shelf_access_metadata(object: Node2D, drop_position: Vector2) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var graph: StorePathGraph = store._get_store_path_graph()
-	graph.store_shelf_access_metadata(object, drop_position)
+func store_shelf_access_metadata(object: Node2D, _drop_position: Vector2) -> void:
+	if object is Shelf and store.npc_routes != null:
+		store.npc_routes.mark_shelf_navigation_ready(object as Shelf)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func schedule_post_shelf_drop_update(object: Node2D, drop_position: Vector2) -> void:
-	if object == null:
-		return
-
-	store._shelf_access_metadata_update_token += 1
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var update_token: int = int(store._shelf_access_metadata_update_token)
-	object.set_meta(PENDING_ACCESS_UPDATE_META, update_token)
-	defer_post_shelf_drop_update(object, drop_position, update_token)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func defer_post_shelf_drop_update(object: Node2D, drop_position: Vector2, update_token: int) -> void:
-	await store.get_tree().process_frame
-	await store.get_tree().physics_frame
-
 	if object == null or not is_instance_valid(object):
 		return
-
-	if not object.has_meta(PENDING_ACCESS_UPDATE_META):
-		return
-
-	if int(object.get_meta(PENDING_ACCESS_UPDATE_META)) != update_token:
-		return
-
-	if object.has_meta("is_carried_storage_object") and bool(object.get_meta("is_carried_storage_object")):
-		object.remove_meta(PENDING_ACCESS_UPDATE_META)
-		return
-
-	object.remove_meta(PENDING_ACCESS_UPDATE_META)
-	await store.get_tree().create_timer(0.15).timeout
-
-	if object == null or not is_instance_valid(object):
-		return
-
-	if object.has_meta("is_carried_storage_object") and bool(object.get_meta("is_carried_storage_object")):
-		return
-
 	store_shelf_access_metadata(object, drop_position)
 	store._register_installed_shelf(object)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func schedule_shelf_access_warmup(delay: float = SHELF_ACCESS_WARMUP_DELAY) -> void:
-	store._shelf_access_warmup_token += 1
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var warmup_token: int = int(store._shelf_access_warmup_token)
-	defer_shelf_access_warmup(warmup_token, delay)
+func defer_post_shelf_drop_update(
+	object: Node2D,
+	drop_position: Vector2,
+	_update_token: int
+) -> void:
+	schedule_post_shelf_drop_update(object, drop_position)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func defer_shelf_access_warmup(warmup_token: int, delay: float) -> void:
-	await store.get_tree().process_frame
-
-	if delay > 0.0:
-		await store.get_tree().create_timer(delay).timeout
-
-	if warmup_token != store._shelf_access_warmup_token:
+func schedule_shelf_access_warmup(_delay: float = 0.0) -> void:
+	if store == null or store.npc_routes == null:
 		return
-
-	if not can_run_shelf_access_warmup():
-		schedule_shelf_access_warmup(SHELF_ACCESS_WARMUP_DELAY)
-		return
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var graph: StorePathGraph = store._get_store_path_graph()
-
-	for shelf_node in store.get_tree().get_nodes_in_group("shelves"):
-		if warmup_token != store._shelf_access_warmup_token:
-			return
-
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var shelf := shelf_node as Shelf
-
-		if shelf == null:
-			continue
-
-		if graph.has_cached_shelf_access_metadata(shelf):
-			continue
-
-		graph.store_shelf_access_metadata(shelf, shelf.global_position)
-
-		await store.get_tree().process_frame
+	for shelf_variant in store.get_tree().get_nodes_in_group("shelves"):
+		if shelf_variant is Shelf:
+			store.npc_routes.mark_shelf_navigation_ready(shelf_variant as Shelf)
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func defer_shelf_access_warmup(_warmup_token: int, _delay: float) -> void:
+	schedule_shelf_access_warmup()
+
+
 func can_run_shelf_access_warmup() -> bool:
-	if store._current_storage != null or store._current_yard != null or store._current_home != null or store._is_transitioning:
-		return false
-
-	if store._is_action_locked():
-		return false
-
-	return get_carried_object_from_player() == null
+	return store != null
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func clear_shelf_access_metadata(object: Node2D) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var graph: StorePathGraph = store._get_store_path_graph()
-	graph.clear_shelf_access_metadata(object)
+	if object is Shelf and store.npc_routes != null:
+		store.npc_routes.clear_shelf_navigation_ready(object as Shelf)
 
-	if object != null and object.has_meta(PENDING_ACCESS_UPDATE_META):
-		object.remove_meta(PENDING_ACCESS_UPDATE_META)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_drop_restriction_feedback(restriction: Dictionary) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var message := str(restriction.get("message", "I can't place the shelf here."))

@@ -2,7 +2,6 @@ class_name Store
 extends Node2D
 
 
-const SHELF_ACCESS_WARMUP_DELAY: float = 1.0
 const STORE_ENTRY_FALLBACK_POSITION := Vector2(240, 204)
 const STORE_STORAGE_RETURN_FALLBACK_POSITION := Vector2(383, 76)
 
@@ -22,15 +21,15 @@ var home_scene: PackedScene = preload("res://scenes/locations/Home.tscn")
 @onready var counter_pos: Marker2D = get_node_or_null("CounterPos") as Marker2D
 @onready var entrance_pos: Marker2D = get_node_or_null("EntrancePos") as Marker2D
 @onready var store_path_markers: Node2D = get_node_or_null("StorePathMarkers") as Node2D
-@onready var npc_entry_marker: Marker2D = _get_store_path_marker_by_role(&"entry", NodePath("StorePathMarkers/StorePathEntry"), NodePath("NPCEntryMarker"))
-@onready var npc_enter_store_marker: Marker2D = _get_store_path_marker_by_role(&"enter_store", NodePath("StorePathMarkers/StorePathEnterStore"), NodePath("NPCEnterStoreMarker"))
-@onready var npc_exit_marker: Marker2D = _get_store_path_marker_by_role(&"exit", NodePath("StorePathMarkers/StorePathExit"), NodePath("NPCExitMarker"))
+@onready var npc_entry_marker: Marker2D = get_node_or_null("StorePathMarkers/StorePathEntryExit") as Marker2D
+@onready var npc_enter_store_marker: Marker2D = get_node_or_null("StorePathMarkers/StorePathEntryExit") as Marker2D
+@onready var npc_exit_marker: Marker2D = get_node_or_null("StorePathMarkers/StorePathEntryExit") as Marker2D
 @onready var npc_store_path_marker: Marker2D = _get_store_path_marker_by_role(&"aisle_right", NodePath("StorePathMarkers/StorePathAisleRight"), NodePath("NPCStorePathMarker"))
 @onready var npc_path_cashier_marker: Marker2D = _get_store_path_marker_by_role(&"cashier", NodePath("StorePathMarkers/StorePathCashier"), NodePath("StorePathCashier"))
 @onready var npc_queue_marker: Marker2D = _get_store_path_marker_by_role(&"queue_front", NodePath("StorePathMarkers/StorePathQueueFront"), NodePath("StorePathQueueMarker"))
 @onready var customer_path_zones: Node2D = get_node_or_null("CustomerPathZones") as Node2D
 @onready var storage_door: Area2D = get_node_or_null("StorageDoor") as Area2D
-@onready var storage_return_pos: Marker2D = _get_store_path_marker_by_role(&"storage_return", NodePath("StorePathMarkers/StorePathStorageReturn"), NodePath("StorageReturnPos"))
+@onready var storage_return_pos: Marker2D = get_node_or_null("StorageReturnPos") as Marker2D
 @onready var yard_door: Area2D = get_node_or_null("YardDoor") as Area2D
 @onready var store_entry_pos: Marker2D = get_node_or_null("StoreEntryPos") as Marker2D
 @onready var player: Node2D = get_node_or_null("Player") as Node2D
@@ -76,17 +75,11 @@ var _restricted_placement_warning_line: Line2D = null
 @warning_ignore("unused_private_class_variable")
 var _restricted_placement_warning_tween: Tween = null
 @warning_ignore("unused_private_class_variable")
-var _store_path_graph: StorePathGraph = null
-@warning_ignore("unused_private_class_variable")
 var _placement_grid: StorePlacementGrid = null
 @warning_ignore("unused_private_class_variable")
 var _placement_surface: Node = null
 @warning_ignore("unused_private_class_variable")
 var _placement_surface_anchor_cache: Array[Vector2] = []
-@warning_ignore("unused_private_class_variable")
-var _shelf_access_metadata_update_token: int = 0
-@warning_ignore("unused_private_class_variable")
-var _shelf_access_warmup_token: int = 0
 @warning_ignore("unused_private_class_variable")
 var _is_transitioning: bool = false
 @warning_ignore("unused_private_class_variable")
@@ -185,7 +178,6 @@ func _ready() -> void:
 		shelf_placement_fallback_spacing
 	)
 	_placement_surface = get_node_or_null("StorePlacementSurface")
-	_store_path_graph = StorePathGraph.new(self, store_path_markers)
 
 	_setup_store_controllers()
 	_connect_manager_signals()
@@ -197,7 +189,6 @@ func _ready() -> void:
 	_create_carry_shelf_blocker()
 	_create_restricted_placement_warning()
 	_setup_npc_static_data()
-	_schedule_shelf_access_warmup(0.8)
 	NPC.current_queue.clear()
 	NPCScheduler.lock_spawning_until_ready()
 
@@ -358,18 +349,47 @@ func get_npc_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
+func get_npc_route_to_cashier_from(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_to_cashier_from(from_position)
-
+		return npc_routes.get_npc_route_to_cashier_from(
+			from_position,
+			npc_node
+		)
 	return []
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_to_queue_target_from(from_position: Vector2, queue_index: int) -> Array[Vector2]:
+func get_npc_route_to_queue_target_from(
+	from_position: Vector2,
+	queue_index: int,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_to_queue_target_from(from_position, queue_index)
+		return npc_routes.get_npc_route_to_queue_target_from(
+			from_position,
+			queue_index,
+			npc_node
+		)
+	return []
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_route_from_shelf_to_queue_target(
+	shelf: Shelf,
+	from_position: Vector2,
+	queue_index: int,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_route_from_shelf_to_queue_target(
+			shelf,
+			from_position,
+			queue_index,
+			npc_node
+		)
 	return []
 
 
@@ -390,18 +410,60 @@ func get_npc_cashier_target(fallback_position: Vector2) -> Vector2:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
+func get_npc_cashier_face_target(fallback_position: Vector2) -> Vector2:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_from_shelf_to_cashier(shelf)
+		return npc_routes.get_npc_cashier_face_target(fallback_position)
+	return fallback_position
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_route_from_shelf_to_cashier(
+	shelf: Shelf,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_route_from_shelf_to_cashier(
+			shelf,
+			npc_node
+		)
 	return []
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_exit_route_from(from_position: Vector2) -> Array[Vector2]:
+func get_npc_exit_route_from(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_exit_route_from(from_position)
+		return npc_routes.get_npc_exit_route_from(from_position, npc_node)
+	return []
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_single_customer_exit_route(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_single_customer_exit_route(
+			from_position,
+			npc_node
+		)
+	return []
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_exit_route_from_shelf(
+	shelf: Shelf,
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_exit_route_from_shelf(
+			shelf,
+			from_position,
+			npc_node
+		)
 	return []
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -414,10 +476,15 @@ func get_npc_shelf_wait_position(index: int = 0) -> Vector2:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_exit_route_from_cashier(from_position: Vector2) -> Array[Vector2]:
+func get_npc_exit_route_from_cashier(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_exit_route_from_cashier(from_position)
-
+		return npc_routes.get_npc_exit_route_from_cashier(
+			from_position,
+			npc_node
+		)
 	return []
 
 
@@ -864,24 +931,8 @@ func _get_store_path_marker_by_role(
 	return null
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_store_path_graph() -> StorePathGraph:
-	if npc_routes != null:
-		return npc_routes.get_store_path_graph()
-
-	if _store_path_graph == null:
-		_store_path_graph = StorePathGraph.new(self, store_path_markers)
-
-	return _store_path_graph
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _schedule_shelf_access_warmup(delay: float = SHELF_ACCESS_WARMUP_DELAY) -> void:
-	if shelf_placement_controller != null:
-		shelf_placement_controller.schedule_shelf_access_warmup(delay)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _hide_restricted_placement_warning() -> void:
 	if shelf_placement_controller != null:
 		shelf_placement_controller.hide_restricted_placement_warning()

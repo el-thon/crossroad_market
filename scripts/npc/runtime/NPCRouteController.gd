@@ -1,12 +1,9 @@
 class_name NPCRouteController
 extends RefCounted
 
-const StoreRouteSafetyScript = preload("res://scripts/npc/runtime/StoreRouteSafety.gd")
 const DEBUG_NPC_ROUTE_BUILD: bool = true
 
 var npc = null
-@warning_ignore("unused_private_class_variable")
-var _route_safety = null
 @warning_ignore("unused_private_class_variable")
 var _last_route_debug_key: String = ""
 @warning_ignore("unused_private_class_variable")
@@ -16,9 +13,6 @@ var _last_stuck_debug_key: String = ""
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func setup(npc_node) -> void:
 	npc = npc_node
-	if _route_safety == null:
-		_route_safety = StoreRouteSafetyScript.new()
-	_route_safety.setup(npc)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -105,10 +99,9 @@ func update_stuck_watchdog(delta: float) -> void:
 		return
 
 	if npc._stuck_watchdog_rebuilds >= npc.STUCK_WATCHDOG_MAX_REBUILDS:
-		# Never replace a failed store route with a direct segment. Direct
-		# fallbacks were allowing NPCs to skip markers and cross PhysicsBody2D
-		# obstacles. An exiting NPC waits and retries; other states safely
-		# transition to the normal graph-based exit state.
+		# Never replace a failed pre-item Store route with an unplanned direct
+		# segment. The marker provider owns the allowed direct movement after
+		# item pickup; failures here wait/retry through the watchdog.
 		if npc.current_state == NPC.State.EXIT:
 			npc._movement_route.clear()
 			npc._movement_route_destination = Vector2.INF
@@ -172,13 +165,10 @@ func build_movement_route(destination: Vector2) -> Array[Vector2]:
 
 	if not route.is_empty():
 		route = dedupe_route_points(route)
-		if _route_safety != null:
-			route = _route_safety.sanitize_store_route(route)
 		return dedupe_route_points(route)
 
-	# Store movement must wait for a valid graph route. Falling back to a
-	# direct destination makes NPCs cut across queue markers, shelves, items,
-	# counters, and other static physics bodies.
+	# Store movement waits for a valid marker route. Direct post-item travel
+	# is returned explicitly by the marker provider, never invented here.
 	if uses_store_navigation_state():
 		return []
 
@@ -298,7 +288,6 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 	return []
 
 
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_egress_queue_route(
 	store: Node,
 	queue_index: int,
@@ -310,52 +299,36 @@ func get_shelf_egress_queue_route(
 		or not is_instance_valid(npc._queue_entry_shelf)
 	):
 		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var egress_route := call_store_route(
+	var route: Array[Vector2] = call_store_route(
 		store,
-		&"get_npc_route_from_shelf_to_cashier",
-		[npc._queue_entry_shelf]
+		&"get_npc_route_from_shelf_to_queue_target",
+		[
+			npc._queue_entry_shelf,
+			npc.global_position,
+			queue_index,
+			npc
+		]
 	)
-
-	if egress_route.is_empty():
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var egress_end: Vector2 = egress_route.back()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var queue_route := call_store_route(
-		store,
-		&"get_npc_route_to_queue_target_from",
-		[egress_end, queue_index]
-	)
-
-	if queue_route.is_empty():
-		return []
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var route := egress_route.duplicate()
-	route.append_array(queue_route)
-	route = dedupe_route_points(route)
-
 	if (
 		not route.is_empty()
 		and route.back().distance_to(destination) > npc.ARRIVAL_THRESHOLD
 	):
 		route.append(destination)
-
 	return dedupe_route_points(route)
 
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_store_route_provider() -> Node:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var tree: SceneTree = npc.get_tree()
-
 	if tree == null:
 		return null
 
-	return tree.get_first_node_in_group("store")
+	var store_node: Node = tree.get_first_node_in_group("store")
+	if store_node == null:
+		return null
+
+	var route_provider_variant: Variant = store_node.get("npc_routes")
+	if is_instance_valid(route_provider_variant) and route_provider_variant is Node:
+		return route_provider_variant as Node
+	return store_node
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

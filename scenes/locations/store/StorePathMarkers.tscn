@@ -1,62 +1,40 @@
+
 [gd_scene format=3 uid="uid://ck4oyd6i35v14"]
 
 [node name="StorePathMarkers" type="Node2D" unique_id=241050301]
 position = Vector2(-14, -39)
 
-[node name="StorePathEntry" type="Marker2D" parent="." unique_id=1297607719]
+[node name="StorePathEntryExit" type="Marker2D" parent="."]
 position = Vector2(254, 277)
-metadata/store_path_role = "entry"
+metadata/store_path_role = "entry_exit"
 
-[node name="StorePathExit" type="Marker2D" parent="." unique_id=340232856]
-position = Vector2(254, 277)
-metadata/store_path_role = "exit"
+[node name="StorePathAisleLeft" type="Marker2D" parent="."]
+position = Vector2(124, 249)
+metadata/store_path_role = "aisle_left"
 
-[node name="StorePathEnterStore" type="Marker2D" parent="." unique_id=312864000]
-position = Vector2(254, 277)
-metadata/store_path_role = "enter_store"
+[node name="StorePathAisleCenter" type="Marker2D" parent="."]
+position = Vector2(254, 249)
+metadata/store_path_role = "aisle_center"
 
-[node name="StorePathAisleRight" type="Marker2D" parent="." unique_id=1087121036]
-position = Vector2(254, 238)
+[node name="StorePathAisleRight" type="Marker2D" parent="."]
+position = Vector2(384, 249)
 metadata/store_path_role = "aisle_right"
 
-[node name="StorePathCashier" type="Marker2D" parent="." unique_id=1161307822]
+[node name="StorePathCashier" type="Marker2D" parent="."]
 position = Vector2(254, 168)
 metadata/store_path_role = "cashier"
 
-[node name="StorePathStorageReturn" type="Marker2D" parent="." unique_id=361610037]
-position = Vector2(397, 109)
-metadata/store_path_role = "storage_return"
-
-[node name="StorePathQueueFront" type="Marker2D" parent="." unique_id=2091645285]
+[node name="StorePathQueueFront" type="Marker2D" parent="."]
 position = Vector2(254, 178)
 metadata/store_path_role = "queue_front"
 metadata/store_queue_index = 0
 
-[node name="StorePathQueueBack1" type="Marker2D" parent="." unique_id=1899601933]
+[node name="StorePathQueueBack1" type="Marker2D" parent="."]
 position = Vector2(254, 190)
 metadata/store_path_role = "queue_back"
 metadata/store_queue_index = 1
 
-[node name="StorePathQueueBack2" type="Marker2D" parent="." unique_id=571526423]
+[node name="StorePathQueueBack2" type="Marker2D" parent="."]
 position = Vector2(254, 202)
 metadata/store_path_role = "queue_back"
 metadata/store_queue_index = 2
-
-[node name="StorePathQueueFrontRight" type="Marker2D" parent="." unique_id=1038901678]
-position = Vector2(308, 178)
-metadata/store_path_role = "queue_front_right"
-metadata/store_queue_index = 0
-
-[node name="StorePathQueueBack1Right" type="Marker2D" parent="." unique_id=1518558975]
-position = Vector2(308, 190)
-metadata/store_path_role = "queue_back_right"
-metadata/store_queue_index = 1
-
-[node name="StorePathQueueBack2Right" type="Marker2D" parent="." unique_id=1164403890]
-position = Vector2(308, 202)
-metadata/store_path_role = "queue_back_right"
-metadata/store_queue_index = 2
-
-[node name="StorePathQueueExitRight" type="Marker2D" parent="."]
-position = Vector2(308, 238)
-metadata/store_path_role = "queue_exit_right"
