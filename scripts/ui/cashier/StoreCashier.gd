@@ -15,6 +15,8 @@ const CATALOG_VIEW_RECT := Rect2(2, 211, 97, 55)
 const CATALOG_SCROLL_RECT := Rect2(100.5, 211.5, 5, 55)
 const CATALOG_SCROLL_STEP: float = 16.0
 const CATALOG_CARD_FONT_SIZE: int = 5
+const CATALOG_ICON_SIZE := Vector2(6, 6)
+const CATALOG_TEXT_RECT := Rect2(12, 1, 32, 6)
 const SMALL_FONT_SIZE: int = 7
 const BODY_FONT_SIZE: int = 8
 const ITEM_CARD_TEXTURE: Texture2D = preload("res://assets/cashier/item-card.png")
@@ -307,6 +309,9 @@ func _make_catalog_item(item: ItemData) -> Button:
 	button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	button.tooltip_text = "Scan %s for %dG." % [item.display_name, item.sell_price]
 	button.pressed.connect(_on_item_scanned.bind(item.item_id))
+	# Card buttons receive the pointer event before CardViewport does, so route
+	# wheel/trackpad gestures through the same catalog scroll handler.
+	button.gui_input.connect(_on_catalog_gui_input)
 
 	var card := TextureRect.new()
 	card.texture = ITEM_CARD_TEXTURE
@@ -319,24 +324,29 @@ func _make_catalog_item(item: ItemData) -> Button:
 
 	var icon := TextureRect.new()
 	icon.texture = item.get_icon()
-	icon.position = Vector2(3, 3)
-	icon.size = Vector2(9, 9)
+	icon.position = Vector2(4, 4)
+	icon.size = CATALOG_ICON_SIZE
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(icon)
 
-	var item_name := _make_label(item.display_name, CATALOG_CARD_FONT_SIZE)
-	item_name.position = Vector2(14, 1)
-	item_name.size = Vector2(32, 6)
+	var item_name := _make_label("", CATALOG_CARD_FONT_SIZE)
 	item_name.clip_text = true
-	item_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	item_name.position = CATALOG_TEXT_RECT.position
+	item_name.size = CATALOG_TEXT_RECT.size
+	item_name.text = _ellipsize_to_width(
+		item.display_name,
+		item_name.get_theme_font("font"),
+		CATALOG_CARD_FONT_SIZE,
+		CATALOG_TEXT_RECT.size.x
+	)
 	item_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(item_name)
 
 	var price := _make_label("%dG" % item.sell_price, CATALOG_CARD_FONT_SIZE)
-	price.position = Vector2(14, 7)
-	price.size = Vector2(32, 6)
+	price.position = Vector2(CATALOG_TEXT_RECT.position.x, 7)
+	price.size = CATALOG_TEXT_RECT.size
 	price.add_theme_color_override("font_color", Color("ead2a2"))
 	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(price)
@@ -439,14 +449,19 @@ func _set_catalog_scroll(value: float) -> void:
 
 
 func _on_catalog_gui_input(event: InputEvent) -> void:
-	if not event is InputEventMouseButton or not event.pressed:
+	var scroll_delta: float = 0.0
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			scroll_delta = -CATALOG_SCROLL_STEP * event.factor
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			scroll_delta = CATALOG_SCROLL_STEP * event.factor
+	elif event is InputEventPanGesture:
+		scroll_delta = event.delta.y * CATALOG_SCROLL_STEP
+
+	if is_zero_approx(scroll_delta):
 		return
-	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-		_set_catalog_scroll(_catalog_scroll_value - CATALOG_SCROLL_STEP)
-		_scan_list.accept_event()
-	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		_set_catalog_scroll(_catalog_scroll_value + CATALOG_SCROLL_STEP)
-		_scan_list.accept_event()
+	_set_catalog_scroll(_catalog_scroll_value + scroll_delta)
+	get_viewport().set_input_as_handled()
 
 
 func _on_catalog_scrollbar_gui_input(event: InputEvent) -> void:
@@ -661,6 +676,19 @@ func _make_label(text: String, font_size: int, alignment: HorizontalAlignment = 
 	label.add_theme_color_override("font_color", Color("3c251b"))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+
+func _ellipsize_to_width(text: String, font: Font, font_size: int, max_width: float) -> String:
+	if font == null or font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= max_width:
+		return text
+
+	const ELLIPSIS := "…"
+	var shortened := text
+	while not shortened.is_empty():
+		shortened = shortened.left(-1).strip_edges()
+		if font.get_string_size(shortened + ELLIPSIS, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= max_width:
+			return shortened + ELLIPSIS
+	return ELLIPSIS
 
 
 func _make_button(text: String, rect: Rect2, font_size: int) -> Button:
