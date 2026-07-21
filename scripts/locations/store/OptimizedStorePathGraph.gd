@@ -131,9 +131,12 @@ func get_route_to_shelf_access(
 		shelf == null
 		or not is_instance_valid(shelf)
 		or not from_position.is_finite()
-		or not has_cached_shelf_access_metadata(shelf)
 	):
 		return []
+
+	# Trigger metadata computation if not cached (get_shelf_access_position handles this)
+	if not has_cached_shelf_access_metadata(shelf):
+		store_shelf_access_metadata(shelf, shelf.global_position)
 
 	var access_position := get_shelf_access_position(shelf)
 	var shelf_graph_node := get_shelf_access_graph_node(shelf)
