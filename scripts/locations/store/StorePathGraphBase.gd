@@ -305,7 +305,14 @@ func get_route_to_shelf_access(
 
 
 func get_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
-	return _get_shortest_checkout_route(from_position, null)
+	# Queue-front is a valid goal while leaving a shelf, but the final approach
+	# must end at the cashier marker itself. Treating both markers as equivalent
+	# here can repeatedly rebuild a route that ends one slot short of service.
+	return _get_shortest_checkout_route(
+		from_position,
+		null,
+		ROLE_CASHIER
+	)
 
 
 func get_shelf_wait_position(index: int = 0) -> Vector2:
@@ -348,7 +355,13 @@ func get_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
 	var access_position := get_shelf_access_position(shelf)
 	if not access_position.is_finite():
 		return []
-	return _get_shortest_checkout_route(access_position, shelf)
+	# This is the legacy shelf-egress API used while joining checkout. End at
+	# QueueFront rather than walking past it to the cashier and then doubling back.
+	return _get_shortest_checkout_route(
+		access_position,
+		shelf,
+		ROLE_QUEUE_FRONT
+	)
 
 
 func get_cashier_exit_route(
@@ -480,7 +493,8 @@ func _append_route_candidate(
 
 func _get_shortest_checkout_route(
 	_from_position: Vector2,
-	_source_shelf: Shelf
+	_source_shelf: Shelf,
+	_target_role: StringName = StringName()
 ) -> Array[Vector2]:
 	return []
 
