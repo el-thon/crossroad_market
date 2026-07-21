@@ -9,16 +9,21 @@ signal free_requested(total: int, item_label: String, quantities: Dictionary)
 signal checkout_cancelled()
 
 const UI_LAYER: int = 12
-const ITEM_ROW_HEIGHT: float = 19.0
+const ITEM_CARD_SIZE := Vector2(48, 15)
+const ITEM_GRID_GAP: int = 1
+const CATALOG_VIEW_RECT := Rect2(2, 211, 97, 55)
+const CATALOG_SCROLL_STEP: float = 16.0
 const SMALL_FONT_SIZE: int = 7
 const BODY_FONT_SIZE: int = 8
+const ITEM_CARD_TEXTURE: Texture2D = preload("res://assets/cashier/item-card.png")
 
 @onready var _scan_tab: Node2D = $StoreCashier
 @onready var _exchange_tab: Node2D = $CashierExchangeTab
 
 var _ui_layer: CanvasLayer
-var _scan_list: ScrollContainer
-var _scan_rows: VBoxContainer
+var _scan_list: Control
+var _scan_rows: GridContainer
+var _scan_scrollbar: VScrollBar
 var _scan_cart: ScrollContainer
 var _scan_cart_rows: VBoxContainer
 var _scan_total: Label
@@ -42,6 +47,9 @@ var _change_due: int = 0
 var _entered_change: String = ""
 var _portrait_texture: Texture2D
 var _action_lock_active: bool = false
+var _inventory_panel: CanvasItem
+var _inventory_was_visible: bool = true
+var _inventory_hidden_by_cashier: bool = false
 
 
 func _ready() -> void:
@@ -55,6 +63,7 @@ func _ready() -> void:
 	_build_scan_tab()
 	_build_exchange_tab()
 	_ui_layer.visible = false
+	_hide_inventory_panel()
 
 
 ## Starts a checkout for an NPC.  This is the hand-off point when replacing
@@ -83,6 +92,7 @@ func begin_checkout(npc: NPC) -> bool:
 	_apply_customer_presentation()
 	_refresh_scan_tab()
 	_show_scan_tab()
+	_hide_inventory_panel()
 	_set_action_lock(true)
 	return true
 
@@ -93,7 +103,12 @@ func reset_runtime_ui() -> void:
 	_target_item_ids.clear()
 	_cart_quantities.clear()
 	_entered_change = ""
+	_restore_inventory_panel()
 	_set_action_lock(false)
+
+
+func _exit_tree() -> void:
+	_restore_inventory_panel()
 
 
 func has_active_checkout() -> bool:
@@ -111,25 +126,45 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _build_scan_tab() -> void:
-	_scan_list = ScrollContainer.new()
-	_scan_list.name = "ItemScroll"
-	_scan_list.position = Vector2(2, 210)
-	_scan_list.size = Vector2(98, 55)
-	_scan_list.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scan_list.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	var cards_root := _scan_tab.get_node("Cards") as Node2D
+	_scan_list = Control.new()
+	_scan_list.name = "CardViewport"
+	_scan_list.position = CATALOG_VIEW_RECT.position
+	_scan_list.size = CATALOG_VIEW_RECT.size
+	_scan_list.clip_contents = true
 	_scan_list.mouse_filter = Control.MOUSE_FILTER_STOP
-	_scan_tab.add_child(_scan_list)
+	_scan_list.gui_input.connect(_on_catalog_gui_input)
+	cards_root.add_child(_scan_list)
 
-	_scan_rows = VBoxContainer.new()
-	_scan_rows.name = "ItemRows"
-	_scan_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scan_rows.add_theme_constant_override("separation", 1)
+	_scan_rows = GridContainer.new()
+	_scan_rows.name = "ItemGrid"
+	_scan_rows.columns = 2
+	_scan_rows.size = Vector2(CATALOG_VIEW_RECT.size.x, 0)
+	_scan_rows.add_theme_constant_override("h_separation", ITEM_GRID_GAP)
+	_scan_rows.add_theme_constant_override("v_separation", ITEM_GRID_GAP)
 	_scan_list.add_child(_scan_rows)
+
+	_scan_scrollbar = VScrollBar.new()
+	_scan_scrollbar.name = "ScrollThumb"
+	_scan_scrollbar.position = Vector2(100.5, 211.5)
+	_scan_scrollbar.size = Vector2(5, 55)
+	_scan_scrollbar.step = 1.0
+	_scan_scrollbar.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scan_scrollbar.z_index = 5
+	var empty_track := StyleBoxEmpty.new()
+	var thumb_style := _panel_style(Color("ad673c"), Color("ad673c"), 0)
+	_scan_scrollbar.add_theme_stylebox_override("scroll", empty_track)
+	_scan_scrollbar.add_theme_stylebox_override("scroll_focus", empty_track)
+	_scan_scrollbar.add_theme_stylebox_override("grabber", thumb_style)
+	_scan_scrollbar.add_theme_stylebox_override("grabber_highlight", thumb_style)
+	_scan_scrollbar.add_theme_stylebox_override("grabber_pressed", thumb_style)
+	_scan_scrollbar.value_changed.connect(_on_catalog_scroll_changed)
+	_scan_tab.add_child(_scan_scrollbar)
 
 	_scan_cart = ScrollContainer.new()
 	_scan_cart.name = "SelectedItems"
-	_scan_cart.position = Vector2(109, 211)
-	_scan_cart.size = Vector2(80, 39)
+	_scan_cart.position = Vector2(113, 214)
+	_scan_cart.size = Vector2(72, 34)
 	_scan_cart.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scan_cart.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_scan_cart.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -140,20 +175,25 @@ func _build_scan_tab() -> void:
 	_scan_cart_rows.add_theme_constant_override("separation", 0)
 	_scan_cart.add_child(_scan_cart_rows)
 
-	_scan_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_scan_total.position = Vector2(108, 197)
-	_scan_total.size = Vector2(81, 12)
+	_scan_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+	_scan_total.position = Vector2(109, 193)
+	_scan_total.size = Vector2(80, 13)
+	_scan_total.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_scan_total.add_theme_color_override("font_color", Color.WHITE)
 	_scan_tab.add_child(_scan_total)
 
-	_scan_continue = _make_button("EXCHANGE", Rect2(109, 252, 80, 12), BODY_FONT_SIZE)
+	_scan_continue = _make_button("", Rect2(169, 250, 16, 11), BODY_FONT_SIZE)
 	_scan_continue.tooltip_text = "Check the scanned items and enter the customer's change."
 	_scan_continue.pressed.connect(_on_scan_continue_pressed)
+	_add_exchange_arrow_icon(_scan_continue)
 	_scan_tab.add_child(_scan_continue)
 
-	_customer_cash_label = _make_label("CASH 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
-	_customer_cash_label.position = Vector2(210, 247)
-	_customer_cash_label.size = Vector2(48, 12)
-	_scan_tab.add_child(_customer_cash_label)
+	var customer_money := _scan_tab.get_node("CustomerMoney") as Sprite2D
+	_customer_cash_label = _make_label("0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+	_customer_cash_label.position = Vector2(-24, -7)
+	_customer_cash_label.size = Vector2(48, 14)
+	_customer_cash_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	customer_money.add_child(_customer_cash_label)
 
 	_scan_dialog = _make_dialog_label()
 	_scan_tab.add_child(_scan_dialog)
@@ -161,20 +201,22 @@ func _build_scan_tab() -> void:
 
 
 func _build_exchange_tab() -> void:
-	_exchange_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_exchange_total.position = Vector2(108, 197)
-	_exchange_total.size = Vector2(81, 12)
+	_exchange_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+	_exchange_total.position = Vector2(109, 193)
+	_exchange_total.size = Vector2(80, 13)
+	_exchange_total.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_exchange_total.add_theme_color_override("font_color", Color.WHITE)
 	_exchange_tab.add_child(_exchange_total)
 
 	_exchange_cart_rows = VBoxContainer.new()
-	_exchange_cart_rows.position = Vector2(109, 211)
-	_exchange_cart_rows.size = Vector2(80, 31)
+	_exchange_cart_rows.position = Vector2(113, 214)
+	_exchange_cart_rows.size = Vector2(72, 28)
 	_exchange_cart_rows.add_theme_constant_override("separation", 0)
 	_exchange_tab.add_child(_exchange_cart_rows)
 
 	_exchange_input = _make_label("", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_exchange_input.position = Vector2(109, 243)
-	_exchange_input.size = Vector2(80, 14)
+	_exchange_input.position = Vector2(113, 244)
+	_exchange_input.size = Vector2(72, 13)
 	_exchange_input.add_theme_color_override("font_color", Color("fff2a6"))
 	_exchange_input.add_theme_stylebox_override("normal", _panel_style(Color("6e514d"), Color("d9c2a8"), 1))
 	_exchange_tab.add_child(_exchange_input)
@@ -221,8 +263,10 @@ func _build_calculator() -> void:
 
 func _refresh_scan_tab() -> void:
 	_clear_children(_scan_rows)
-	for item in _get_store_items():
+	var store_items := _get_store_items()
+	for item in store_items:
 		_scan_rows.add_child(_make_catalog_item(item))
+	_update_catalog_scroll_metrics(store_items.size())
 
 	_refresh_cart_displays()
 	_customer_cash_label.text = "%dG" % _customer_cash
@@ -249,32 +293,42 @@ func _refresh_cart_displays() -> void:
 
 
 func _make_catalog_item(item: ItemData) -> Button:
-	var button := _make_button("", Rect2(Vector2.ZERO, Vector2(93, ITEM_ROW_HEIGHT)), SMALL_FONT_SIZE)
-	button.custom_minimum_size = Vector2(93, ITEM_ROW_HEIGHT)
+	var button := _make_button("", Rect2(Vector2.ZERO, ITEM_CARD_SIZE), SMALL_FONT_SIZE)
+	button.custom_minimum_size = ITEM_CARD_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	button.tooltip_text = "Scan %s for %dG." % [item.display_name, item.sell_price]
-	button.add_theme_stylebox_override("hover", _panel_style(Color("76503b"), Color("f0b17f"), 1))
 	button.pressed.connect(_on_item_scanned.bind(item.item_id))
+
+	var card := TextureRect.new()
+	card.texture = ITEM_CARD_TEXTURE
+	card.position = Vector2.ZERO
+	card.size = ITEM_CARD_SIZE
+	card.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	card.stretch_mode = TextureRect.STRETCH_KEEP
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(card)
 
 	var icon := TextureRect.new()
 	icon.texture = item.get_icon()
-	icon.position = Vector2(2, 1)
-	icon.size = Vector2(16, 16)
+	icon.position = Vector2(1, 1)
+	icon.size = Vector2(13, 13)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(icon)
 
 	var item_name := _make_label(item.display_name, SMALL_FONT_SIZE)
-	item_name.position = Vector2(20, 1)
-	item_name.size = Vector2(70, 8)
+	item_name.position = Vector2(15, 0)
+	item_name.size = Vector2(31, 8)
 	item_name.clip_text = true
 	item_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	item_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(item_name)
 
 	var price := _make_label("%dG" % item.sell_price, SMALL_FONT_SIZE)
-	price.position = Vector2(20, 9)
-	price.size = Vector2(70, 8)
+	price.position = Vector2(15, 7)
+	price.size = Vector2(31, 8)
 	price.add_theme_color_override("font_color", Color("ead2a2"))
 	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(price)
@@ -283,7 +337,7 @@ func _make_catalog_item(item: ItemData) -> Button:
 
 func _make_cart_row(item_id: String, quantity: int, allow_decrement: bool) -> Control:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(80, 10)
+	row.custom_minimum_size = Vector2(72, 10)
 	row.add_theme_constant_override("separation", 1)
 	var item: ItemData = ItemDatabase.get_item(item_id)
 	var name := item.display_name if item != null else item_id
@@ -299,10 +353,16 @@ func _make_cart_row(item_id: String, quantity: int, allow_decrement: bool) -> Co
 	row.add_child(subtotal)
 
 	if allow_decrement:
-		var minus := _make_button("-", Rect2(Vector2.ZERO, Vector2(11, 10)), SMALL_FONT_SIZE)
-		minus.custom_minimum_size = Vector2(11, 10)
+		var minus := _make_button("", Rect2(Vector2.ZERO, Vector2(9, 9)), SMALL_FONT_SIZE)
+		minus.custom_minimum_size = Vector2(9, 9)
 		minus.tooltip_text = "Remove one %s." % name
 		minus.pressed.connect(_on_item_decremented.bind(item_id))
+		var minus_icon := ColorRect.new()
+		minus_icon.position = Vector2(2, 4)
+		minus_icon.size = Vector2(5, 1)
+		minus_icon.color = Color.BLACK
+		minus_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		minus.add_child(minus_icon)
 		row.add_child(minus)
 	return row
 
@@ -315,6 +375,7 @@ func _show_scan_tab() -> void:
 	_ui_layer.visible = true
 	_set_tab_contrast(_scan_tab, true)
 	_set_tab_contrast(_exchange_tab, false)
+	_hide_inventory_panel()
 
 
 func show_scan_tab() -> void:
@@ -330,6 +391,7 @@ func _show_exchange_tab() -> void:
 	_ui_layer.visible = true
 	_set_tab_contrast(_scan_tab, false)
 	_set_tab_contrast(_exchange_tab, true)
+	_hide_inventory_panel()
 	_refresh_exchange_tab()
 
 
@@ -344,6 +406,41 @@ func _refresh_exchange_tab() -> void:
 	_exchange_input.text = ("[%sG]" % _entered_change) if not _entered_change.is_empty() else "[--G]"
 	_exchange_dialog.text = _get_customer_dialogue()
 	_refresh_cart_displays()
+
+
+func _update_catalog_scroll_metrics(item_count: int) -> void:
+	var row_count := ceili(float(item_count) / 2.0)
+	var content_height := maxf(
+		CATALOG_VIEW_RECT.size.y,
+		row_count * ITEM_CARD_SIZE.y + maxi(row_count - 1, 0) * ITEM_GRID_GAP
+	)
+	_scan_rows.custom_minimum_size = Vector2(CATALOG_VIEW_RECT.size.x, content_height)
+	_scan_rows.size = Vector2(CATALOG_VIEW_RECT.size.x, content_height)
+	_scan_scrollbar.min_value = 0.0
+	_scan_scrollbar.max_value = content_height
+	_scan_scrollbar.page = CATALOG_VIEW_RECT.size.y
+	_scan_scrollbar.visible = content_height > CATALOG_VIEW_RECT.size.y
+	_scan_scrollbar.value = clampf(
+		_scan_scrollbar.value,
+		0.0,
+		maxf(content_height - CATALOG_VIEW_RECT.size.y, 0.0)
+	)
+	_on_catalog_scroll_changed(_scan_scrollbar.value)
+
+
+func _on_catalog_scroll_changed(value: float) -> void:
+	_scan_rows.position.y = -roundf(value)
+
+
+func _on_catalog_gui_input(event: InputEvent) -> void:
+	if not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		_scan_scrollbar.value -= CATALOG_SCROLL_STEP
+		_scan_list.accept_event()
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		_scan_scrollbar.value += CATALOG_SCROLL_STEP
+		_scan_list.accept_event()
 
 
 func _on_item_scanned(item_id: String) -> void:
@@ -509,6 +606,21 @@ func _make_dialog_label() -> Label:
 	return label
 
 
+func _add_exchange_arrow_icon(button: Button) -> void:
+	var arrow := Polygon2D.new()
+	arrow.polygon = PackedVector2Array([
+		Vector2(2, 3),
+		Vector2(9, 3),
+		Vector2(9, 1),
+		Vector2(14, 5.5),
+		Vector2(9, 10),
+		Vector2(9, 8),
+		Vector2(2, 8),
+	])
+	arrow.color = Color.WHITE
+	button.add_child(arrow)
+
+
 func _make_label(text: String, font_size: int, alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var label := Label.new()
 	label.text = text
@@ -566,7 +678,31 @@ func _flash_exchange_input() -> void:
 
 func _clear_children(parent: Node) -> void:
 	for child in parent.get_children():
+		parent.remove_child(child)
 		child.queue_free()
+
+
+func _hide_inventory_panel() -> void:
+	if _inventory_hidden_by_cashier:
+		return
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud == null:
+		return
+	_inventory_panel = hud.get_node_or_null("InventoryUI") as CanvasItem
+	if _inventory_panel == null:
+		return
+	_inventory_was_visible = _inventory_panel.visible
+	_inventory_panel.visible = false
+	_inventory_hidden_by_cashier = true
+
+
+func _restore_inventory_panel() -> void:
+	if not _inventory_hidden_by_cashier:
+		return
+	if _inventory_panel != null and is_instance_valid(_inventory_panel):
+		_inventory_panel.visible = _inventory_was_visible
+	_inventory_panel = null
+	_inventory_hidden_by_cashier = false
 
 
 func _set_action_lock(locked: bool) -> void:
