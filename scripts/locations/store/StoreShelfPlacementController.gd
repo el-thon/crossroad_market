@@ -769,6 +769,7 @@ func pickup_installed_shelf(object: Node2D) -> void:
 
 	if object is Shelf:
 		(object as Shelf).set_lifecycle(Shelf.LIFECYCLE_BEING_PICKED_UP)
+		_notify_npcs_shelf_picked_up(object as Shelf)
 
 	object.reparent(store.player, true)
 	object.position = Vector2(0, -18)
@@ -912,6 +913,30 @@ func _notify_npcs_shelf_access_changed(shelf: Shelf) -> void:
 		npc_node.set_meta(&"path_possibly_invalid", true)
 		if npc_node.current_state == NPC.State.WAIT_FOR_SHELF:
 			npc_node._set_state(NPC.State.WALK_TO_SHELF)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _notify_npcs_shelf_picked_up(shelf: Shelf) -> void:
+	if store == null or shelf == null or not is_instance_valid(shelf):
+		return
+
+	for npc_node in store.get_tree().get_nodes_in_group("npcs"):
+		if npc_node == null or not is_instance_valid(npc_node):
+			continue
+		if not _is_npc_targeting_shelf(npc_node, shelf):
+			continue
+		if bool(npc_node.get("_has_taken_shelf_item")):
+			continue
+
+		npc_node.velocity = Vector2.ZERO
+		npc_node._movement_route.clear()
+		npc_node._movement_route_destination = Vector2.INF
+		npc_node.target_position = npc_node.global_position
+		npc_node._waiting_for_shelf_return = true
+		npc_node._shelf_wait_timer = 0.0
+		npc_node.set_meta(&"path_possibly_invalid", true)
+		if npc_node.current_state != NPC.State.WAIT_FOR_SHELF:
+			npc_node._set_state(NPC.State.WAIT_FOR_SHELF)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

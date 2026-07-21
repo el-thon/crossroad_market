@@ -2,6 +2,7 @@ class_name NPCQueueFlow
 extends RefCounted
 
 const NPCQueueReservationControllerScript = preload("res://scripts/npc/runtime/NPCQueueReservationController.gd")
+const EXIT_ORIGIN_SHELF_META: StringName = &"exit_origin_shelf"
 
 var npc = null
 
@@ -81,11 +82,13 @@ func process_wait_in_queue(delta: float) -> void:
 
 	if arrived and queue_index == 0:
 		pass
+		_clear_queue_entry_shelf_obstacle()
 		start_queue_to_cashier(queue_index)
 		return
 	elif arrived:
 		npc.velocity = Vector2.ZERO
 		npc.move_and_slide()
+		_clear_queue_entry_shelf_obstacle()
 		if not npc._queue_back_facing_done:
 			npc._queue_back_facing_done = true
 		if not npc._queue_back_facing_logged:
@@ -109,6 +112,8 @@ func leave_queue() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func enter_checkout_queue() -> void:
+	if npc._queue_entry_shelf != null and is_instance_valid(npc._queue_entry_shelf):
+		npc.set_meta(EXIT_ORIGIN_SHELF_META, npc._queue_entry_shelf)
 	join_queue()
 	npc._last_queue_index = NPCQueueReservationControllerScript.index_of(npc)
 	npc._is_moving_from_queue_to_cashier = false
@@ -167,6 +172,12 @@ func start_queue_to_cashier(queue_index: int) -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _clear_queue_entry_shelf_obstacle() -> void:
+	if npc.has_meta(EXIT_ORIGIN_SHELF_META):
+		npc.remove_meta(EXIT_ORIGIN_SHELF_META)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func process_queue_to_cashier(queue_index: int) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var cashier_target := get_cashier_target()
@@ -181,6 +192,7 @@ func process_queue_to_cashier(queue_index: int) -> void:
 	if arrived:
 		npc.velocity = Vector2.ZERO
 		npc.move_and_slide()
+		_clear_queue_entry_shelf_obstacle()
 		face_queue_forward(queue_index, "arrived_cashier")
 		npc._is_moving_from_queue_to_cashier = false
 		pass
