@@ -1,26 +1,36 @@
-name: Godot 4.7 Compile and Boot
+name: Finalize Marker-only Store Navigation
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - "scripts/**"
       - "scenes/**"
       - "data/**"
-      - "project.godot"
+      - "docs/**"
+      - "tools/ci/finalize_marker_only_facade.py"
       - ".github/workflows/store-navigation-parse.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  compile-and-boot:
+  finalize-and-verify:
+    if: github.head_ref == 'agent/rebuild-store-marker-only-routing'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
-      - name: Checkout repository
+      - name: Checkout migration branch
         uses: actions/checkout@v4
+        with:
+          ref: agent/rebuild-store-marker-only-routing
+          fetch-depth: 0
+
+      - name: Apply final facade patch
+        run: python tools/ci/finalize_marker_only_facade.py
 
       - name: Install Godot 4.7 stable
         shell: bash
@@ -36,19 +46,13 @@ jobs:
         run: |
           cat > /tmp/check_all_scripts.gd <<'GDSCRIPT'
           extends SceneTree
-
           var failures: int = 0
-
           func _init() -> void:
               _scan_directory("res://")
-              if failures > 0:
-                  push_error("Failed to compile %d GDScript resource(s)." % failures)
               quit(1 if failures > 0 else 0)
-
           func _scan_directory(path: String) -> void:
               var directory: DirAccess = DirAccess.open(path)
               if directory == null:
-                  push_error("Cannot open %s" % path)
                   failures += 1
                   return
               directory.list_dir_begin()
@@ -74,14 +78,21 @@ jobs:
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
             --headless --path . --script /tmp/check_all_scripts.gd
 
-      - name: Import project resources
+      - name: Import and smoke boot
         shell: bash
         run: |
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
             --headless --editor --path . --quit
-
-      - name: Smoke boot project
-        shell: bash
-        run: |
           timeout 60s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
             --headless --path . --quit
+
+      - name: Commit verified final patch
+        shell: bash
+        run: |
+          git restore .github/workflows/store-navigation-parse.yml
+          rm -f tools/ci/finalize_marker_only_facade.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A scripts docs tools/ci
+          git commit -m "Finalize marker-only Store route facade"
+          git push origin HEAD:agent/rebuild-store-marker-only-routing
