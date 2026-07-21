@@ -84,6 +84,27 @@ func get_npc_route_to_queue_target_from(
 	)
 
 
+func get_npc_shelf_egress_route_to_queue_from(
+	shelf: Shelf,
+	from_position: Vector2,
+	queue_index: int,
+	destination: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if shelf == null or not is_instance_valid(shelf):
+		return []
+	var graph := get_store_path_graph()
+	if not graph.has_method("get_shelf_egress_route_to_queue_from"):
+		return []
+	return graph.get_shelf_egress_route_to_queue_from(
+		shelf,
+		from_position,
+		queue_index,
+		destination,
+		npc_node
+	)
+
+
 func get_npc_queue_target(
 	queue_index: int,
 	fallback_position: Vector2

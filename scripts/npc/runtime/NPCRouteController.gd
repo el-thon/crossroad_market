@@ -646,6 +646,44 @@ func get_shelf_egress_queue_route(
 		})
 		return []
 
+	if store.has_method("get_npc_shelf_egress_route_to_queue_from"):
+		var chain_route := call_store_route(
+			store,
+			&"get_npc_shelf_egress_route_to_queue_from",
+			[
+				npc._queue_entry_shelf,
+				npc.global_position,
+				queue_index,
+				destination,
+				npc
+			]
+		)
+		if not chain_route.is_empty():
+			var chain_sanitized_route: Array[Vector2] = chain_route
+			if _route_safety != null:
+				chain_sanitized_route = _route_safety.sanitize_store_route(
+					chain_route
+				)
+			if not chain_sanitized_route.is_empty():
+				_record_route_probe(&"npc_shelf_egress_route", {
+					"reason": "explicit_shelf_anchor",
+					"queue_index": queue_index,
+					"destination": _format_vector(destination),
+					"entry_shelf_id": String(npc._queue_entry_shelf.get_shelf_id()),
+					"entry_shelf_revision": npc._queue_entry_shelf.get_revision(),
+					"route_points": chain_sanitized_route.size()
+				})
+				return dedupe_route_points(chain_sanitized_route)
+
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "explicit_shelf_anchor_empty",
+			"queue_index": queue_index,
+			"destination": _format_vector(destination),
+			"entry_shelf_id": String(npc._queue_entry_shelf.get_shelf_id()),
+			"entry_shelf_revision": npc._queue_entry_shelf.get_revision(),
+			"route_points": chain_route.size()
+		})
+
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var egress_route := call_store_route(
 		store,

@@ -74,6 +74,89 @@ func get_route_to_shelf_access(
 	return _get_shortest_route(candidates)
 
 
+func get_shelf_egress_route_to_queue_from(
+	shelf: Shelf,
+	from_position: Vector2,
+	queue_index: int,
+	destination: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if shelf == null or not is_instance_valid(shelf):
+		return []
+	if not from_position.is_finite():
+		return []
+
+	var access_position := get_shelf_access_position(shelf)
+	if not access_position.is_finite():
+		return []
+
+	var anchor_node := _get_nearest_shelf_anchor_node(access_position)
+	if anchor_node == StringName():
+		return []
+
+	var anchor_position: Vector2 = _nav.get_marker_position(anchor_node)
+	if not anchor_position.is_finite():
+		return []
+
+	var queue_route := get_route_to_queue_target_from(anchor_position, queue_index)
+	if queue_route.is_empty():
+		var queue_target := get_queue_target_position(queue_index, destination)
+		if not queue_target.is_finite():
+			queue_target = destination
+		if not queue_target.is_finite():
+			return []
+		queue_route = _routes.make_orthogonal_route(anchor_position, queue_target, true)
+
+	var candidates: Array[Dictionary] = []
+	for first_leg_horizontal in [true, false]:
+		var first_leg: Array[Vector2] = _routes.make_orthogonal_route(
+			from_position,
+			access_position,
+			first_leg_horizontal
+		)
+		for second_leg_horizontal in [true, false]:
+			var candidate_route: Array[Vector2] = first_leg.duplicate()
+			candidate_route.append_array(
+				_routes.make_orthogonal_route(
+					access_position,
+					anchor_position,
+					second_leg_horizontal
+				)
+			)
+			candidate_route.append_array(queue_route)
+			if (
+				destination.is_finite()
+				and (
+					candidate_route.is_empty()
+					or candidate_route.back().distance_to(destination)
+					> MARKER_ALIGNMENT_EPSILON
+				)
+			):
+				candidate_route.append(destination)
+			candidate_route = _routes.dedupe_route_points(candidate_route)
+			_append_route_candidate(candidates, from_position, candidate_route)
+
+	var route := _get_shortest_route(candidates)
+	if route.is_empty():
+		return []
+
+	if (
+		not _clearance.is_route_to_access_clear(
+			from_position,
+			route,
+			shelf,
+			npc_node
+		)
+		and not _clearance.is_queue_route_clear_from_current_position(
+			from_position,
+			route
+		)
+	):
+		return []
+
+	return route
+
+
 func _append_fast_live_access_routes(
 	candidates: Array[Dictionary],
 	from_position: Vector2,
@@ -195,6 +278,14 @@ func _append_nearest_shelf_anchor_nodes(
 
 		marker_nodes.append(node_name)
 		appended_count += 1
+
+
+func _get_nearest_shelf_anchor_node(access_position: Vector2) -> StringName:
+	var marker_nodes: Array[StringName] = []
+	_append_nearest_shelf_anchor_nodes(marker_nodes, access_position)
+	if marker_nodes.is_empty():
+		return StringName()
+	return marker_nodes.front()
 
 
 func _is_shelf_entry_route_allowed(

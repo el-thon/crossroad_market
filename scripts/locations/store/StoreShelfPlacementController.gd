@@ -930,6 +930,8 @@ func _notify_npcs_shelf_access_changed(shelf: Shelf) -> void:
 		npc_node.target_position = visit_position
 		npc_node._movement_route.clear()
 		npc_node._movement_route_destination = Vector2.INF
+		if npc_node.has_method("_reset_stuck_watchdog"):
+			npc_node._reset_stuck_watchdog()
 		npc_node.set_meta(&"path_possibly_invalid", true)
 		if npc_node.current_state == NPC.State.WAIT_FOR_SHELF:
 			npc_node._set_state(NPC.State.WALK_TO_SHELF)
@@ -976,6 +978,8 @@ func _notify_npcs_shelf_picked_up(shelf: Shelf) -> void:
 		npc_node.velocity = Vector2.ZERO
 		npc_node._movement_route.clear()
 		npc_node._movement_route_destination = Vector2.INF
+		if npc_node.has_method("_reset_stuck_watchdog"):
+			npc_node._reset_stuck_watchdog()
 		npc_node.target_position = npc_node.global_position
 		npc_node._waiting_for_shelf_return = true
 		npc_node._shelf_wait_timer = 0.0
