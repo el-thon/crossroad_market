@@ -585,6 +585,20 @@ func get_npc_shelf_egress_route_to_queue_from(
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_queue_egress_target(
+	queue_index: int,
+	fallback_position: Vector2
+) -> Vector2:
+	if npc_routes != null:
+		return npc_routes.get_npc_queue_egress_target(
+			queue_index,
+			fallback_position
+		)
+
+	return fallback_position
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_npc_queue_target(queue_index: int, fallback_position: Vector2) -> Vector2:
 	if npc_routes != null:
 		return npc_routes.get_npc_queue_target(queue_index, fallback_position)

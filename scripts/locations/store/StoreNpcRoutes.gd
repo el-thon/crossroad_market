@@ -105,6 +105,19 @@ func get_npc_shelf_egress_route_to_queue_from(
 	)
 
 
+func get_npc_queue_egress_target(
+	queue_index: int,
+	fallback_position: Vector2
+) -> Vector2:
+	var graph := get_store_path_graph()
+	if graph.has_method("get_queue_egress_target_position"):
+		return graph.get_queue_egress_target_position(
+			queue_index,
+			fallback_position
+		)
+	return get_npc_queue_target(queue_index, fallback_position)
+
+
 func get_npc_queue_target(
 	queue_index: int,
 	fallback_position: Vector2

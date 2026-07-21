@@ -198,6 +198,17 @@ func _get_anchor_route_to_queue_target(
 	return _get_shortest_route(candidates)
 
 
+func get_queue_egress_target_position(
+	queue_index: int,
+	fallback_position: Vector2
+) -> Vector2:
+	var approach_node := _nav.get_queue_approach_node_name(queue_index)
+	var approach_position := _nav.get_marker_position(approach_node)
+	if approach_position.is_finite():
+		return approach_position
+	return get_queue_target_position(queue_index, fallback_position)
+
+
 func _build_route_leg(
 	from_position: Vector2,
 	to_position: Vector2,

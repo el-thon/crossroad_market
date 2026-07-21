@@ -124,8 +124,11 @@ func process_wait_in_queue(delta: float) -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 	var egress_target: Vector2 = npc._queue_egress_target_position
+	var target_source: String = "cached"
 	if not egress_target.is_finite():
-		egress_target = get_queue_target()
+		egress_target = get_queue_egress_target(queue_index)
+		npc._queue_egress_target_position = egress_target
+		target_source = "resolved"
 
 	npc.target_position = egress_target
 	var arrived: bool = (
@@ -147,7 +150,8 @@ func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 				npc.global_position.distance_to(egress_target),
 				0.01
 			),
-			"egress_target": _format_vector(egress_target)
+			"egress_target": _format_vector(egress_target),
+			"egress_target_source": target_source
 		})
 
 	if not arrived:
@@ -383,6 +387,22 @@ func get_queue_target() -> Vector2:
 			return result as Vector2
 
 	return NPCQueueReservationControllerScript.get_target(npc, NPC.counter_position)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_queue_egress_target(queue_index: int) -> Vector2:
+	var queue_target := get_queue_target()
+	var store: Node = npc._get_store_route_provider()
+	if store != null and store.has_method("get_npc_queue_egress_target"):
+		var result: Variant = store.call(
+			"get_npc_queue_egress_target",
+			queue_index,
+			queue_target
+		)
+		if result is Vector2:
+			return result as Vector2
+
+	return queue_target
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
