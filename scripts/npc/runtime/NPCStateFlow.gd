@@ -106,7 +106,8 @@ func process_walk_to_shelf() -> void:
 			return
 
 	if (
-		npc.is_at_target_shelf_access()
+		npc.global_position.distance_to(npc.target_position)
+		<= npc.SHELF_VISIT_ARRIVAL_DISTANCE
 	):
 		npc.velocity = Vector2.ZERO
 		npc.move_and_slide()
@@ -210,11 +211,11 @@ func process_take_item() -> void:
 		npc._enter_checkout_queue()
 		return
 
-	var access_target: Vector2 = npc._target_shelf_access_position
-	if not access_target.is_finite():
-		access_target = npc.target_position
-
-	if not npc.is_at_target_shelf_access() and not npc._move_to(access_target):
+	if (
+		npc.global_position.distance_to(npc.target_position)
+		> npc.SHELF_ACTION_DISTANCE
+		and not npc._move_to(npc.target_position)
+	):
 		return
 
 	npc._face_target_shelf()
@@ -392,7 +393,6 @@ func _get_store_provider() -> Node:
 func finish_checkout_and_exit() -> void:
 	npc._dialog_timer = npc.DIALOG_DURATION
 	npc._target_shelf = null
-	npc.clear_target_shelf_access()
 	npc._exit_after_checkout = true
 	npc.target_position = npc._get_exit_position()
 	set_state(NPC.State.EXIT)
@@ -422,7 +422,6 @@ func set_state(new_state: int) -> void:
 
 	if new_state == NPC.State.EXIT:
 		npc._target_shelf = null
-		npc.clear_target_shelf_access()
 
 	if new_state in [
 		NPC.State.WALK_TO_SHELF,

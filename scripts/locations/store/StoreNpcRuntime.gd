@@ -17,99 +17,99 @@ var store: Node = null
 
 
 func setup(store_node: Node) -> void:
-	store = store_node
+    store = store_node
 
 
 func setup_static_data() -> void:
-	if store == null:
-		return
-	if store.npc_queue_marker != null:
-		NPC.counter_position = store.npc_queue_marker.global_position
-	elif store.counter_pos != null:
-		NPC.counter_position = store.counter_pos.global_position
-	if store.npc_enter_store_marker != null:
-		NPC.entrance_position = store.npc_enter_store_marker.global_position
-	elif store.entrance_pos != null:
-		NPC.entrance_position = store.entrance_pos.global_position
-	if store.npc_exit_marker != null:
-		NPC.exit_position = store.npc_exit_marker.global_position
-	else:
-		NPC.exit_position = NPC.entrance_position
-	if store.npc_store_path_marker != null:
-		NPC.store_path_position = store.npc_store_path_marker.global_position
-	else:
-		NPC.store_path_position = Vector2.INF
+    if store == null:
+        return
+    if store.npc_queue_marker != null:
+        NPC.counter_position = store.npc_queue_marker.global_position
+    elif store.counter_pos != null:
+        NPC.counter_position = store.counter_pos.global_position
+    if store.npc_enter_store_marker != null:
+        NPC.entrance_position = store.npc_enter_store_marker.global_position
+    elif store.entrance_pos != null:
+        NPC.entrance_position = store.entrance_pos.global_position
+    if store.npc_exit_marker != null:
+        NPC.exit_position = store.npc_exit_marker.global_position
+    else:
+        NPC.exit_position = NPC.entrance_position
+    if store.npc_store_path_marker != null:
+        NPC.store_path_position = store.npc_store_path_marker.global_position
+    else:
+        NPC.store_path_position = Vector2.INF
 
 
 func on_npc_spawn_requested(npc_data: NPCData) -> void:
-	if store == null or not is_store_world_available_for_customer_spawn():
-		return
-	if not store._store_open or bool(store.get_meta(CUSTOMER_INTAKE_CLOSED_META, false)):
-		return
-	var npc: NPC = StoreNpcSpawner.spawn_npc(
-		store,
-		store.npc_scene,
-		get_npc_spawn_marker(),
-		npc_data,
-		Callable(self, "on_npc_purchase"),
-		Callable(self, "on_npc_exited")
-	)
-	if npc == null:
-		return
-	install_store_controllers(npc)
-	var route_ready_callable: Callable = Callable(self, "on_npc_shelf_route_ready")
-	if not npc.shelf_route_ready.is_connected(route_ready_callable):
-		npc.shelf_route_ready.connect(route_ready_callable)
+    if store == null or not is_store_world_available_for_customer_spawn():
+        return
+    if not store._store_open or bool(store.get_meta(CUSTOMER_INTAKE_CLOSED_META, false)):
+        return
+    var npc: NPC = StoreNpcSpawner.spawn_npc(
+        store,
+        store.npc_scene,
+        get_npc_spawn_marker(),
+        npc_data,
+        Callable(self, "on_npc_purchase"),
+        Callable(self, "on_npc_exited")
+    )
+    if npc == null:
+        return
+    install_store_controllers(npc)
+    var route_ready_callable: Callable = Callable(self, "on_npc_shelf_route_ready")
+    if not npc.shelf_route_ready.is_connected(route_ready_callable):
+        npc.shelf_route_ready.connect(route_ready_callable)
 
 
 func is_store_world_available_for_customer_spawn() -> bool:
-	return (
-		bool(store._is_store_world_active)
-		and not bool(store._is_transitioning)
-		and store._current_storage == null
-		and store._current_yard == null
-		and store._current_home == null
-	)
+    return (
+        bool(store._is_store_world_active)
+        and not bool(store._is_transitioning)
+        and store._current_storage == null
+        and store._current_yard == null
+        and store._current_home == null
+    )
 
 
 func install_store_controllers(npc: NPC) -> void:
-	if npc == null or not is_instance_valid(npc):
-		return
-	npc._route_controller = NPCRouteControllerScript.new()
-	npc._route_controller.setup(npc)
-	npc._state_flow = NPCLiveQueueStateFlowScript.new()
-	npc._state_flow.setup(npc)
-	# Keep the standard NPCShoppingFlow created by NPC._ready(). It already
-	# filters shelves through npc_path_ready and asks Store for the visit point.
-	npc._queue_flow = NPCCheckoutLaneQueueFlowScript.new()
-	npc._queue_flow.setup(npc)
+    if npc == null or not is_instance_valid(npc):
+        return
+    npc._route_controller = NPCRouteControllerScript.new()
+    npc._route_controller.setup(npc)
+    npc._state_flow = NPCLiveQueueStateFlowScript.new()
+    npc._state_flow.setup(npc)
+    # Keep the standard NPCShoppingFlow created by NPC._ready(). It already
+    # filters shelves through npc_path_ready and asks Store for the visit point.
+    npc._queue_flow = NPCCheckoutLaneQueueFlowScript.new()
+    npc._queue_flow.setup(npc)
 
 
 func get_npc_spawn_marker() -> Marker2D:
-	if store == null:
-		return null
-	if store.npc_enter_store_marker != null:
-		return store.npc_enter_store_marker
-	if store.npc_entry_marker != null:
-		return store.npc_entry_marker
-	return store.entrance_pos
+    if store == null:
+        return null
+    if store.npc_enter_store_marker != null:
+        return store.npc_enter_store_marker
+    if store.npc_entry_marker != null:
+        return store.npc_entry_marker
+    return store.entrance_pos
 
 
 func on_npc_purchase(_npc: NPC, _item_id: String, price: int) -> void:
-	if store == null:
-		return
-	EconomyManager.add_gold(price)
-	if price > 0:
-		store._show_task_complete_notice(
-			"normal_customer_served",
+    if store == null:
+        return
+    EconomyManager.add_gold(price)
+    if price > 0:
+        store._show_task_complete_notice(
+            "normal_customer_served",
             "First customer served."
-		)
+        )
 
 
 func on_npc_exited(_npc: NPC) -> void:
-	if store != null:
-		store._update_end_day_tax_flow()
+    if store != null:
+        store._update_end_day_tax_flow()
 
 
 func on_npc_shelf_route_ready(npc: NPC, travel_seconds: float) -> void:
-	NPCScheduler.notify_npc_shelf_route_ready(npc, travel_seconds)
+    NPCScheduler.notify_npc_shelf_route_ready(npc, travel_seconds)

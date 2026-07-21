@@ -173,12 +173,6 @@ func find_shelf_with_item(item_id: String) -> Shelf:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func get_shelf_visit_position(shelf: Shelf) -> Vector2:
-	if (
-		npc._target_shelf == shelf
-		and npc._target_shelf_access_position.is_finite()
-	):
-		return npc._target_shelf_access_position
-
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var store: Node = npc._get_store_route_provider()
 
