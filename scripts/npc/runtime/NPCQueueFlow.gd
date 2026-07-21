@@ -2,6 +2,7 @@ class_name NPCQueueFlow
 extends RefCounted
 
 const NPCQueueReservationControllerScript = preload("res://scripts/npc/runtime/NPCQueueReservationController.gd")
+const NPCMovementReservationSystemScript = preload("res://scripts/npc/runtime/NPCMovementReservationSystem.gd")
 const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 const EXIT_ORIGIN_SHELF_META: StringName = &"exit_origin_shelf"
 const QUEUE_MOVE_PROBE_COOLDOWN_MSEC: int = 650
@@ -132,6 +133,27 @@ func process_wait_in_queue(delta: float) -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
+	var queue_slot_target: Vector2 = get_queue_target()
+	if queue_index == 0 and NPCQueueReservationControllerScript.size() <= 1:
+		var solo_approach_marker: Vector2 = get_queue_egress_target(queue_index)
+		var solo_blocking_context := (
+			NPCMovementReservationSystemScript.get_blocking_context(
+				npc,
+				solo_approach_marker
+			)
+		)
+		if bool(solo_blocking_context.get("blocked", false)):
+			_redirect_blocked_approach_to_queue_slot(
+				queue_index,
+				queue_slot_target,
+				solo_approach_marker,
+				solo_blocking_context
+			)
+			return
+
+		_begin_direct_cashier_from_shelf(queue_index, "solo_queue")
+		return
+
 	var egress_target: Vector2 = npc._queue_egress_target_position
 	var target_source: String = "cached"
 	var resolved_egress_target: Vector2 = get_queue_egress_target(queue_index)
@@ -163,8 +185,24 @@ func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 		_record_queue_move_probe(&"npc_queue_egress_invalid", {
 			"queue_index": queue_index,
 			"queue_size": NPCQueueReservationControllerScript.size(),
-			"target_source": target_source
+			"target_source": target_source,
+			"queue_slot_target": _format_vector(queue_slot_target)
 		})
+		return
+
+	var blocking_context := (
+		NPCMovementReservationSystemScript.get_blocking_context(
+			npc,
+			egress_target
+		)
+	)
+	if bool(blocking_context.get("blocked", false)):
+		_redirect_blocked_approach_to_queue_slot(
+			queue_index,
+			queue_slot_target,
+			egress_target,
+			blocking_context
+		)
 		return
 
 	npc.target_position = egress_target
@@ -191,7 +229,8 @@ func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 				0.01
 			),
 			"egress_target": _format_vector(egress_target),
-			"egress_target_source": target_source
+			"egress_target_source": target_source,
+			"queue_slot_target": _format_vector(queue_slot_target)
 		})
 
 	if not arrived:
@@ -200,13 +239,14 @@ func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 	npc.velocity = Vector2.ZERO
 	npc.move_and_slide()
 	_clear_queue_entry_shelf_obstacle()
-	npc.target_position = get_queue_target()
+	npc.target_position = queue_slot_target
 	npc._movement_route.clear()
 	npc._movement_route_destination = Vector2.INF
 	npc.set_meta(&"path_possibly_invalid", true)
 	_record_queue_probe(&"npc_queue_egress_complete", {
 		"queue_index": queue_index,
-		"queue_target": _format_vector(npc.target_position)
+		"queue_slot_target": _format_vector(npc.target_position),
+		"queue_approach_marker": _format_vector(egress_target)
 	})
 	if queue_index == 0:
 		start_queue_to_cashier(queue_index)
@@ -297,6 +337,53 @@ func start_queue_to_cashier(queue_index: int) -> void:
 		"cashier_face_target": _format_vector(get_cashier_face_target())
 	})
 	pass
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _begin_direct_cashier_from_shelf(queue_index: int, reason: String) -> void:
+	var previous_egress_target: Vector2 = npc._queue_egress_target_position
+	npc._queue_egress_route_pending = false
+	npc._queue_egress_target_position = Vector2.INF
+	npc._is_moving_from_queue_to_cashier = true
+	npc.target_position = get_cashier_target()
+	npc._movement_route.clear()
+	npc._movement_route_destination = Vector2.INF
+	npc.set_meta(&"path_possibly_invalid", true)
+	_record_queue_probe(&"npc_queue_solo_direct_cashier", {
+		"queue_index": queue_index,
+		"queue_size": NPCQueueReservationControllerScript.size(),
+		"reason": reason,
+		"previous_egress_target": _format_vector(previous_egress_target),
+		"cashier_target": _format_vector(npc.target_position),
+		"queue_slot_target": _format_vector(get_queue_target())
+	})
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _redirect_blocked_approach_to_queue_slot(
+	queue_index: int,
+	queue_slot_target: Vector2,
+	queue_approach_marker: Vector2,
+	blocking_context: Dictionary
+) -> void:
+	npc._queue_egress_route_pending = false
+	npc._queue_egress_target_position = Vector2.INF
+	npc._is_moving_from_queue_to_cashier = false
+	npc.target_position = queue_slot_target
+	npc._movement_route.clear()
+	npc._movement_route_destination = Vector2.INF
+	npc.set_meta(&"path_possibly_invalid", true)
+
+	var context: Dictionary = {
+		"queue_index": queue_index,
+		"queue_size": NPCQueueReservationControllerScript.size(),
+		"action": "target_queue_slot",
+		"queue_slot_target": _format_vector(queue_slot_target),
+		"queue_approach_marker": _format_vector(queue_approach_marker)
+	}
+	for key in blocking_context:
+		context["blocking_%s" % String(key)] = blocking_context[key]
+	_record_queue_probe(&"npc_queue_approach_blocked", context)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
