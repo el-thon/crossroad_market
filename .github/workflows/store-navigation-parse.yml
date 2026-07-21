@@ -19,7 +19,7 @@ jobs:
   migrate-and-compile:
     if: github.head_ref == 'agent/rebuild-store-marker-only-routing'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout migration branch
@@ -91,6 +91,17 @@ jobs:
           fi
           echo "Godot 4.7 loaded every GDScript resource successfully."
 
+      - name: Import project resources
+        shell: bash
+        run: |
+          timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
+            --headless --editor --path . --quit \
+            > /tmp/import.log 2>&1 || {
+              tail -n 160 /tmp/import.log
+              exit 1
+            }
+          echo "Godot project import completed."
+
       - name: Verify project boots headlessly
         id: boot
         continue-on-error: true
@@ -111,9 +122,10 @@ jobs:
         with:
           name: marker-only-boot-diagnostics
           path: |
+            /tmp/import.log
             /tmp/boot.log
             /tmp/boot-status.txt
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 3
 
       - name: Enforce boot result
