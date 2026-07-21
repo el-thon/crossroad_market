@@ -1,35 +1,26 @@
-name: Marker-only Store Navigation Migration
+name: Godot 4.7 Compile and Boot
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - "scripts/**"
       - "scenes/**"
       - "data/**"
-      - "tools/ci/migrate_store_marker_only.py"
+      - "project.godot"
       - ".github/workflows/store-navigation-parse.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  migrate-and-compile:
-    if: github.head_ref == 'agent/rebuild-store-marker-only-routing'
+  compile-and-boot:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout migration branch
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: agent/rebuild-store-marker-only-routing
-          fetch-depth: 0
-
-      - name: Apply deterministic migration
-        run: python tools/ci/migrate_store_marker_only.py
 
       - name: Install Godot 4.7 stable
         shell: bash
@@ -80,70 +71,17 @@ jobs:
                   entry = directory.get_next()
               directory.list_dir_end()
           GDSCRIPT
-          set +e
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
-            --headless --path . --script /tmp/check_all_scripts.gd \
-            > /tmp/compile.log 2>&1
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            tail -n 160 /tmp/compile.log
-            exit "$status"
-          fi
-          echo "Godot 4.7 loaded every GDScript resource successfully."
+            --headless --path . --script /tmp/check_all_scripts.gd
 
       - name: Import project resources
         shell: bash
         run: |
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
-            --headless --editor --path . --quit \
-            > /tmp/import.log 2>&1 || {
-              tail -n 160 /tmp/import.log
-              exit 1
-            }
-          echo "Godot project import completed."
+            --headless --editor --path . --quit
 
-      - name: Verify project boots headlessly
-        id: boot
-        continue-on-error: true
+      - name: Smoke boot project
         shell: bash
         run: |
-          set +e
           timeout 60s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
-            --headless --path . --quit \
-            > /tmp/boot.log 2>&1
-          status=$?
-          echo "$status" > /tmp/boot-status.txt
-          tail -n 80 /tmp/boot.log
-          exit "$status"
-
-      - name: Upload boot diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: marker-only-boot-diagnostics
-          path: |
-            /tmp/import.log
-            /tmp/boot.log
-            /tmp/boot-status.txt
-          if-no-files-found: warn
-          retention-days: 3
-
-      - name: Enforce boot result
-        shell: bash
-        run: |
-          status=$(cat /tmp/boot-status.txt)
-          if [ "$status" -ne 0 ]; then
-            echo "Headless boot failed with status $status"
-            exit "$status"
-          fi
-
-      - name: Commit verified migration
-        shell: bash
-        run: |
-          git restore .github/workflows/store-navigation-parse.yml
-          rm -f tools/ci/migrate_store_marker_only.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A scripts scenes data tools/ci
-          git commit -m "Rebuild Store NPC pathing with marker-only routes"
-          git push origin HEAD:agent/rebuild-store-marker-only-routing
+            --headless --path . --quit
