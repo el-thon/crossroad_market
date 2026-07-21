@@ -5,7 +5,11 @@ const OptimizedStorePathGraphScript = preload(
 	"res://scripts/locations/store/OptimizedStorePathGraph.gd"
 )
 const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
+const NPCQueueReservationControllerScript = preload("res://scripts/npc/runtime/NPCQueueReservationController.gd")
 const STORE_ENTRY_FALLBACK_POSITION = Vector2(240, 204)
+const QUEUE_SHELF_TRANSIT_BACK1: StringName = &"StorePathQueueBack1"
+const QUEUE_SHELF_TRANSIT_BACK2: StringName = &"StorePathQueueBack2"
+const QUEUE_SHELF_TRANSIT_FULL: StringName = &"StorepathParsenpc"
 const CHECKOUT_RIGHT_ROUTE_MARKERS: Array[StringName] = [
 	&"StorePathQueueFrontRight",
 	&"StorePathQueueBack1Right",
@@ -68,6 +72,14 @@ func get_npc_route_to_shelf_access(
 ) -> Array[Vector2]:
 	if not has_npc_shelf_access_metadata(shelf):
 		return []
+	var queue_transit_route := _build_queue_aware_shelf_transit_route(
+		shelf,
+		from_position,
+		npc_node
+	)
+	if not queue_transit_route.is_empty():
+		return queue_transit_route
+
 	return get_store_path_graph().get_route_to_shelf_access(
 		shelf,
 		from_position,
@@ -435,6 +447,104 @@ func _get_nearest_shelf_quad_marker(from_position: Vector2) -> Marker2D:
 	return best_marker
 
 
+func _build_queue_aware_shelf_transit_route(
+	shelf: Shelf,
+	from_position: Vector2,
+	npc_node: Node
+) -> Array[Vector2]:
+	if shelf == null or not is_instance_valid(shelf):
+		return []
+	if not from_position.is_finite():
+		return []
+	if npc_node == null or not is_instance_valid(npc_node):
+		return []
+
+	var queue_size := NPCQueueReservationControllerScript.size()
+	if queue_size <= 0:
+		return []
+
+	var transit_marker := _get_queue_shelf_transit_marker(queue_size)
+	if transit_marker == null:
+		_record_route_probe(&"npc_transit_queue_bypass_select", {
+			"reason": "missing_transit_marker",
+			"queue_size": queue_size,
+			"from": _format_vector(from_position),
+			"shelf_id": String(shelf.get_shelf_id())
+		})
+		return []
+
+	var graph := get_store_path_graph()
+	var access_position := graph.get_shelf_access_position(shelf)
+	if not access_position.is_finite():
+		_record_route_probe(&"npc_transit_queue_bypass_select", {
+			"reason": "invalid_access",
+			"queue_size": queue_size,
+			"chosen_bypass_marker": String(transit_marker.name),
+			"from": _format_vector(from_position),
+			"shelf_id": String(shelf.get_shelf_id())
+		})
+		return []
+
+	var route: Array[Vector2] = []
+	var current := from_position
+	current = _append_orthogonal_route_leg(
+		route,
+		current,
+		transit_marker.global_position,
+		true
+	)
+
+	var shelf_route := graph.get_route_to_shelf_access(
+		shelf,
+		transit_marker.global_position,
+		npc_node
+	)
+	if shelf_route.is_empty():
+		var shelf_quad := _get_nearest_shelf_quad_marker(access_position)
+		if shelf_quad != null:
+			current = _append_orthogonal_route_leg(
+				route,
+				current,
+				shelf_quad.global_position,
+				false
+			)
+			current = _append_orthogonal_route_leg(
+				route,
+				current,
+				access_position,
+				true
+			)
+	else:
+		for point in shelf_route:
+			current = _append_orthogonal_route_leg(route, current, point, true)
+
+	route = _dedupe_route_points(route)
+	_record_route_probe(&"npc_transit_queue_bypass_select", {
+		"reason": "built" if not route.is_empty() else "empty",
+		"queue_size": queue_size,
+		"chosen_bypass_marker": String(transit_marker.name),
+		"chosen_bypass_position": _format_vector(transit_marker.global_position),
+		"from": _format_vector(from_position),
+		"access": _format_vector(access_position),
+		"shelf_id": String(shelf.get_shelf_id()),
+		"shelf_revision": shelf.get_revision(),
+		"route_points": route.size()
+	})
+	return route
+
+
+func _get_queue_shelf_transit_marker(queue_size: int) -> Marker2D:
+	var marker_name := QUEUE_SHELF_TRANSIT_FULL
+	if queue_size <= 1:
+		marker_name = QUEUE_SHELF_TRANSIT_BACK1
+	elif queue_size <= 3:
+		marker_name = QUEUE_SHELF_TRANSIT_BACK2
+
+	if store == null or store.store_path_markers == null:
+		return null
+	return store.store_path_markers.get_node_or_null(String(marker_name)) as Marker2D
+
+
 func _get_queue_egress_marker(queue_index: int) -> Marker2D:
 	var marker_names: Array[StringName] = [
 		&"StorePathQueueFrontRight",
@@ -483,6 +593,13 @@ func _append_unique_route_point(
 	if not route.is_empty() and route.back().distance_to(point) <= 2.0:
 		return
 	route.append(point)
+
+
+func _dedupe_route_points(route: Array[Vector2]) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	for point in route:
+		_append_unique_route_point(result, point)
+	return result
 
 
 func _append_orthogonal_route_leg(
