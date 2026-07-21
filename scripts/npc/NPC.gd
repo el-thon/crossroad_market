@@ -31,8 +31,8 @@ const SEARCH_PATIENCE: float = 15.0
 const SHELF_SEARCH_MIN_TIME: float = 1.0
 const SHELF_TAKE_PAUSE_TIME: float = 1.25
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
-const SHELF_ACTION_DISTANCE: float = 6.0
-const SHELF_VISIT_ARRIVAL_DISTANCE: float = 4.0
+const SHELF_ACTION_DISTANCE: float = 3.0
+const SHELF_VISIT_ARRIVAL_DISTANCE: float = 3.0
 const QUEUE_ACTION_DISTANCE: float = 8.0
 const QUEUE_SLOT_ARRIVAL_DISTANCE: float = 3.0
 const QUEUE_ADVANCE_DELAY: float = 1.0
@@ -165,7 +165,6 @@ func _ready() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _exit_tree() -> void:
-	_ensure_npc_controllers()
 	_disconnect_trust_signal()
 	_leave_queue()
 

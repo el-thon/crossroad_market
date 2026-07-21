@@ -32,17 +32,17 @@ static func prepare_player_for_location(
 
 
 static func _reset_player_camera(player: Node2D) -> void:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	if player == null:
+		return
 	var camera := player.get_node_or_null("Camera2D") as Camera2D
-
 	if camera == null:
 		return
-
 	if camera.has_method("reset_smoothing"):
-		camera.call("reset_smoothing")
-
+		camera.reset_smoothing()
 	if camera.has_method("force_update_scroll"):
-		camera.call("force_update_scroll")
+		camera.force_update_scroll()
+	elif camera.has_method("force_update_transform"):
+		camera.force_update_transform()
 
 
 static func create_fade_layer(owner: Node) -> Dictionary:

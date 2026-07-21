@@ -105,9 +105,19 @@ func process_walk_to_shelf() -> void:
 		if _handle_shelf_wait_or_leave("walk_shelf_lost"):
 			return
 
+	# If the NPC is already at the shelf center, skip routing entirely and go
+	# directly to the pickup state.
+	var is_already_at_shelf: bool = (
+		npc._target_shelf != null
+		and is_instance_valid(npc._target_shelf)
+		and npc.global_position.distance_to(npc._target_shelf.global_position)
+		<= 2.0
+	)
+
 	if (
 		npc.global_position.distance_to(npc.target_position)
 		<= npc.SHELF_VISIT_ARRIVAL_DISTANCE
+		or is_already_at_shelf
 	):
 		npc.velocity = Vector2.ZERO
 		npc.move_and_slide()
@@ -211,9 +221,20 @@ func process_take_item() -> void:
 		npc._enter_checkout_queue()
 		return
 
+	# Primary: advance toward the visit target if not yet close enough.
+	# Secondary: if already at or very near the shelf center (within 2px of
+	# the shelf itself), attempt the pickup without waiting for a route.
+	var is_already_at_shelf: bool = (
+		npc._target_shelf != null
+		and is_instance_valid(npc._target_shelf)
+		and npc.global_position.distance_to(npc._target_shelf.global_position)
+		<= 2.0
+	)
+
 	if (
 		npc.global_position.distance_to(npc.target_position)
 		> npc.SHELF_ACTION_DISTANCE
+		and not is_already_at_shelf
 		and not npc._move_to(npc.target_position)
 	):
 		return

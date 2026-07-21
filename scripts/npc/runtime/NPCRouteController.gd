@@ -111,7 +111,23 @@ func update_stuck_watchdog(delta: float) -> void:
 		# transition to the normal graph-based exit state.
 		if npc.current_state == NPC.State.EXIT:
 			npc._movement_route.clear()
-			npc._movement_route_destination = Vector2.INF
+			npc._last_watchdog_position = npc.global_position
+			npc._stuck_watchdog_timer = 0.0
+			npc._stuck_watchdog_rebuilds = 0
+			return
+
+		# If the NPC is already at a valid shelf visit position, it has arrived —
+		# don't force EXIT just because the pathfinding watchdog fired. The route
+		# will be rebuilt on the next frame and the NPC will naturally progress.
+		# Only force EXIT when the NPC is genuinely stuck in transit.
+		var is_near_shelf_target: bool = (
+			npc._target_shelf != null
+			and is_instance_valid(npc._target_shelf)
+			and npc.global_position.distance_to(npc.target_position)
+			<= npc.SHELF_VISIT_ARRIVAL_DISTANCE
+		)
+		if is_near_shelf_target:
+			npc._movement_route.clear()
 			npc._last_watchdog_position = npc.global_position
 			npc._stuck_watchdog_timer = 0.0
 			npc._stuck_watchdog_rebuilds = 0
@@ -122,7 +138,6 @@ func update_stuck_watchdog(delta: float) -> void:
 		return
 
 	npc._movement_route.clear()
-	npc._movement_route_destination = Vector2.INF
 	npc._last_watchdog_position = npc.global_position
 	npc._stuck_watchdog_timer = 0.0
 	npc._stuck_watchdog_rebuilds += 1

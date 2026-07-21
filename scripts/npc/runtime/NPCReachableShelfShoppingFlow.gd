@@ -85,16 +85,20 @@ func _ensure_shelf_path_ready(shelf: Shelf) -> bool:
 	if shelf == null or not is_instance_valid(shelf):
 		return false
 
+	# Fast path: check cached metadata first without triggering async resolution.
+	var cached_ready := bool(shelf.get_meta("npc_path_ready", false))
+	var visit_pos: Vector2 = get_shelf_visit_position(shelf)
+	if cached_ready and visit_pos.is_finite():
+		return true
+
 	var store: Node = npc._get_store_route_provider()
 	var route_provider := _get_nested_route_provider(store)
 	if (
 		route_provider == null
 		or not route_provider.has_method("request_npc_shelf_access_state")
 	):
-		return (
-			bool(shelf.get_meta("npc_path_ready", false))
-			and get_shelf_visit_position(shelf).is_finite()
-		)
+		# No async coordinator available — rely purely on the cached metadata.
+		return cached_ready and visit_pos.is_finite()
 
 	var state := StringName(
 		route_provider.call(
@@ -105,7 +109,7 @@ func _ensure_shelf_path_ready(shelf: Shelf) -> bool:
 	)
 	if state != StoreShelfAccessCoordinator.READY:
 		return false
-	return get_shelf_visit_position(shelf).is_finite()
+	return visit_pos.is_finite()
 
 
 func _get_nested_route_provider(store: Node) -> Node:
