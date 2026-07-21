@@ -99,10 +99,9 @@ func update_stuck_watchdog(delta: float) -> void:
 		return
 
 	if npc._stuck_watchdog_rebuilds >= npc.STUCK_WATCHDOG_MAX_REBUILDS:
-		# Never replace a failed store route with a direct segment. Direct
-		# fallbacks were allowing NPCs to skip markers and cross PhysicsBody2D
-		# obstacles. An exiting NPC waits and retries; other states safely
-		# transition to the normal graph-based exit state.
+		# Never replace a failed pre-item Store route with an unplanned direct
+		# segment. The marker provider owns the allowed direct movement after
+		# item pickup; failures here wait/retry through the watchdog.
 		if npc.current_state == NPC.State.EXIT:
 			npc._movement_route.clear()
 			npc._movement_route_destination = Vector2.INF
@@ -168,9 +167,8 @@ func build_movement_route(destination: Vector2) -> Array[Vector2]:
 		route = dedupe_route_points(route)
 		return dedupe_route_points(route)
 
-	# Store movement must wait for a valid graph route. Falling back to a
-	# direct destination makes NPCs cut across queue markers, shelves, items,
-	# counters, and other static physics bodies.
+	# Store movement waits for a valid marker route. Direct post-item travel
+	# is returned explicitly by the marker provider, never invented here.
 	if uses_store_navigation_state():
 		return []
 
@@ -319,13 +317,18 @@ func get_shelf_egress_queue_route(
 	return dedupe_route_points(route)
 
 func get_store_route_provider() -> Node:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var tree: SceneTree = npc.get_tree()
-
 	if tree == null:
 		return null
 
-	return tree.get_first_node_in_group("store")
+	var store_node: Node = tree.get_first_node_in_group("store")
+	if store_node == null:
+		return null
+
+	var route_provider_variant: Variant = store_node.get("npc_routes")
+	if is_instance_valid(route_provider_variant) and route_provider_variant is Node:
+		return route_provider_variant as Node
+	return store_node
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

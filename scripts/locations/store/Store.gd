@@ -349,18 +349,47 @@ func get_npc_route_to_shelf_access(shelf: Shelf, from_position: Vector2 = Vector
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_to_cashier_from(from_position: Vector2) -> Array[Vector2]:
+func get_npc_route_to_cashier_from(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_to_cashier_from(from_position)
-
+		return npc_routes.get_npc_route_to_cashier_from(
+			from_position,
+			npc_node
+		)
 	return []
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_to_queue_target_from(from_position: Vector2, queue_index: int) -> Array[Vector2]:
+func get_npc_route_to_queue_target_from(
+	from_position: Vector2,
+	queue_index: int,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_to_queue_target_from(from_position, queue_index)
+		return npc_routes.get_npc_route_to_queue_target_from(
+			from_position,
+			queue_index,
+			npc_node
+		)
+	return []
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_route_from_shelf_to_queue_target(
+	shelf: Shelf,
+	from_position: Vector2,
+	queue_index: int,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_route_from_shelf_to_queue_target(
+			shelf,
+			from_position,
+			queue_index,
+			npc_node
+		)
 	return []
 
 
@@ -381,18 +410,60 @@ func get_npc_cashier_target(fallback_position: Vector2) -> Vector2:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_route_from_shelf_to_cashier(shelf: Shelf) -> Array[Vector2]:
+func get_npc_cashier_face_target(fallback_position: Vector2) -> Vector2:
 	if npc_routes != null:
-		return npc_routes.get_npc_route_from_shelf_to_cashier(shelf)
+		return npc_routes.get_npc_cashier_face_target(fallback_position)
+	return fallback_position
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_route_from_shelf_to_cashier(
+	shelf: Shelf,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_route_from_shelf_to_cashier(
+			shelf,
+			npc_node
+		)
 	return []
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_exit_route_from(from_position: Vector2) -> Array[Vector2]:
+func get_npc_exit_route_from(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_exit_route_from(from_position)
+		return npc_routes.get_npc_exit_route_from(from_position, npc_node)
+	return []
 
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_single_customer_exit_route(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_single_customer_exit_route(
+			from_position,
+			npc_node
+		)
+	return []
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func get_npc_exit_route_from_shelf(
+	shelf: Shelf,
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if npc_routes != null:
+		return npc_routes.get_npc_exit_route_from_shelf(
+			shelf,
+			from_position,
+			npc_node
+		)
 	return []
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -405,10 +476,15 @@ func get_npc_shelf_wait_position(index: int = 0) -> Vector2:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func get_npc_exit_route_from_cashier(from_position: Vector2) -> Array[Vector2]:
+func get_npc_exit_route_from_cashier(
+	from_position: Vector2,
+	npc_node: Node = null
+) -> Array[Vector2]:
 	if npc_routes != null:
-		return npc_routes.get_npc_exit_route_from_cashier(from_position)
-
+		return npc_routes.get_npc_exit_route_from_cashier(
+			from_position,
+			npc_node
+		)
 	return []
 
 
