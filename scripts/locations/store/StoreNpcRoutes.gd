@@ -21,6 +21,8 @@ const CHECKOUT_GRAPH_REJOIN_MARKER: StringName = &"StorePathAisleRight"
 const CHECKOUT_ROUTE_RESUME_DISTANCE: float = 18.0
 
 var store: Node = null
+var _last_shelf_layout_signature: String = ""
+var _has_shelf_layout_signature: bool = false
 
 
 func setup(store_node: Node) -> void:
@@ -71,7 +73,12 @@ func get_npc_route_to_shelf_access(
 func get_npc_route_to_cashier_from(
 	from_position: Vector2
 ) -> Array[Vector2]:
-	return get_store_path_graph().get_route_to_cashier_from(from_position)
+	# The customer stands at QueueFront. StorePathCashier is inside the counter
+	# interaction area and is a facing target, not a CharacterBody2D destination.
+	return get_store_path_graph().get_route_to_queue_target_from(
+		from_position,
+		0
+	)
 
 
 func get_npc_route_to_queue_target_from(
@@ -95,6 +102,15 @@ func get_npc_queue_target(
 
 
 func get_npc_cashier_target(fallback_position: Vector2) -> Vector2:
+	# Service position: reachable customer-side marker.
+	return get_store_path_graph().get_queue_target_position(
+		0,
+		fallback_position
+	)
+
+
+func get_npc_cashier_face_target(fallback_position: Vector2) -> Vector2:
+	# Facing position: actual cashier/counter marker.
 	return get_store_path_graph().get_cashier_target_position(
 		fallback_position
 	)
@@ -141,8 +157,6 @@ func get_npc_exit_route_from_shelf(
 	if shelf == null or not is_instance_valid(shelf):
 		return get_npc_exit_route_from(from_position)
 
-	# Move away from the source shelf through the same collision-aware path used
-	# after shopping, then join the normal single-customer exit lane.
 	var route := get_npc_route_from_shelf_to_cashier(shelf)
 	if route.is_empty():
 		return get_npc_exit_route_from(from_position)
@@ -192,8 +206,6 @@ func get_npc_exit_route_from_cashier(
 	for point in graph_route:
 		_append_unique_route_point(route, point)
 
-	# Keep the real exit as the final mandatory waypoint even when the graph is
-	# already rejoined at AisleRight.
 	_append_unique_route_point(route, exit_position)
 	return route
 
@@ -215,6 +227,17 @@ func get_store_path_graph() -> StorePathGraph:
 			store.store_path_markers
 		)
 
+	var layout_signature := _get_shelf_layout_signature()
+	if (
+		not needs_optimized_graph
+		and _has_shelf_layout_signature
+		and layout_signature != _last_shelf_layout_signature
+		and store._store_path_graph.has_method("invalidate_dynamic_navigation")
+	):
+		store._store_path_graph.call("invalidate_dynamic_navigation")
+
+	_last_shelf_layout_signature = layout_signature
+	_has_shelf_layout_signature = true
 	store._store_path_graph.set_shelf_access_points(
 		store._get_shelf_placement_grid_positions()
 	)
@@ -228,6 +251,39 @@ func get_marker_position_or(
 	if marker_node == null:
 		return fallback
 	return marker_node.global_position
+
+
+func _get_shelf_layout_signature() -> String:
+	if store == null or store.get_tree() == null:
+		return ""
+
+	var parts := PackedStringArray()
+	for shelf_variant in store.get_tree().get_nodes_in_group("shelves"):
+		if not (shelf_variant is Shelf):
+			continue
+		var shelf := shelf_variant as Shelf
+		if not is_instance_valid(shelf):
+			continue
+		if not _is_descendant_of_store(shelf):
+			continue
+		parts.append(
+			"%d:%d:%d" % [
+				shelf.get_instance_id(),
+				roundi(shelf.global_position.x),
+				roundi(shelf.global_position.y)
+			]
+		)
+	parts.sort()
+	return "|".join(parts)
+
+
+func _is_descendant_of_store(node: Node) -> bool:
+	var current := node
+	while current != null:
+		if current == store:
+			return true
+		current = current.get_parent()
+	return false
 
 
 func _build_named_marker_route(
