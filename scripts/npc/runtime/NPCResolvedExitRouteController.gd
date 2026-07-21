@@ -8,15 +8,11 @@ func get_store_route_for_current_state(
 	if npc.current_state != NPC.State.EXIT:
 		return super.get_store_route_for_current_state(destination)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var store := get_store_route_provider()
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var route_provider := _get_nested_route_provider(store)
-
 	if route_provider == null:
 		return super.get_store_route_for_current_state(destination)
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var origin_shelf: Variant = null
 	if npc.has_meta(EXIT_ORIGIN_SHELF_META):
 		origin_shelf = npc.get_meta(EXIT_ORIGIN_SHELF_META)
@@ -26,36 +22,30 @@ func get_store_route_for_current_state(
 		and origin_shelf is Shelf
 		and route_provider.has_method("get_npc_exit_route_from_shelf")
 	):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var shelf_exit_route := call_store_route(
-		route_provider,
-		&"get_npc_exit_route_from_shelf",
-		[origin_shelf, npc.global_position]
+			route_provider,
+			&"get_npc_exit_route_from_shelf",
+			[origin_shelf, npc.global_position]
 		)
-
 		if not shelf_exit_route.is_empty():
 			return shelf_exit_route
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var use_solo_checkout_exit: bool = (
 		npc._exit_after_checkout
 		and npc.has_meta(SOLO_CHECKOUT_EXIT_META)
 		and bool(npc.get_meta(SOLO_CHECKOUT_EXIT_META))
 	)
-
 	if (
 		use_solo_checkout_exit
 		and route_provider.has_method(
 			"get_npc_single_customer_exit_route"
 		)
 	):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var solo_exit_route := call_store_route(
 			route_provider,
 			&"get_npc_single_customer_exit_route",
 			[npc.global_position]
 		)
-
 		if not solo_exit_route.is_empty():
 			return solo_exit_route
 
@@ -68,9 +58,35 @@ func get_shelf_egress_queue_route(
 	queue_index: int,
 	destination: Vector2
 ) -> Array[Vector2]:
-	# Queue membership is already resolved before this method is called. Route to
-	# that assigned slot directly; composing shelf→cashier/front→back made every
-	# back customer visit QueueFront before walking backwards to its real slot.
+	# Queue membership is already resolved here. Prefer a route that knows the
+	# source shelf and the assigned queue slot, so its first segment may leave the
+	# shelf body safely without routing back customers through QueueFront.
+	var route_provider := _get_nested_route_provider(store)
+	if (
+		route_provider != null
+		and route_provider.has_method(
+			"get_npc_route_from_shelf_to_queue_target"
+		)
+		and npc._queue_entry_shelf != null
+		and is_instance_valid(npc._queue_entry_shelf)
+	):
+		var shelf_queue_route := call_store_route(
+			route_provider,
+			&"get_npc_route_from_shelf_to_queue_target",
+			[
+				npc._queue_entry_shelf,
+				npc.global_position,
+				queue_index
+			]
+		)
+		if not shelf_queue_route.is_empty():
+			return _finish_queue_route(
+				shelf_queue_route,
+				destination
+			)
+
+	# Generic queue routing remains a safe fallback after the NPC has already
+	# moved clear of the shelf. It still targets the actual assigned slot.
 	if store != null and store.has_method("get_npc_route_to_queue_target_from"):
 		var queue_route := call_store_route(
 			store,
@@ -78,12 +94,10 @@ func get_shelf_egress_queue_route(
 			[npc.global_position, queue_index]
 		)
 		if not queue_route.is_empty():
-			if queue_route.back().distance_to(destination) > npc.ARRIVAL_THRESHOLD:
-				queue_route.append(destination)
-			return dedupe_route_points(queue_route)
+			return _finish_queue_route(queue_route, destination)
 
-	# QueueFront is a safe legacy fallback for the front customer only. Returning
-	# the old cashier-composed route for a back slot would recreate the bug.
+	# The old shelf→cashier composition is retained only for the front customer;
+	# using it for a back slot would recreate Front→Back movement.
 	if queue_index <= 0:
 		return super.get_shelf_egress_queue_route(
 			store,
@@ -93,12 +107,27 @@ func get_shelf_egress_queue_route(
 	return []
 
 
+func _finish_queue_route(
+	route: Array[Vector2],
+	destination: Vector2
+) -> Array[Vector2]:
+	var result := route.duplicate()
+	if (
+		destination.is_finite()
+		and (
+			result.is_empty()
+			or result.back().distance_to(destination) > npc.ARRIVAL_THRESHOLD
+		)
+	):
+		result.append(destination)
+	return dedupe_route_points(result)
+
+
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _get_nested_route_provider(store: Node) -> Node:
 	if store == null:
 		return null
 
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var route_provider_variant: Variant = store.get("npc_routes")
 	if not is_instance_valid(route_provider_variant):
 		return null
