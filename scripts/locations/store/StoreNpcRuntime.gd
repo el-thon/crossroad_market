@@ -1,16 +1,16 @@
 class_name StoreNpcRuntime
 extends Node
 
-const NPCLayeredNavigationRouteController = preload(
+const LayeredNavigationRouteControllerScript = preload(
 	"res://scripts/npc/runtime/NPCLayeredNavigationRouteController.gd"
 )
-const NPCLiveQueueStateFlow = preload(
+const LiveQueueStateFlowScript = preload(
 	"res://scripts/npc/runtime/NPCLiveQueueStateFlow.gd"
 )
-const NPCReachableShelfShoppingFlow = preload(
+const ReachableShelfShoppingFlowScript = preload(
 	"res://scripts/npc/runtime/NPCReachableShelfShoppingFlow.gd"
 )
-const NPCCheckoutLaneQueueFlow = preload(
+const CheckoutLaneQueueFlowScript = preload(
 	"res://scripts/npc/runtime/NPCCheckoutLaneQueueFlow.gd"
 )
 const CUSTOMER_INTAKE_CLOSED_META: StringName = &"customer_intake_closed_today"
@@ -100,13 +100,13 @@ func install_shelf_arrival_controllers(npc: NPC) -> void:
 	if npc == null or not is_instance_valid(npc):
 		return
 
-	npc._route_controller = NPCLayeredNavigationRouteController.new()
+	npc._route_controller = LayeredNavigationRouteControllerScript.new()
 	npc._route_controller.setup(npc)
-	npc._state_flow = NPCLiveQueueStateFlow.new()
+	npc._state_flow = LiveQueueStateFlowScript.new()
 	npc._state_flow.setup(npc)
-	npc._shopping_flow = NPCReachableShelfShoppingFlow.new()
+	npc._shopping_flow = ReachableShelfShoppingFlowScript.new()
 	npc._shopping_flow.setup(npc)
-	npc._queue_flow = NPCCheckoutLaneQueueFlow.new()
+	npc._queue_flow = CheckoutLaneQueueFlowScript.new()
 	npc._queue_flow.setup(npc)
 
 
