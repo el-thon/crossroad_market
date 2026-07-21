@@ -12,6 +12,7 @@ const PLACEMENT_ACCESS_CANDIDATE_LIMIT: int = 8
 const PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 const PLACEMENT_SURFACE_NODE_LIMIT: int = 2
 const FAST_PLACEMENT_GRAPH_NODE_LIMIT: int = 8
+const LIVE_ACCESS_GRAPH_NODE_LIMIT: int = 8
 
 
 func set_shelf_access_points(points: Array[Vector2]) -> void:
@@ -41,6 +42,93 @@ func store_shelf_access_metadata(
 		return
 
 	_store_access_metadata_from_result(object, access_result)
+
+
+func get_route_to_shelf_access(
+	shelf: Shelf,
+	from_position: Vector2 = Vector2.INF,
+	npc_node: Node = null
+) -> Array[Vector2]:
+	if shelf == null or not from_position.is_finite():
+		return []
+
+	var access_position := get_shelf_access_position(shelf)
+	var shelf_graph_node := get_shelf_access_graph_node(shelf)
+	if not access_position.is_finite() or shelf_graph_node == StringName():
+		return []
+
+	var candidates: Array[Dictionary] = []
+	_append_fast_live_access_routes(
+		candidates,
+		from_position,
+		access_position,
+		shelf,
+		npc_node
+	)
+
+	for candidate_node in _get_nearest_graph_node_names_for_access(
+		access_position,
+		shelf_graph_node,
+		LIVE_ACCESS_GRAPH_NODE_LIMIT
+	):
+		var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
+			from_position,
+			candidate_node
+		)
+		if not bool(graph_result.get("valid", false)):
+			continue
+
+		var route: Array[Vector2] = _variant_route_to_vector2_array(
+			graph_result.get("route", [])
+		)
+		var route_end: Vector2 = from_position
+		if not route.is_empty():
+			route_end = route.back()
+
+		for horizontal_first in [true, false]:
+			var access_connection: Array[Vector2] = _routes.make_orthogonal_route(
+				route_end,
+				access_position,
+				horizontal_first
+			)
+			var complete_route: Array[Vector2] = route.duplicate()
+			complete_route.append_array(access_connection)
+			complete_route = _routes.dedupe_route_points(complete_route)
+			if _clearance.is_route_to_access_clear(
+				from_position,
+				complete_route,
+				shelf,
+				npc_node
+			):
+				_append_route_candidate(
+					candidates,
+					from_position,
+					complete_route
+				)
+
+	return _get_shortest_route(candidates)
+
+
+func _append_fast_live_access_routes(
+	candidates: Array[Dictionary],
+	from_position: Vector2,
+	access_position: Vector2,
+	shelf: Shelf,
+	npc_node: Node
+) -> void:
+	for horizontal_first in [true, false]:
+		var route: Array[Vector2] = _routes.make_orthogonal_route(
+			from_position,
+			access_position,
+			horizontal_first
+		)
+		if _clearance.is_route_to_access_clear(
+			from_position,
+			route,
+			shelf,
+			npc_node
+		):
+			_append_route_candidate(candidates, from_position, route)
 
 
 func _find_fast_vertical_shelf_access(

@@ -10,6 +10,7 @@ const SHELF_ACCESS_WARMUP_DELAY: float = 1.0
 const STORE_ENTRY_FALLBACK_POSITION := Vector2(240, 204)
 const STORE_STORAGE_RETURN_FALLBACK_POSITION := Vector2(383, 76)
 const RUNTIME_DEBUG_OVERLAY_TOGGLE_KEY: Key = KEY_F9
+const RUNTIME_DEBUG_CLEAR_KEY: Key = KEY_F8
 
 var npc_scene: PackedScene = preload("res://scenes/npc/NPC.tscn")
 var storage_scene: PackedScene = preload("res://scenes/locations/Storage.tscn")
@@ -69,6 +70,7 @@ var _runtime_debug_overlay_background: ColorRect = null
 var _runtime_debug_overlay_label: Label = null
 var _runtime_debug_overlay_visible: bool = false
 var _runtime_debug_overlay_key_was_pressed: bool = false
+var _runtime_debug_clear_key_was_pressed: bool = false
 @warning_ignore("unused_private_class_variable")
 var _location_title_layer: CanvasLayer = null
 @warning_ignore("unused_private_class_variable")
@@ -295,6 +297,11 @@ func _update_runtime_debug_overlay() -> void:
 		_runtime_debug_overlay_layer.visible = _runtime_debug_overlay_visible
 
 	_runtime_debug_overlay_key_was_pressed = key_pressed
+	var clear_key_pressed := Input.is_key_pressed(RUNTIME_DEBUG_CLEAR_KEY)
+	if clear_key_pressed and not _runtime_debug_clear_key_was_pressed:
+		StoreRuntimeDebugProbeScript.clear()
+
+	_runtime_debug_clear_key_was_pressed = clear_key_pressed
 
 	if not _runtime_debug_overlay_visible:
 		return
@@ -339,7 +346,7 @@ func _format_runtime_debug_overlay_text() -> String:
 	var summary: Dictionary = StoreRuntimeDebugProbeScript.get_summary()
 	var events: Array[Dictionary] = StoreRuntimeDebugProbeScript.get_events()
 	var lines: Array[String] = [
-		"Runtime Debug Probe (F9)",
+		"Runtime Debug Probe (F9 show, F8 clear)",
 		"events: %d enabled: %s" % [
 			int(summary.get("event_count", 0)),
 			str(summary.get("enabled", false))
