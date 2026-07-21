@@ -243,6 +243,9 @@ func _process(_delta: float) -> void:
 	if world_state_controller != null:
 		world_state_controller.process_store_world(_delta)
 
+	if npc_runtime != null and npc_runtime.has_method("process_npc_runtime"):
+		npc_runtime.process_npc_runtime(_delta)
+
 	if npc_interaction_runtime != null:
 		npc_interaction_runtime.process_npc_interactions(_delta)
 

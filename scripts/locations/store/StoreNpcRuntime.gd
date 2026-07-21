@@ -6,8 +6,11 @@ const NPCLiveQueueStateFlow = preload("res://scripts/npc/runtime/NPCStateFlow.gd
 const NPCReachableShelfShoppingFlow = preload("res://scripts/npc/runtime/NPCShoppingFlow.gd")
 const NPCCheckoutLaneQueueFlow = preload("res://scripts/npc/runtime/NPCCheckoutLaneQueueFlow.gd")
 const CUSTOMER_INTAKE_CLOSED_META: StringName = &"customer_intake_closed_today"
+const MAX_NPC_ACTIVATIONS_PER_FRAME: int = 2
+const NPC_ACTIVATION_STAGGER_MSEC: int = 16
 
 var store: Node = null
+var _pending_npc_activations: Array[Dictionary] = []
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -46,6 +49,37 @@ func setup_static_data() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func on_npc_spawn_requested(npc_data: NPCData) -> void:
+	if store == null:
+		return
+
+	_pending_npc_activations.append({
+		"npc_data": npc_data,
+		"ready_msec": Time.get_ticks_msec() + _get_activation_delay_msec(npc_data)
+	})
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func process_npc_runtime(_delta: float) -> void:
+	var activated_count: int = 0
+	var now_msec: int = Time.get_ticks_msec()
+	var index: int = 0
+
+	while index < _pending_npc_activations.size():
+		if activated_count >= MAX_NPC_ACTIVATIONS_PER_FRAME:
+			return
+
+		var request: Dictionary = _pending_npc_activations[index]
+		if now_msec < int(request.get("ready_msec", 0)):
+			index += 1
+			continue
+
+		_pending_npc_activations.remove_at(index)
+		_spawn_admitted_npc(request.get("npc_data", null) as NPCData)
+		activated_count += 1
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _spawn_admitted_npc(npc_data: NPCData) -> void:
 	if store == null:
 		return
 
@@ -90,6 +124,15 @@ func on_npc_spawn_requested(npc_data: NPCData) -> void:
 
 		if not npc.shelf_route_ready.is_connected(route_ready_callable):
 			npc.shelf_route_ready.connect(route_ready_callable)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_activation_delay_msec(npc_data: NPCData) -> int:
+	if npc_data == null:
+		return 0
+
+	var stable_key: int = abs(hash(npc_data.resource_path))
+	return (stable_key % 10) * NPC_ACTIVATION_STAGGER_MSEC
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
