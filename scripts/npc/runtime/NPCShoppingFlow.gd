@@ -1,6 +1,8 @@
 class_name NPCShoppingFlow
 extends RefCounted
 
+const ShelfItemIndexScript = preload("res://scripts/objects/shelf/ShelfItemIndex.gd")
+
 var npc = null
 
 
@@ -142,20 +144,18 @@ func get_matching_shelf_candidates() -> Array[Shelf]:
 	if item == null:
 		return []
 
+	for indexed_shelf in ShelfItemIndexScript.get_shelves_with_item(npc.item_to_buy):
+		if _is_matching_shelf_candidate(indexed_shelf, item):
+			stocked_shelves.append(indexed_shelf)
+
+	if not stocked_shelves.is_empty():
+		return stocked_shelves
+
 	for shelf_node in npc.get_tree().get_nodes_in_group("shelves"):
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var shelf := shelf_node as Shelf
 
-		if shelf == null:
-			continue
-
-		if shelf.get_lifecycle() != Shelf.LIFECYCLE_PLACED:
-			continue
-
-		if shelf.shelf_type != item.shelf_type:
-			continue
-
-		if not shelf.has_meta("npc_path_ready") or not bool(shelf.get_meta("npc_path_ready")):
+		if not _is_matching_shelf_candidate(shelf, item):
 			continue
 
 		if shelf.has_item(npc.item_to_buy):
@@ -169,6 +169,13 @@ func get_matching_shelf_candidates() -> Array[Shelf]:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func find_shelf_with_item(item_id: String) -> Shelf:
+	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	var item: ItemData = ItemDatabase.get_item(item_id)
+	if item != null:
+		for shelf in ShelfItemIndexScript.get_shelves_with_item(item_id):
+			if _is_matching_shelf_candidate(shelf, item):
+				return shelf
+
 	return NPCShoppingBehavior.find_shelf_with_item(npc.get_tree(), item_id)
 
 
@@ -185,6 +192,23 @@ func get_shelf_visit_position(shelf: Shelf) -> Vector2:
 			return result as Vector2
 
 	return NPCShoppingBehavior.get_shelf_visit_position(shelf, npc.SHELF_VISIT_OFFSET)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _is_matching_shelf_candidate(shelf: Shelf, item: ItemData) -> bool:
+	if shelf == null:
+		return false
+
+	if shelf.get_lifecycle() != Shelf.LIFECYCLE_PLACED:
+		return false
+
+	if shelf.shelf_type != item.shelf_type:
+		return false
+
+	if not shelf.has_meta("npc_path_ready") or not bool(shelf.get_meta("npc_path_ready")):
+		return false
+
+	return true
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

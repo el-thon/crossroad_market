@@ -1,6 +1,8 @@
 class_name ShelfStockController
 extends RefCounted
 
+const ShelfItemIndexScript = preload("res://scripts/objects/shelf/ShelfItemIndex.gd")
+
 var shelf: Shelf = null
 var _next_reservation_id: int = 0
 var _item_reservations: Dictionary = {}
@@ -45,6 +47,7 @@ func place_item(item_id: String) -> int:
 
 	shelf._slots[slot] = item_id
 	shelf._slot_quantities[slot] += 1
+	ShelfItemIndexScript.register_shelf_item(shelf, item_id)
 	shelf._refresh_slot_visual(slot, item_id)
 	shelf.item_placed.emit(slot, item_id)
 	return slot
@@ -70,6 +73,7 @@ func stock_item_direct(item_id: String) -> int:
 
 	shelf._slots[slot] = item_id
 	shelf._slot_quantities[slot] += 1
+	ShelfItemIndexScript.register_shelf_item(shelf, item_id)
 	shelf._refresh_slot_visual(slot, item_id)
 	shelf.item_placed.emit(slot, item_id)
 	return slot
@@ -91,6 +95,7 @@ func remove_item(slot_index: int) -> String:
 	if shelf._slot_quantities[slot_index] <= 0:
 		shelf._slot_quantities[slot_index] = 0
 		shelf._slots[slot_index] = null
+		ShelfItemIndexScript.unregister_shelf_item(shelf, item_id)
 	shelf._refresh_slot_visual(slot_index, "")
 	Inventory.add_item(item_id)
 	shelf.item_removed.emit(slot_index, item_id)
@@ -114,6 +119,7 @@ func take_item_for_npc(item_id: String) -> bool:
 			if shelf._slot_quantities[i] <= 0:
 				shelf._slot_quantities[i] = 0
 				shelf._slots[i] = null
+				ShelfItemIndexScript.unregister_shelf_item(shelf, item_id)
 			shelf._refresh_slot_visual(i, "")
 			shelf.item_removed.emit(i, item_id)
 			return true
@@ -226,6 +232,7 @@ func commit_npc_item_reservation(token: Dictionary, npc: Node) -> Dictionary:
 	if shelf._slot_quantities[slot_index] <= 0:
 		shelf._slot_quantities[slot_index] = 0
 		shelf._slots[slot_index] = null
+		ShelfItemIndexScript.unregister_shelf_item(shelf, item_id)
 	shelf._refresh_slot_visual(slot_index, "")
 	shelf.item_removed.emit(slot_index, item_id)
 
