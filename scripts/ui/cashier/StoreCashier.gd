@@ -12,7 +12,9 @@ const UI_LAYER: int = 12
 const ITEM_CARD_SIZE := Vector2(48, 15)
 const ITEM_GRID_GAP: int = 1
 const CATALOG_VIEW_RECT := Rect2(2, 211, 97, 55)
+const CATALOG_SCROLL_RECT := Rect2(100.5, 211.5, 5, 55)
 const CATALOG_SCROLL_STEP: float = 16.0
+const CATALOG_CARD_FONT_SIZE: int = 5
 const SMALL_FONT_SIZE: int = 7
 const BODY_FONT_SIZE: int = 8
 const ITEM_CARD_TEXTURE: Texture2D = preload("res://assets/cashier/item-card.png")
@@ -23,7 +25,12 @@ const ITEM_CARD_TEXTURE: Texture2D = preload("res://assets/cashier/item-card.png
 var _ui_layer: CanvasLayer
 var _scan_list: Control
 var _scan_rows: GridContainer
-var _scan_scrollbar: VScrollBar
+var _scan_scrollbar: Control
+var _scan_scroll_thumb: ColorRect
+var _catalog_scroll_value: float = 0.0
+var _catalog_scroll_max: float = 0.0
+var _catalog_thumb_dragging: bool = false
+var _catalog_thumb_drag_offset: float = 0.0
 var _scan_cart: ScrollContainer
 var _scan_cart_rows: VBoxContainer
 var _scan_total: Label
@@ -144,22 +151,23 @@ func _build_scan_tab() -> void:
 	_scan_rows.add_theme_constant_override("v_separation", ITEM_GRID_GAP)
 	_scan_list.add_child(_scan_rows)
 
-	_scan_scrollbar = VScrollBar.new()
+	# A small custom scrollbar keeps the visible thumb exactly aligned to the
+	# five-pixel artwork; the built-in VScrollBar enforces a wider theme minimum.
+	_scan_scrollbar = Control.new()
 	_scan_scrollbar.name = "ScrollThumb"
-	_scan_scrollbar.position = Vector2(100.5, 211.5)
-	_scan_scrollbar.size = Vector2(5, 55)
-	_scan_scrollbar.step = 1.0
+	_scan_scrollbar.position = CATALOG_SCROLL_RECT.position
+	_scan_scrollbar.size = CATALOG_SCROLL_RECT.size
 	_scan_scrollbar.mouse_filter = Control.MOUSE_FILTER_STOP
 	_scan_scrollbar.z_index = 5
-	var empty_track := StyleBoxEmpty.new()
-	var thumb_style := _panel_style(Color("ad673c"), Color("ad673c"), 0)
-	_scan_scrollbar.add_theme_stylebox_override("scroll", empty_track)
-	_scan_scrollbar.add_theme_stylebox_override("scroll_focus", empty_track)
-	_scan_scrollbar.add_theme_stylebox_override("grabber", thumb_style)
-	_scan_scrollbar.add_theme_stylebox_override("grabber_highlight", thumb_style)
-	_scan_scrollbar.add_theme_stylebox_override("grabber_pressed", thumb_style)
-	_scan_scrollbar.value_changed.connect(_on_catalog_scroll_changed)
+	_scan_scrollbar.gui_input.connect(_on_catalog_scrollbar_gui_input)
 	_scan_tab.add_child(_scan_scrollbar)
+
+	_scan_scroll_thumb = ColorRect.new()
+	_scan_scroll_thumb.name = "Thumb"
+	_scan_scroll_thumb.size = Vector2(CATALOG_SCROLL_RECT.size.x, CATALOG_SCROLL_RECT.size.y)
+	_scan_scroll_thumb.color = Color("ad673c")
+	_scan_scroll_thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scan_scrollbar.add_child(_scan_scroll_thumb)
 
 	_scan_cart = ScrollContainer.new()
 	_scan_cart.name = "SelectedItems"
@@ -176,8 +184,8 @@ func _build_scan_tab() -> void:
 	_scan_cart.add_child(_scan_cart_rows)
 
 	_scan_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
-	_scan_total.position = Vector2(109, 193)
-	_scan_total.size = Vector2(80, 13)
+	_scan_total.position = Vector2(109, 188)
+	_scan_total.size = Vector2(80, 16)
 	_scan_total.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_scan_total.add_theme_color_override("font_color", Color.WHITE)
 	_scan_tab.add_child(_scan_total)
@@ -190,7 +198,7 @@ func _build_scan_tab() -> void:
 
 	var customer_money := _scan_tab.get_node("CustomerMoney") as Sprite2D
 	_customer_cash_label = _make_label("0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
-	_customer_cash_label.position = Vector2(-24, -7)
+	_customer_cash_label.position = Vector2(-24, -12)
 	_customer_cash_label.size = Vector2(48, 14)
 	_customer_cash_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	customer_money.add_child(_customer_cash_label)
@@ -202,8 +210,8 @@ func _build_scan_tab() -> void:
 
 func _build_exchange_tab() -> void:
 	_exchange_total = _make_label("TOTAL 0G", BODY_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
-	_exchange_total.position = Vector2(109, 193)
-	_exchange_total.size = Vector2(80, 13)
+	_exchange_total.position = Vector2(124, 192)
+	_exchange_total.size = Vector2(80, 16)
 	_exchange_total.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_exchange_total.add_theme_color_override("font_color", Color.WHITE)
 	_exchange_tab.add_child(_exchange_total)
@@ -311,24 +319,24 @@ func _make_catalog_item(item: ItemData) -> Button:
 
 	var icon := TextureRect.new()
 	icon.texture = item.get_icon()
-	icon.position = Vector2(1, 1)
-	icon.size = Vector2(13, 13)
+	icon.position = Vector2(3, 3)
+	icon.size = Vector2(9, 9)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(icon)
 
-	var item_name := _make_label(item.display_name, SMALL_FONT_SIZE)
-	item_name.position = Vector2(15, 0)
-	item_name.size = Vector2(31, 8)
+	var item_name := _make_label(item.display_name, CATALOG_CARD_FONT_SIZE)
+	item_name.position = Vector2(14, 1)
+	item_name.size = Vector2(32, 6)
 	item_name.clip_text = true
 	item_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	item_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(item_name)
 
-	var price := _make_label("%dG" % item.sell_price, SMALL_FONT_SIZE)
-	price.position = Vector2(15, 7)
-	price.size = Vector2(31, 8)
+	var price := _make_label("%dG" % item.sell_price, CATALOG_CARD_FONT_SIZE)
+	price.position = Vector2(14, 7)
+	price.size = Vector2(32, 6)
 	price.add_theme_color_override("font_color", Color("ead2a2"))
 	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(price)
@@ -373,8 +381,6 @@ func _show_scan_tab() -> void:
 	_scan_tab.visible = true
 	_exchange_tab.visible = false
 	_ui_layer.visible = true
-	_set_tab_contrast(_scan_tab, true)
-	_set_tab_contrast(_exchange_tab, false)
 	_hide_inventory_panel()
 
 
@@ -389,8 +395,6 @@ func _show_exchange_tab() -> void:
 	_scan_tab.visible = false
 	_exchange_tab.visible = true
 	_ui_layer.visible = true
-	_set_tab_contrast(_scan_tab, false)
-	_set_tab_contrast(_exchange_tab, true)
 	_hide_inventory_panel()
 	_refresh_exchange_tab()
 
@@ -416,31 +420,59 @@ func _update_catalog_scroll_metrics(item_count: int) -> void:
 	)
 	_scan_rows.custom_minimum_size = Vector2(CATALOG_VIEW_RECT.size.x, content_height)
 	_scan_rows.size = Vector2(CATALOG_VIEW_RECT.size.x, content_height)
-	_scan_scrollbar.min_value = 0.0
-	_scan_scrollbar.max_value = content_height
-	_scan_scrollbar.page = CATALOG_VIEW_RECT.size.y
-	_scan_scrollbar.visible = content_height > CATALOG_VIEW_RECT.size.y
-	_scan_scrollbar.value = clampf(
-		_scan_scrollbar.value,
-		0.0,
-		maxf(content_height - CATALOG_VIEW_RECT.size.y, 0.0)
+	_catalog_scroll_max = maxf(content_height - CATALOG_VIEW_RECT.size.y, 0.0)
+	_scan_scrollbar.visible = _catalog_scroll_max > 0.0
+	var visible_ratio := CATALOG_VIEW_RECT.size.y / content_height
+	_scan_scroll_thumb.size = Vector2(
+		CATALOG_SCROLL_RECT.size.x,
+		maxf(roundf(CATALOG_SCROLL_RECT.size.y * visible_ratio), 6.0)
 	)
-	_on_catalog_scroll_changed(_scan_scrollbar.value)
+	_set_catalog_scroll(_catalog_scroll_value)
 
 
-func _on_catalog_scroll_changed(value: float) -> void:
-	_scan_rows.position.y = -roundf(value)
+func _set_catalog_scroll(value: float) -> void:
+	_catalog_scroll_value = clampf(value, 0.0, _catalog_scroll_max)
+	_scan_rows.position.y = -roundf(_catalog_scroll_value)
+	var thumb_travel := CATALOG_SCROLL_RECT.size.y - _scan_scroll_thumb.size.y
+	var scroll_ratio := _catalog_scroll_value / _catalog_scroll_max if _catalog_scroll_max > 0.0 else 0.0
+	_scan_scroll_thumb.position.y = roundf(thumb_travel * scroll_ratio)
 
 
 func _on_catalog_gui_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or not event.pressed:
 		return
 	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-		_scan_scrollbar.value -= CATALOG_SCROLL_STEP
+		_set_catalog_scroll(_catalog_scroll_value - CATALOG_SCROLL_STEP)
 		_scan_list.accept_event()
 	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		_scan_scrollbar.value += CATALOG_SCROLL_STEP
+		_set_catalog_scroll(_catalog_scroll_value + CATALOG_SCROLL_STEP)
 		_scan_list.accept_event()
+
+
+func _on_catalog_scrollbar_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			var thumb_rect := Rect2(_scan_scroll_thumb.position, _scan_scroll_thumb.size)
+			if thumb_rect.has_point(event.position):
+				_catalog_thumb_drag_offset = event.position.y - _scan_scroll_thumb.position.y
+			else:
+				_catalog_thumb_drag_offset = _scan_scroll_thumb.size.y * 0.5
+				_set_catalog_scroll_from_thumb(event.position.y - _catalog_thumb_drag_offset)
+			_catalog_thumb_dragging = true
+		else:
+			_catalog_thumb_dragging = false
+		_scan_scrollbar.accept_event()
+	elif event is InputEventMouseMotion and _catalog_thumb_dragging:
+		_set_catalog_scroll_from_thumb(event.position.y - _catalog_thumb_drag_offset)
+		_scan_scrollbar.accept_event()
+
+
+func _set_catalog_scroll_from_thumb(thumb_y: float) -> void:
+	var thumb_travel := CATALOG_SCROLL_RECT.size.y - _scan_scroll_thumb.size.y
+	if thumb_travel <= 0.0:
+		_set_catalog_scroll(0.0)
+		return
+	_set_catalog_scroll(clampf(thumb_y, 0.0, thumb_travel) / thumb_travel * _catalog_scroll_max)
 
 
 func _on_item_scanned(item_id: String) -> void:
@@ -659,15 +691,6 @@ func _panel_style(background: Color, border: Color, border_width: int) -> StyleB
 	style.content_margin_left = 1
 	style.content_margin_right = 1
 	return style
-
-
-func _set_tab_contrast(tab: Node2D, scan_selected: bool) -> void:
-	var first_tab := tab.get_node("FirstTab") as CanvasItem
-	var second_tab := tab.get_node("SecondTab") as CanvasItem
-	if first_tab != null:
-		first_tab.modulate = Color(1.18, 1.18, 1.18, 1.0) if scan_selected else Color(0.52, 0.52, 0.52, 1.0)
-	if second_tab != null:
-		second_tab.modulate = Color(0.52, 0.52, 0.52, 1.0) if scan_selected else Color(1.18, 1.18, 1.18, 1.0)
 
 
 func _flash_exchange_input() -> void:
