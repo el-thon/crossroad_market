@@ -10,6 +10,7 @@ const DEFAULT_SHELF_SIZE := Vector2(64, 48)
 const LEGACY_DIRTY_MARGIN: float = 12.0
 
 var _last_shelf_records: Dictionary = {}
+var _has_shelf_snapshot: bool = false
 
 
 func _init(
@@ -17,13 +18,16 @@ func _init(
 	marker_root: Node2D = null
 ) -> void:
 	super(store_node, marker_root)
-	_last_shelf_records = _collect_shelf_records()
+	if store_node != null:
+		_last_shelf_records = _collect_shelf_records()
+		_has_shelf_snapshot = true
 
 
 func setup(store_node: Node2D, marker_root: Node2D) -> void:
 	super.setup(store_node, marker_root)
-	if _last_shelf_records.is_empty():
+	if not _has_shelf_snapshot:
 		_last_shelf_records = _collect_shelf_records()
+		_has_shelf_snapshot = true
 
 
 func invalidate_dynamic_navigation() -> void:
@@ -47,10 +51,10 @@ func invalidate_dynamic_navigation() -> void:
 		if _shelf_metadata_touches_dirty_region(shelf, dirty_regions):
 			clear_shelf_access_metadata(shelf)
 		elif _has_raw_access_metadata(shelf):
-			# Preserve valid access metadata while advancing it to the new revision.
 			shelf.set_meta(ACCESS_NAV_REVISION_META, _navigation_revision)
 
 	_last_shelf_records = next_records
+	_has_shelf_snapshot = true
 
 
 func get_shelf_access_position(shelf: Shelf) -> Vector2:
@@ -237,7 +241,14 @@ func _collect_shelf_records() -> Dictionary:
 		var shelf := shelf_variant as Shelf
 		if not is_instance_valid(shelf):
 			continue
+		if not _is_descendant_of(shelf, _store):
+			continue
 		if bool(shelf.get_meta("is_carried_storage_object", false)):
+			continue
+		if (
+			shelf.has_meta("is_installed_in_store")
+			and not bool(shelf.get_meta("is_installed_in_store", false))
+		):
 			continue
 		records[shelf.get_instance_id()] = {
 			"shelf": shelf,
@@ -326,6 +337,14 @@ func _shelf_metadata_touches_dirty_region(
 	var node_marker: Marker2D = _nav.get_graph_marker(node_name)
 	if node_marker != null:
 		route_start = node_marker.global_position
+	if (
+		access_position.is_finite()
+		and (
+			route.is_empty()
+			or route.back().distance_to(access_position) > ROUTE_CLEARANCE_EPSILON
+		)
+	):
+		route.append(access_position)
 	return _route_intersects_regions(route_start, route, regions)
 
 
@@ -397,3 +416,12 @@ func _get_shelf_rect(shelf: Shelf) -> Rect2:
 		collision_shape.global_position - rectangle.size * 0.5,
 		rectangle.size
 	)
+
+
+func _is_descendant_of(node: Node, ancestor: Node) -> bool:
+	var current := node
+	while current != null:
+		if current == ancestor:
+			return true
+		current = current.get_parent()
+	return false
