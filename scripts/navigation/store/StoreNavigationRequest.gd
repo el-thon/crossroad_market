@@ -74,13 +74,17 @@ func get_cache_key(cell_size: float = 12.0) -> String:
 	if target_shelf != null and is_instance_valid(target_shelf):
 		target_id = target_shelf.get_instance_id()
 
-	return "%s|%s|%d,%d|%d,%d|q%d|s%d|t%d|r%d|d%d|f%d|a%d|%s" % [
+	return "%s|%s|%d,%d|%d,%d|px%d,%d:%d,%d|q%d|s%d|t%d|r%d|d%d|f%d|a%d|%s" % [
 		String(goal_type),
 		String(goal_id),
 		start_cell.x,
 		start_cell.y,
 		goal_cell.x,
 		goal_cell.y,
+		roundi(start_position.x),
+		roundi(start_position.y),
+		roundi(goal_position.x),
+		roundi(goal_position.y),
 		queue_index,
 		source_id,
 		target_id,
