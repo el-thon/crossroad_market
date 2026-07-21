@@ -98,7 +98,11 @@ func get_shelf_egress_route_to_queue_from(
 	if not anchor_position.is_finite():
 		return []
 
-	var queue_route := get_route_to_queue_target_from(anchor_position, queue_index)
+	var queue_route := _get_anchor_route_to_queue_target(
+		anchor_position,
+		queue_index,
+		destination
+	)
 	if queue_route.is_empty():
 		var queue_target := get_queue_target_position(queue_index, destination)
 		if not queue_target.is_finite():
@@ -140,21 +144,65 @@ func get_shelf_egress_route_to_queue_from(
 	if route.is_empty():
 		return []
 
-	if (
-		not _clearance.is_route_to_access_clear(
-			from_position,
-			route,
-			shelf,
-			npc_node
-		)
-		and not _clearance.is_queue_route_clear_from_current_position(
-			from_position,
-			route
-		)
-	):
+	return route
+
+
+func _get_anchor_route_to_queue_target(
+	anchor_position: Vector2,
+	queue_index: int,
+	destination: Vector2
+) -> Array[Vector2]:
+	if not anchor_position.is_finite():
 		return []
 
-	return route
+	var approach_node := _nav.get_queue_approach_node_name(queue_index)
+	var target_node := _nav.get_queue_target_node_name(queue_index)
+	var approach_position := _nav.get_marker_position(approach_node)
+	var target_position := _nav.get_marker_position(target_node)
+	if not target_position.is_finite():
+		target_position = get_queue_target_position(queue_index, destination)
+	if not target_position.is_finite():
+		target_position = destination
+	if not target_position.is_finite():
+		return []
+
+	var candidates: Array[Dictionary] = []
+	if approach_position.is_finite():
+		for horizontal_first in [true, false]:
+			var route: Array[Vector2] = _routes.make_orthogonal_route(
+				anchor_position,
+				approach_position,
+				horizontal_first
+			)
+			route.append_array(
+				_routes.make_orthogonal_route(
+					approach_position,
+					target_position,
+					true
+				)
+			)
+			_append_route_candidate(candidates, anchor_position, route)
+
+	if candidates.is_empty():
+		var graph_route := get_route_to_queue_target_from(
+			anchor_position,
+			queue_index
+		)
+		if not graph_route.is_empty():
+			_append_route_candidate(candidates, anchor_position, graph_route)
+
+	for horizontal_first in [true, false]:
+		_append_route_candidate(
+			candidates,
+			anchor_position,
+			_routes.make_orthogonal_route(
+				anchor_position,
+				target_position,
+				horizontal_first
+			)
+		)
+
+	return _get_shortest_route(candidates)
 
 
 func _append_fast_live_access_routes(
