@@ -45,6 +45,14 @@ func process_wait_in_queue(delta: float) -> void:
 		return
 
 	npc.target_position = get_queue_target()
+	var has_shelf_egress_context: bool = (
+		npc._queue_egress_route_pending
+		or npc.has_meta(EXIT_ORIGIN_SHELF_META)
+		or (
+			npc._queue_entry_shelf != null
+			and is_instance_valid(npc._queue_entry_shelf)
+		)
+	)
 
 	if npc._queue_advance_delay_timer > 0.0:
 		npc._queue_advance_delay_timer = maxf(0.0, npc._queue_advance_delay_timer - delta)
@@ -88,6 +96,7 @@ func process_wait_in_queue(delta: float) -> void:
 		queue_index == 0
 		and NPCQueueReservationControllerScript.size() <= 1
 		and not npc._is_moving_from_queue_to_cashier
+		and not has_shelf_egress_context
 	):
 		start_queue_to_cashier(queue_index)
 		return
@@ -196,6 +205,8 @@ func start_queue_to_cashier(queue_index: int) -> void:
 func _clear_queue_entry_shelf_obstacle() -> void:
 	if npc.has_meta(EXIT_ORIGIN_SHELF_META):
 		npc.remove_meta(EXIT_ORIGIN_SHELF_META)
+	npc._queue_entry_shelf = null
+	npc._queue_egress_route_pending = false
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

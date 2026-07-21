@@ -525,6 +525,14 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 		NPC.State.WAIT_IN_QUEUE:
 			@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 			var queue_index := NPCQueueReservationControllerScript.index_of(npc)
+			var has_shelf_egress_context: bool = (
+				npc._queue_egress_route_pending
+				or npc.has_meta(&"exit_origin_shelf")
+				or (
+					npc._queue_entry_shelf != null
+					and is_instance_valid(npc._queue_entry_shelf)
+				)
+			)
 
 			if (
 				queue_index >= 0
@@ -541,7 +549,6 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 
 				if not egress_queue_route.is_empty():
 					npc._queue_egress_route_pending = false
-					npc._queue_entry_shelf = null
 					_record_route_probe(&"npc_queue_route_branch", {
 						"branch": "shelf_egress",
 						"queue_index": queue_index,
@@ -549,6 +556,16 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 						"destination": _format_vector(destination)
 					})
 					return egress_queue_route
+
+				_record_route_probe(&"npc_queue_route_branch", {
+					"branch": "shelf_egress_wait",
+					"queue_index": queue_index,
+					"route_points": 0,
+					"destination": _format_vector(destination),
+					"entry_shelf_id": String(npc._queue_entry_shelf.get_shelf_id()),
+					"entry_shelf_revision": npc._queue_entry_shelf.get_revision()
+				})
+				return []
 
 			if npc._is_moving_from_queue_to_cashier:
 				var cashier_route := call_store_route(
@@ -568,7 +585,11 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 				queue_index >= 0
 				and store.has_method("get_npc_route_to_queue_target_from")
 			):
-				if queue_index == 0 and NPCQueueReservationControllerScript.size() <= 1:
+				if (
+					queue_index == 0
+					and NPCQueueReservationControllerScript.size() <= 1
+					and not has_shelf_egress_context
+				):
 					var solo_cashier_route := call_store_route(
 						store,
 						&"get_npc_route_to_cashier_from",
