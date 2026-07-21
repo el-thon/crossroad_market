@@ -33,6 +33,8 @@ const SHELF_TAKE_PAUSE_TIME: float = 1.25
 const SHELF_VISIT_OFFSET: Vector2 = Vector2(0, 34)
 const SHELF_ACTION_DISTANCE: float = 6.0
 const SHELF_VISIT_ARRIVAL_DISTANCE: float = 4.0
+const SHELF_ACCESS_X_TOLERANCE: float = 6.0
+const SHELF_ACCESS_Y_TOLERANCE: float = 8.0
 const QUEUE_ACTION_DISTANCE: float = 8.0
 const QUEUE_SLOT_ARRIVAL_DISTANCE: float = 3.0
 const QUEUE_ADVANCE_DELAY: float = 1.0
@@ -91,6 +93,12 @@ var _movement_route: Array[Vector2] = []
 var _movement_route_destination: Vector2 = Vector2.INF
 @warning_ignore("unused_private_class_variable")
 var _target_shelf: Shelf = null
+@warning_ignore("unused_private_class_variable")
+var _target_shelf_access_position: Vector2 = Vector2.INF
+@warning_ignore("unused_private_class_variable")
+var _target_shelf_access_approach: Vector2 = Vector2.INF
+@warning_ignore("unused_private_class_variable")
+var _target_shelf_access_side: StringName = &""
 @warning_ignore("unused_private_class_variable")
 var _queue_entry_shelf: Shelf = null
 @warning_ignore("unused_private_class_variable")
@@ -320,6 +328,25 @@ func _is_target_shelf_valid() -> bool:
 		return false
 
 	return true
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func clear_target_shelf_access() -> void:
+	_target_shelf_access_position = Vector2.INF
+	_target_shelf_access_approach = Vector2.INF
+	_target_shelf_access_side = &""
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func is_at_target_shelf_access() -> bool:
+	if not _target_shelf_access_position.is_finite():
+		return false
+
+	var delta: Vector2 = _target_shelf_access_position - global_position
+	return (
+		absf(delta.x) <= SHELF_ACCESS_X_TOLERANCE
+		and absf(delta.y) <= SHELF_ACCESS_Y_TOLERANCE
+	)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

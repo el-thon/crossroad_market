@@ -101,6 +101,7 @@ func leave_queue() -> void:
 	npc._is_moving_from_queue_to_cashier = false
 	npc._queue_entry_shelf = null
 	npc._queue_egress_route_pending = false
+	npc.clear_target_shelf_access()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -113,6 +114,7 @@ func enter_checkout_queue() -> void:
 	npc._movement_route_destination = Vector2.INF
 	npc._set_state(NPC.State.WAIT_IN_QUEUE)
 	npc._target_shelf = null
+	npc.clear_target_shelf_access()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

@@ -18,6 +18,7 @@ func process_wait_in_queue(delta: float) -> void:
 		npc._is_moving_from_queue_to_cashier = false
 		npc._queue_back_facing_done = false
 		npc._queue_back_facing_logged = false
+		npc.clear_target_shelf_access()
 
 		if previous_index > queue_index and previous_index >= 0:
 			npc._queue_advance_delay_timer = npc.QUEUE_ADVANCE_DELAY

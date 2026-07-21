@@ -8,6 +8,8 @@ var npc = null
 var _last_route_debug_key: String = ""
 @warning_ignore("unused_private_class_variable")
 var _last_stuck_debug_key: String = ""
+var _active_waypoint: Vector2 = Vector2.INF
+var _active_axis: Vector2 = Vector2.ZERO
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -23,6 +25,7 @@ func move_to(target: Vector2, arrival_threshold: float = -1.0) -> bool:
 	if should_rebuild_movement_route(target):
 		npc._movement_route = build_movement_route(target)
 		npc._movement_route_destination = target
+		_reset_active_segment()
 
 	_trim_arrived_route_points(threshold)
 
@@ -42,7 +45,16 @@ func move_to(target: Vector2, arrival_threshold: float = -1.0) -> bool:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var next_target: Vector2 = npc._movement_route[0]
 
-	if not NPCMovement.move_to(
+	if uses_store_navigation_state():
+		if not NPCMovement.move_to_orthogonal(
+			npc,
+			next_target,
+			npc.SPEED,
+			threshold,
+			_resolve_waypoint_axis(next_target)
+		):
+			return false
+	elif not NPCMovement.move_to(
 		npc,
 		next_target,
 		npc.SPEED,
@@ -51,6 +63,7 @@ func move_to(target: Vector2, arrival_threshold: float = -1.0) -> bool:
 		return false
 
 	npc._movement_route.remove_at(0)
+	_reset_active_segment()
 	_trim_arrived_route_points(threshold)
 	return npc._movement_route.is_empty()
 
@@ -91,12 +104,21 @@ func update_stuck_watchdog(delta: float) -> void:
 	if npc._stuck_watchdog_timer < npc.STUCK_WATCHDOG_SECONDS:
 		return
 
-	if (
-		npc.current_state == NPC.State.WALK_TO_SHELF
-		and npc._refresh_shelf_visit_target()
-	):
-		reset_stuck_watchdog()
-		return
+	if npc.current_state == NPC.State.WALK_TO_SHELF:
+		if npc._stuck_watchdog_rebuilds == 0 and _try_alternate_shelf_access():
+			npc._last_watchdog_position = npc.global_position
+			npc._stuck_watchdog_timer = 0.0
+			npc._stuck_watchdog_rebuilds = 1
+			return
+
+		if npc._stuck_watchdog_rebuilds >= 1:
+			npc.target_position = npc.global_position
+			npc._set_state(NPC.State.WAIT_FOR_SHELF)
+			return
+
+		if npc._refresh_shelf_visit_target():
+			reset_stuck_watchdog()
+			return
 
 	if npc._stuck_watchdog_rebuilds >= npc.STUCK_WATCHDOG_MAX_REBUILDS:
 		# Never replace a failed pre-item Store route with an unplanned direct
@@ -105,6 +127,7 @@ func update_stuck_watchdog(delta: float) -> void:
 		if npc.current_state == NPC.State.EXIT:
 			npc._movement_route.clear()
 			npc._movement_route_destination = Vector2.INF
+			_reset_active_segment()
 			npc._last_watchdog_position = npc.global_position
 			npc._stuck_watchdog_timer = 0.0
 			npc._stuck_watchdog_rebuilds = 0
@@ -116,6 +139,7 @@ func update_stuck_watchdog(delta: float) -> void:
 
 	npc._movement_route.clear()
 	npc._movement_route_destination = Vector2.INF
+	_reset_active_segment()
 	npc._last_watchdog_position = npc.global_position
 	npc._stuck_watchdog_timer = 0.0
 	npc._stuck_watchdog_rebuilds += 1
@@ -431,6 +455,60 @@ func _trim_arrived_route_points(threshold: float) -> void:
 		and npc.global_position.distance_to(npc._movement_route[0]) <= threshold
 	):
 		npc._movement_route.remove_at(0)
+		_reset_active_segment()
+
+
+func _resolve_waypoint_axis(target: Vector2) -> Vector2:
+	if not _active_waypoint.is_equal_approx(target):
+		_active_waypoint = target
+		var delta: Vector2 = target - npc.global_position
+		_active_axis = (
+			Vector2.RIGHT
+			if absf(delta.x) >= absf(delta.y)
+			else Vector2.DOWN
+		)
+
+	return _active_axis
+
+
+func _reset_active_segment() -> void:
+	_active_waypoint = Vector2.INF
+	_active_axis = Vector2.ZERO
+
+
+func _try_alternate_shelf_access() -> bool:
+	if (
+		npc._target_shelf == null
+		or not is_instance_valid(npc._target_shelf)
+	):
+		return false
+
+	var store: Node = get_store_route_provider()
+	if store == null or not store.has_method("resolve_npc_shelf_access"):
+		return false
+
+	var result: Variant = store.call(
+		"resolve_npc_shelf_access",
+		npc._target_shelf,
+		npc.global_position,
+		npc._target_shelf_access_side
+	)
+
+	if not result is Dictionary:
+		return false
+
+	var alternate := result as Dictionary
+	if alternate.is_empty():
+		return false
+
+	npc._target_shelf_access_position = alternate["access"] as Vector2
+	npc._target_shelf_access_approach = alternate["approach"] as Vector2
+	npc._target_shelf_access_side = alternate["side"] as StringName
+	npc.target_position = npc._target_shelf_access_position
+	npc._movement_route.clear()
+	npc._movement_route_destination = Vector2.INF
+	_reset_active_segment()
+	return true
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
