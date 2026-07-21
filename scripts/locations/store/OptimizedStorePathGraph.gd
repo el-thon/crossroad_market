@@ -13,6 +13,7 @@ const PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 const PLACEMENT_SURFACE_NODE_LIMIT: int = 2
 const FAST_PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 const LIVE_ACCESS_GRAPH_NODE_LIMIT: int = 8
+const LIVE_ACCESS_SHELF_ANCHOR_LIMIT: int = 2
 
 
 func set_shelf_access_points(points: Array[Vector2]) -> void:
@@ -108,15 +109,15 @@ func _append_fast_marker_access_routes(
 	npc_node: Node
 ) -> void:
 	var marker_nodes: Array[StringName] = []
+	_append_nearest_shelf_anchor_nodes(marker_nodes, access_position)
 	var aisle_node: StringName = _nav.get_role_node_name(
 		&"aisle_right",
 		AISLE_RIGHT
 	)
-	if aisle_node != StringName():
-		marker_nodes.append(aisle_node)
 	if shelf_graph_node != StringName() and shelf_graph_node not in marker_nodes:
 		marker_nodes.append(shelf_graph_node)
-	_append_nearest_shelf_anchor_nodes(marker_nodes, access_position)
+	if aisle_node != StringName() and aisle_node not in marker_nodes:
+		marker_nodes.append(aisle_node)
 
 	for marker_node in marker_nodes:
 		var marker_position: Vector2 = _nav.get_marker_position(marker_node)
@@ -173,8 +174,9 @@ func _append_nearest_shelf_anchor_nodes(
 		return float(a.get("distance", INF)) < float(b.get("distance", INF))
 	)
 
+	var appended_count := 0
 	for anchor_entry in anchor_nodes:
-		if marker_nodes.size() >= LIVE_ACCESS_GRAPH_NODE_LIMIT:
+		if appended_count >= LIVE_ACCESS_SHELF_ANCHOR_LIMIT:
 			return
 
 		var node_name := anchor_entry.get("node", StringName()) as StringName
@@ -182,6 +184,7 @@ func _append_nearest_shelf_anchor_nodes(
 			continue
 
 		marker_nodes.append(node_name)
+		appended_count += 1
 
 
 func _find_fast_vertical_shelf_access(

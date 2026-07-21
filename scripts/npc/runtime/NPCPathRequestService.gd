@@ -6,7 +6,7 @@ const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDe
 const STATUS_PENDING: StringName = &"pending"
 const STATUS_COMPLETED: StringName = &"completed"
 const STATUS_FAILED: StringName = &"failed"
-const MAX_COMPLETED_ROUTES_PER_TICK: int = 3
+const MAX_COMPLETED_ROUTES_PER_TICK: int = 1
 const REQUEST_TIMEOUT_MSEC: int = 2500
 
 static var _next_request_id: int = 0
@@ -25,13 +25,19 @@ static func request_route(
 	if not destination.is_finite() or not build_route.is_valid():
 		return _make_failed_handle(destination, &"invalid_request")
 
+	var npc_id: int = npc.get_instance_id()
+	var existing_request := _find_pending_request(npc_id, destination)
+	if not existing_request.is_empty():
+		return existing_request
+
 	_next_request_id += 1
 	var handle := {
 		"id": _next_request_id,
-		"npc_id": npc.get_instance_id(),
+		"npc_id": npc_id,
 		"destination": destination,
 		"build_route": build_route,
 		"priority": priority,
+		"context": _build_request_context(npc, destination),
 		"status": STATUS_PENDING,
 		"route": [],
 		"reason": &"pending",
@@ -60,13 +66,8 @@ static func tick(max_completed: int = MAX_COMPLETED_ROUTES_PER_TICK) -> void:
 
 		var route_start_usec: int = Time.get_ticks_usec()
 		var route_variant: Variant = request.get("build_route", Callable()).call()
-		StoreRuntimeDebugProbeScript.record(
-			&"npc_path_request",
-			StoreRuntimeDebugProbeScript.elapsed_msec(route_start_usec),
-			{
-				"npc_id": int(request.get("npc_id", 0)),
-				"priority": int(request.get("priority", 100))
-			}
+		var route_elapsed_msec := StoreRuntimeDebugProbeScript.elapsed_msec(
+			route_start_usec
 		)
 		if route_variant is Array:
 			request["route"] = (route_variant as Array).duplicate()
@@ -76,6 +77,20 @@ static func tick(max_completed: int = MAX_COMPLETED_ROUTES_PER_TICK) -> void:
 			request["route"] = []
 			request["status"] = STATUS_FAILED
 			request["reason"] = &"invalid_result"
+
+		var debug_context: Dictionary = (
+			request.get("context", {}) as Dictionary
+		).duplicate(true)
+		debug_context["priority"] = int(request.get("priority", 100))
+		debug_context["status"] = String(request.get("status", STATUS_PENDING))
+		debug_context["reason"] = String(request.get("reason", &""))
+		debug_context["route_points"] = (request.get("route", []) as Array).size()
+		StoreRuntimeDebugProbeScript.record(
+			&"npc_path_request",
+			route_elapsed_msec,
+			debug_context,
+			8.0
+		)
 
 		completed_count += 1
 
@@ -109,6 +124,51 @@ static func _make_failed_handle(destination: Vector2, reason: StringName) -> Dic
 		"requested_msec": Time.get_ticks_msec(),
 		"timeout_msec": Time.get_ticks_msec()
 	}
+
+
+static func _find_pending_request(
+	npc_id: int,
+	destination: Vector2
+) -> Dictionary:
+	for request in _requests:
+		if int(request.get("npc_id", -1)) != npc_id:
+			continue
+		if StringName(str(request.get("status", STATUS_PENDING))) != STATUS_PENDING:
+			continue
+
+		var request_destination := request.get(
+			"destination",
+			Vector2.INF
+		) as Vector2
+		if request_destination.is_equal_approx(destination):
+			return request
+
+	return {}
+
+
+static func _build_request_context(
+	npc: Node,
+	destination: Vector2
+) -> Dictionary:
+	var context: Dictionary = {
+		"npc_id": npc.get_instance_id(),
+		"destination": _format_vector(destination)
+	}
+
+	var state_variant: Variant = npc.get("current_state")
+	context["state"] = int(state_variant) if state_variant is int else -1
+
+	var target_shelf_variant: Variant = npc.get("_target_shelf")
+	if target_shelf_variant is Shelf and is_instance_valid(target_shelf_variant):
+		var target_shelf := target_shelf_variant as Shelf
+		context["shelf_id"] = String(target_shelf.get_shelf_id())
+		context["shelf_revision"] = target_shelf.get_revision()
+
+	return context
+
+
+static func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]
 
 
 static func _sort_requests() -> void:
