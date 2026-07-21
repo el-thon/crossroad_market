@@ -25,6 +25,7 @@ offset_bottom = 176.0
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_patience_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_patience_fill")
+max_value = 1.0
 value = 1.0
 show_percentage = false
 
