@@ -1,25 +1,35 @@
-name: Godot 4.7 Compile
+name: Marker-only Store Navigation Migration
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - "scripts/**"
       - "scenes/**"
-      - "project.godot"
+      - "data/**"
+      - "tools/ci/migrate_store_marker_only.py"
       - ".github/workflows/store-navigation-parse.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  compile-gdscript:
+  migrate-and-compile:
+    if: github.head_ref == 'agent/rebuild-store-marker-only-routing'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
+      - name: Checkout migration branch
         uses: actions/checkout@v4
+        with:
+          ref: agent/rebuild-store-marker-only-routing
+          fetch-depth: 0
+
+      - name: Apply deterministic migration
+        run: python tools/ci/migrate_store_marker_only.py
 
       - name: Install Godot 4.7 stable
         shell: bash
@@ -30,8 +40,6 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.7-stable_linux.x86_64
 
-      # Load every script resource so Godot catches static typing, dependency,
-      # class resolution, and override-signature errors—not grammar alone.
       - name: Compile every GDScript resource
         shell: bash
         run: |
@@ -74,3 +82,19 @@ jobs:
           GDSCRIPT
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
             --headless --path . --script /tmp/check_all_scripts.gd
+
+      - name: Verify project boots headlessly
+        run: |
+          timeout 60s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
+            --headless --path . --quit
+
+      - name: Commit verified migration
+        shell: bash
+        run: |
+          git restore .github/workflows/store-navigation-parse.yml
+          rm -f tools/ci/migrate_store_marker_only.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A scripts scenes data tools/ci
+          git commit -m "Rebuild Store NPC pathing with marker-only routes"
+          git push origin HEAD:agent/rebuild-store-marker-only-routing
