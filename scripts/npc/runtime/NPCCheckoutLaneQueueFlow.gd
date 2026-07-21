@@ -60,7 +60,7 @@ func process_wait_in_queue(delta: float) -> void:
 			return
 		npc._queue_advance_waiting_for_clear = false
 
-	var arrived := (
+	var arrived: bool = (
 		npc.global_position.distance_to(npc.target_position)
 		<= npc.QUEUE_SLOT_ARRIVAL_DISTANCE
 	)
