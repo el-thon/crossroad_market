@@ -28,6 +28,33 @@ static func reserve_next_position(npc: Node, position: Vector2) -> bool:
 	return true
 
 
+static func get_blocking_context(npc: Node, position: Vector2) -> Dictionary:
+	if npc == null or not is_instance_valid(npc) or not position.is_finite():
+		return {"blocked": true, "reason": "invalid_request"}
+
+	prune_invalid()
+	var key: Vector2i = _position_key(position)
+	var owner_id: int = int(_reservations.get(key, 0))
+	var npc_id: int = npc.get_instance_id()
+	if owner_id != 0 and owner_id != npc_id:
+		return {
+			"blocked": true,
+			"reason": "reserved",
+			"cell": _format_cell(key),
+			"owner_id": owner_id
+		}
+
+	var actor_context := _get_occupying_actor_context(npc, key)
+	if bool(actor_context.get("blocked", false)):
+		return actor_context
+
+	return {
+		"blocked": false,
+		"reason": "clear",
+		"cell": _format_cell(key)
+	}
+
+
 static func release_for(npc: Node) -> void:
 	if npc == null or not is_instance_valid(npc):
 		return
@@ -66,9 +93,13 @@ static func _position_key(position: Vector2) -> Vector2i:
 
 
 static func _is_position_occupied_by_other(npc: Node, key: Vector2i) -> bool:
+	return bool(_get_occupying_actor_context(npc, key).get("blocked", false))
+
+
+static func _get_occupying_actor_context(npc: Node, key: Vector2i) -> Dictionary:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree == null:
-		return false
+		return {"blocked": false, "reason": "clear", "cell": _format_cell(key)}
 
 	var npc_id: int = npc.get_instance_id()
 	for npc_node in tree.get_nodes_in_group("npcs"):
@@ -83,6 +114,21 @@ static func _is_position_occupied_by_other(npc: Node, key: Vector2i) -> bool:
 
 		var other_node := npc_node as Node2D
 		if _position_key(other_node.global_position) == key:
-			return true
+			return {
+				"blocked": true,
+				"reason": "occupied",
+				"cell": _format_cell(key),
+				"owner_id": npc_node.get_instance_id(),
+				"owner_name": String(npc_node.name),
+				"owner_position": _format_vector(other_node.global_position)
+			}
 
-	return false
+	return {"blocked": false, "reason": "clear", "cell": _format_cell(key)}
+
+
+static func _format_cell(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]
+
+
+static func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]

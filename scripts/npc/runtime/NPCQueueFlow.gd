@@ -27,13 +27,22 @@ func process_wait_in_queue(delta: float) -> void:
 	if queue_index != npc._last_queue_index:
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var previous_index: int = npc._last_queue_index
+		var previous_egress_target: Vector2 = npc._queue_egress_target_position
 
 		npc._last_queue_index = queue_index
 		npc._movement_route.clear()
 		npc._movement_route_destination = Vector2.INF
 		npc._is_moving_from_queue_to_cashier = false
+		npc._queue_egress_target_position = Vector2.INF
 		npc._queue_back_facing_done = false
 		npc._queue_back_facing_logged = false
+		_record_queue_probe(&"npc_queue_index_changed", {
+			"previous_index": previous_index,
+			"queue_index": queue_index,
+			"queue_size": NPCQueueReservationControllerScript.size(),
+			"egress_pending": npc._queue_egress_route_pending,
+			"previous_egress_target": _format_vector(previous_egress_target)
+		})
 
 		if previous_index > queue_index and previous_index >= 0:
 			npc._queue_advance_delay_timer = npc.QUEUE_ADVANCE_DELAY
@@ -125,10 +134,38 @@ func process_wait_in_queue(delta: float) -> void:
 func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 	var egress_target: Vector2 = npc._queue_egress_target_position
 	var target_source: String = "cached"
-	if not egress_target.is_finite():
-		egress_target = get_queue_egress_target(queue_index)
+	var resolved_egress_target: Vector2 = get_queue_egress_target(queue_index)
+	if (
+		not egress_target.is_finite()
+		or (
+			resolved_egress_target.is_finite()
+			and egress_target.distance_to(resolved_egress_target) > 1.0
+		)
+	):
+		var old_egress_target := egress_target
+		egress_target = resolved_egress_target
 		npc._queue_egress_target_position = egress_target
 		target_source = "resolved"
+		if old_egress_target.is_finite():
+			npc._movement_route.clear()
+			npc._movement_route_destination = Vector2.INF
+			npc.set_meta(&"path_possibly_invalid", true)
+			_record_queue_probe(&"npc_queue_egress_retarget", {
+				"queue_index": queue_index,
+				"old_egress_target": _format_vector(old_egress_target),
+				"new_egress_target": _format_vector(egress_target),
+				"queue_size": NPCQueueReservationControllerScript.size()
+			})
+
+	if not egress_target.is_finite():
+		npc.velocity = Vector2.ZERO
+		npc.move_and_slide()
+		_record_queue_move_probe(&"npc_queue_egress_invalid", {
+			"queue_index": queue_index,
+			"queue_size": NPCQueueReservationControllerScript.size(),
+			"target_source": target_source
+		})
+		return
 
 	npc.target_position = egress_target
 	var arrived: bool = (

@@ -181,7 +181,7 @@ func _get_anchor_route_to_queue_target(
 
 	var candidates: Array[Dictionary] = []
 	if approach_position.is_finite():
-		for horizontal_first in [true, false]:
+		for horizontal_first in [false, true]:
 			var route: Array[Vector2] = _build_route_leg(
 				anchor_position,
 				approach_position,
@@ -190,7 +190,22 @@ func _get_anchor_route_to_queue_target(
 				null,
 				horizontal_first
 			)
-			_append_route_candidate(candidates, anchor_position, route)
+			var route_to_target := route.duplicate()
+			if (
+				target_position.is_finite()
+				and approach_position.distance_to(target_position)
+				> MARKER_ALIGNMENT_EPSILON
+			):
+				route_to_target.append_array(
+					_routes.make_orthogonal_route(
+						approach_position,
+						target_position,
+						true
+					)
+				)
+			route_to_target = _routes.dedupe_route_points(route_to_target)
+			if _clearance.is_queue_route_clear(anchor_position, route_to_target):
+				_append_route_candidate(candidates, anchor_position, route)
 
 	if candidates.is_empty():
 		var graph_route := get_route_to_queue_target_from(

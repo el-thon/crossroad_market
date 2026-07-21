@@ -12,6 +12,7 @@ const NO_ROUTE_RETRY_COOLDOWN_MSEC: int = 450
 const PATH_REQUEST_RETRY_COOLDOWN_MSEC: int = 1500
 const PATH_REQUEST_BACKOFF_MAX_MSEC: int = 5000
 const ROUTE_REQUEST_PROBE_COOLDOWN_MSEC: int = 650
+const ROUTE_STEP_PROBE_COOLDOWN_MSEC: int = 650
 
 var npc = null
 @warning_ignore("unused_private_class_variable")
@@ -23,6 +24,7 @@ var _next_path_request_msec: int = 0
 var _path_request_backoff_msec: int = PATH_REQUEST_RETRY_COOLDOWN_MSEC
 var _pending_path_request: Dictionary = {}
 var _next_route_request_probe_msec: int = 0
+var _next_route_step_probe_msec: int = 0
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -86,14 +88,39 @@ func move_to(target: Vector2, arrival_threshold: float = -1.0) -> bool:
 	if not NPCMovementReservationSystemScript.reserve_next_position(npc, next_target):
 		npc.velocity = Vector2.ZERO
 		npc.move_and_slide()
+		var blocking_context: Dictionary = (
+			NPCMovementReservationSystemScript.get_blocking_context(
+				npc,
+				next_target
+			)
+		)
+		blocking_context["next_route_point"] = _format_vector(next_target)
+		blocking_context["route_points"] = npc._movement_route.size()
+		_record_route_step_probe(&"npc_route_step_blocked", blocking_context)
 		return false
 
+	var before_move: Vector2 = npc.global_position
 	if not NPCMovement.move_to(
 		npc,
 		next_target,
 		npc.SPEED,
 		threshold
 	):
+		var moved_distance: float = before_move.distance_to(npc.global_position)
+		if moved_distance <= 0.05:
+			var no_progress_context: Dictionary = {
+				"next_route_point": _format_vector(next_target),
+				"route_points": npc._movement_route.size(),
+				"slide_collisions": npc.get_slide_collision_count(),
+				"moved_distance": snappedf(moved_distance, 0.01)
+			}
+			var collision_context := _get_slide_collision_context()
+			for key in collision_context:
+				no_progress_context[key] = collision_context[key]
+			_record_route_step_probe(
+				&"npc_route_step_no_progress",
+				no_progress_context
+			)
 		return false
 
 	npc._movement_route.remove_at(0)
@@ -165,6 +192,9 @@ func update_stuck_watchdog(delta: float) -> void:
 			reset_stuck_watchdog()
 			return
 
+		if _recover_queue_egress_stuck():
+			return
+
 		abandon_purchase_and_exit()
 		return
 
@@ -173,6 +203,10 @@ func update_stuck_watchdog(delta: float) -> void:
 	npc._last_watchdog_position = npc.global_position
 	npc._stuck_watchdog_timer = 0.0
 	npc._stuck_watchdog_rebuilds += 1
+	_record_route_step_probe(&"npc_route_watchdog_repath", {
+		"reason": "stuck_rebuild",
+		"rebuilds": npc._stuck_watchdog_rebuilds
+	})
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -469,6 +503,28 @@ func abandon_purchase_and_exit() -> void:
 	npc._exit_after_checkout = false
 	npc.target_position = get_exit_position()
 	npc._set_state(NPC.State.EXIT)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _recover_queue_egress_stuck() -> bool:
+	if (
+		npc.current_state != NPC.State.WAIT_IN_QUEUE
+		or not npc._queue_egress_route_pending
+	):
+		return false
+
+	NPCMovementReservationSystemScript.release_for(npc)
+	npc._movement_route.clear()
+	npc._movement_route_destination = Vector2.INF
+	npc.set_meta(&"path_possibly_invalid", true)
+	npc._last_watchdog_position = npc.global_position
+	npc._stuck_watchdog_timer = 0.0
+	npc._stuck_watchdog_rebuilds = 0
+	_record_route_probe(&"npc_queue_egress_recover", {
+		"reason": "stuck_repath_without_abandon",
+		"egress_target": _format_vector(npc._queue_egress_target_position)
+	})
+	return true
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -1054,6 +1110,43 @@ func _record_route_request_probe(
 
 	_next_route_request_probe_msec = now_msec + ROUTE_REQUEST_PROBE_COOLDOWN_MSEC
 	_record_route_probe(label, extra_context)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_route_step_probe(label: StringName, extra_context: Dictionary) -> void:
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < _next_route_step_probe_msec:
+		return
+
+	_next_route_step_probe_msec = now_msec + ROUTE_STEP_PROBE_COOLDOWN_MSEC
+	_record_route_probe(label, extra_context)
+
+
+func _get_slide_collision_context() -> Dictionary:
+	var collision_count: int = npc.get_slide_collision_count()
+	if collision_count <= 0:
+		return {}
+
+	var collision: KinematicCollision2D = npc.get_slide_collision(0)
+	if collision == null:
+		return {}
+
+	var context: Dictionary = {
+		"collision_position": _format_vector(collision.get_position()),
+		"collision_normal": _format_vector(collision.get_normal()),
+		"collision_travel": _format_vector(collision.get_travel()),
+		"collision_remainder": _format_vector(collision.get_remainder())
+	}
+	var collider: Object = collision.get_collider()
+	if collider is Node:
+		var collider_node := collider as Node
+		context["collider_name"] = String(collider_node.name)
+		context["collider_path"] = String(collider_node.get_path())
+		var collider_owner := collider_node.get_owner()
+		if collider_owner != null:
+			context["collider_owner"] = String(collider_owner.name)
+
+	return context
 
 
 func _format_vector(value: Vector2) -> String:

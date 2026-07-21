@@ -86,6 +86,9 @@ static func tick(max_completed: int = MAX_COMPLETED_ROUTES_PER_TICK) -> void:
 		debug_context["status"] = String(request.get("status", STATUS_PENDING))
 		debug_context["reason"] = String(request.get("reason", &""))
 		debug_context["route_points"] = (request.get("route", []) as Array).size()
+		debug_context["route_preview"] = _format_route_preview(
+			request.get("route", [])
+		)
 		_finished_requests[int(request.get("id", -1))] = request.duplicate(true)
 		_trim_finished_requests()
 		StoreRuntimeDebugProbeScript.record(
@@ -196,6 +199,21 @@ static func _build_request_context(
 
 static func _format_vector(value: Vector2) -> String:
 	return "%.1f,%.1f" % [value.x, value.y]
+
+
+static func _format_route_preview(route_variant: Variant) -> Array[String]:
+	var preview: Array[String] = []
+	if not route_variant is Array:
+		return preview
+
+	var route := route_variant as Array
+	var max_points := mini(route.size(), 6)
+	for index in range(max_points):
+		var point_variant: Variant = route[index]
+		if point_variant is Vector2:
+			preview.append(_format_vector(point_variant as Vector2))
+
+	return preview
 
 
 static func _sort_requests() -> void:
