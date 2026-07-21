@@ -2,6 +2,7 @@ class_name NPCShoppingFlow
 extends RefCounted
 
 const ShelfItemIndexScript = preload("res://scripts/objects/shelf/ShelfItemIndex.gd")
+const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 
 const SHELF_ROUTE_FAILURE_COOLDOWN_MSEC: int = 8000
 
@@ -306,6 +307,12 @@ func take_requested_items_from_shelves() -> bool:
 		var shelf: Shelf = npc._target_shelf if npc._target_shelf is Shelf else null
 
 		if shelf == null:
+			_record_take_probe(
+				requested_item_id,
+				null,
+				&"target_shelf_missing",
+				&""
+			)
 			continue
 
 		var reserve_result: Dictionary = shelf.reserve_item_for_npc(
@@ -313,6 +320,12 @@ func take_requested_items_from_shelves() -> bool:
 			npc
 		)
 		if not bool(reserve_result.get("ok", false)):
+			_record_take_probe(
+				requested_item_id,
+				shelf,
+				StringName(str(reserve_result.get("reason", &"reserve_failed"))),
+				&"reserve"
+			)
 			continue
 
 		var commit_result: Dictionary = shelf.commit_npc_item_reservation(
@@ -321,7 +334,19 @@ func take_requested_items_from_shelves() -> bool:
 		)
 		if bool(commit_result.get("ok", false)):
 			npc._cart_items.append(requested_item_id)
+			_record_take_probe(
+				requested_item_id,
+				shelf,
+				StringName(str(commit_result.get("reason", &"committed"))),
+				&"commit_ok"
+			)
 		else:
+			_record_take_probe(
+				requested_item_id,
+				shelf,
+				StringName(str(commit_result.get("reason", &"commit_failed"))),
+				&"commit"
+			)
 			shelf.cancel_npc_item_reservation(
 				reserve_result.get("token", {})
 			)
@@ -334,6 +359,55 @@ func take_requested_items_from_shelves() -> bool:
 		return true
 
 	return false
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_take_probe(
+	item_id: String,
+	shelf: Shelf,
+	reason: StringName,
+	stage: StringName
+) -> void:
+	if npc == null:
+		return
+
+	var context: Dictionary = {
+		"npc_id": npc.get_instance_id(),
+		"state": int(npc.current_state),
+		"item": item_id,
+		"stage": String(stage),
+		"reason": String(reason),
+		"position": _format_vector(npc.global_position),
+		"target": _format_vector(npc.target_position),
+		"target_distance": snappedf(
+			npc.global_position.distance_to(npc.target_position),
+			0.01
+		)
+	}
+
+	if shelf != null and is_instance_valid(shelf):
+		context["shelf_id"] = String(shelf.get_shelf_id())
+		context["shelf_revision"] = shelf.get_revision()
+		context["shelf_position"] = _format_vector(shelf.global_position)
+		context["shelf_distance"] = snappedf(
+			npc.global_position.distance_to(shelf.global_position),
+			0.01
+		)
+		context["has_item"] = shelf.has_item(item_id)
+		context["npc_path_ready"] = bool(
+			shelf.get_meta("npc_path_ready", false)
+		)
+
+	StoreRuntimeDebugProbeScript.record(
+		&"npc_shelf_take_attempt",
+		0.0,
+		context,
+		0.0
+	)
+
+
+func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

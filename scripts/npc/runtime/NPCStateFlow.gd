@@ -2,11 +2,14 @@ class_name NPCStateFlow
 extends RefCounted
 
 const NPCShoppingJobScript = preload("res://scripts/npc/runtime/NPCShoppingJob.gd")
+const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 const PERF_SHELF_THRESHOLD_MSEC: float = 16.0
 const OUT_OF_STOCK_WARNING_SECONDS: float = 10.0
 const OUT_OF_STOCK_EXIT_SECONDS: float = 15.0
+const SHELF_APPROACH_PROBE_COOLDOWN_MSEC: int = 650
 
 var npc = null
+var _next_shelf_approach_probe_msec: int = 0
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -95,6 +98,9 @@ func get_route_travel_info(destination: Vector2) -> Dictionary:
 func process_walk_to_shelf() -> void:
 	npc._shopping_job.set_state(NPCShoppingJobScript.STATE_MOVING_TO_SHELF)
 	if not npc._is_target_shelf_valid():
+		_record_shelf_probe(&"npc_shelf_target_invalid", {
+			"reason": "walk_shelf_lost"
+		})
 		if _handle_shelf_wait_or_leave("walk_shelf_lost"):
 			return
 
@@ -108,7 +114,9 @@ func process_walk_to_shelf() -> void:
 		set_state(NPC.State.SEARCH_ITEM)
 		return
 
-	if npc._move_to(npc.target_position):
+	var arrived: bool = npc._move_to(npc.target_position)
+	_record_shelf_approach_probe(arrived)
+	if arrived:
 		npc._face_target_shelf()
 		set_state(NPC.State.SEARCH_ITEM)
 
@@ -188,6 +196,9 @@ func process_browse_item(delta: float) -> void:
 func process_take_item() -> void:
 	npc._shopping_job.set_state(NPCShoppingJobScript.STATE_PICKING_UP_ITEM)
 	if not npc._is_target_shelf_valid() and not npc._has_taken_shelf_item:
+		_record_shelf_probe(&"npc_shelf_target_invalid", {
+			"reason": "take_shelf_lost"
+		})
 		if _handle_shelf_wait_or_leave("take_shelf_lost"):
 			return
 
@@ -211,11 +222,15 @@ func process_take_item() -> void:
 		> npc.SHELF_ACTION_DISTANCE
 		and not npc._move_to(npc.target_position)
 	):
+		_record_shelf_probe(&"npc_shelf_take_waiting_for_range", {
+			"action_distance": npc.SHELF_ACTION_DISTANCE
+		})
 		return
 
 	npc._face_target_shelf()
 
 	if npc._take_requested_items_from_shelves():
+		_record_shelf_probe(&"npc_shelf_take_success", {})
 		npc._has_taken_shelf_item = true
 		npc._take_item_pause_timer = 0.0
 		npc._show_dialog("I'll take this.")
@@ -226,6 +241,69 @@ func process_take_item() -> void:
 	# of leaving immediately.
 	npc._show_dialog("Someone must have taken it already.")
 	set_state(NPC.State.SEARCH_ITEM)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_shelf_approach_probe(arrived: bool) -> void:
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < _next_shelf_approach_probe_msec:
+		return
+
+	_next_shelf_approach_probe_msec = now_msec + SHELF_APPROACH_PROBE_COOLDOWN_MSEC
+	_record_shelf_probe(&"npc_shelf_approach", {
+		"arrived": arrived
+	})
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_shelf_probe(
+	label: StringName,
+	extra_context: Dictionary
+) -> void:
+	if npc == null:
+		return
+
+	var context: Dictionary = {
+		"npc_id": npc.get_instance_id(),
+		"state": int(npc.current_state),
+		"position": _format_vector(npc.global_position),
+		"target": _format_vector(npc.target_position),
+		"target_distance": snappedf(
+			npc.global_position.distance_to(npc.target_position),
+			0.01
+		),
+		"route_points": npc._movement_route.size(),
+		"item": npc.item_to_buy
+	}
+
+	if (
+		npc._movement_route != null
+		and not npc._movement_route.is_empty()
+	):
+		context["next_route_point"] = _format_vector(npc._movement_route[0])
+
+	if npc._target_shelf != null and is_instance_valid(npc._target_shelf):
+		context["shelf_id"] = String(npc._target_shelf.get_shelf_id())
+		context["shelf_revision"] = npc._target_shelf.get_revision()
+		context["shelf_position"] = _format_vector(
+			npc._target_shelf.global_position
+		)
+		context["shelf_distance"] = snappedf(
+			npc.global_position.distance_to(npc._target_shelf.global_position),
+			0.01
+		)
+		context["npc_path_ready"] = bool(
+			npc._target_shelf.get_meta("npc_path_ready", false)
+		)
+
+	for key in extra_context:
+		context[key] = extra_context[key]
+
+	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
+
+
+func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
