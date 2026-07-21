@@ -20,11 +20,19 @@ func move_to(
 		_store_current_navigation_revision()
 
 	_trim_arrived_route_points(threshold)
+
+	# A route ending is not the same as reaching the real gameplay target.
+	# Shelf planners may finish at an approach waypoint, while interaction must
+	# only begin when the NPC itself is inside the requested target tolerance.
 	if npc._movement_route.is_empty():
+		if _has_reached_target(target, threshold):
+			_stop_movement()
+			return true
+
 		if uses_store_navigation_state():
-			npc.velocity = Vector2.ZERO
-			npc.move_and_slide()
+			_stop_movement()
 			return false
+
 		return NPCMovement.move_to(
 			npc,
 			target,
@@ -35,8 +43,7 @@ func move_to(
 	var next_target: Vector2 = npc._movement_route[0]
 	var adjustment := _get_local_avoidance_adjustment(next_target)
 	if bool(adjustment.get("wait", false)):
-		npc.velocity = Vector2.ZERO
-		npc.move_and_slide()
+		_stop_movement()
 		return false
 
 	var movement_target := next_target
@@ -59,7 +66,17 @@ func move_to(
 
 	npc._movement_route.remove_at(0)
 	_trim_arrived_route_points(threshold)
-	return npc._movement_route.is_empty()
+	if not npc._movement_route.is_empty():
+		return false
+
+	# Preserve NPCTargetArrivalRouteController's contract after consuming the
+	# final layered waypoint. If it was only an approach point, the next frame
+	# rebuilds a short route from the NPC's current position to the real target.
+	if not _has_reached_target(target, threshold):
+		return false
+
+	_stop_movement()
+	return true
 
 
 func should_rebuild_movement_route(target: Vector2) -> bool:
@@ -124,6 +141,18 @@ func get_shelf_egress_queue_route(
 		queue_index,
 		destination
 	)
+
+
+func _has_reached_target(target: Vector2, threshold: float) -> bool:
+	return (
+		target.is_finite()
+		and npc.global_position.distance_to(target) <= threshold
+	)
+
+
+func _stop_movement() -> void:
+	npc.velocity = Vector2.ZERO
+	npc.move_and_slide()
 
 
 func _get_local_avoidance_adjustment(
