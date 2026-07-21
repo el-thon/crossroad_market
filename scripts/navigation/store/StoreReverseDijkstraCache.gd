@@ -121,10 +121,11 @@ func _make_cache_key(
 	revision: int,
 	context: Dictionary
 ) -> String:
-	return "%s|r%d|aq%d|q%d|p%s" % [
+	return "%s|r%d|aq%d|q%d|radius%d|p%s" % [
 		String(goal_node),
 		revision,
 		int(bool(context.get("avoid_queue_front", false))),
 		int(context.get("queue_index", -1)),
+		roundi(float(context.get("agent_radius", 10.5)) * 10.0),
 		str(context.get("policy_signature", ""))
 	]
