@@ -32,8 +32,6 @@ func _init(
 	marker_root: Node2D = null
 ) -> void:
 	super(store_node, marker_root)
-	# Keep the public StorePathGraph API while replacing only the expensive
-	# surface-neighbor implementation.
 	_surface = SurfaceGridScript.new(self)
 
 
@@ -52,8 +50,6 @@ func invalidate_dynamic_navigation() -> void:
 	if _store == null or _store.get_tree() == null:
 		return
 
-	# Moving one shelf can invalidate another shelf's connector. Clear the small
-	# shelf metadata cache, not the static marker graph.
 	for shelf_variant in _store.get_tree().get_nodes_in_group("shelves"):
 		if not (shelf_variant is Shelf):
 			continue
@@ -144,8 +140,6 @@ func get_route_to_shelf_access(
 	if not access_position.is_finite() or shelf_graph_node == StringName():
 		return []
 
-	# A clear direct/orthogonal route is already geometrically optimal enough for
-	# this small store. Do not continue into dozens of marker A* searches.
 	var direct_candidates: Array[Dictionary] = []
 	_append_access_route_variants(
 		direct_candidates,
@@ -199,10 +193,13 @@ func _build_bounded_graph_route_to_access(
 			continue
 
 		var graph_route := _routes.build_route_from_graph_path(graph_path)
-		for entry_route in _make_route_variants(
+		for entry_route_variant in _make_route_variants(
 			from_position,
 			start_marker.global_position
 		):
+			var entry_route := _variant_route_to_vector2_array(
+				entry_route_variant
+			)
 			var complete_route: Array[Vector2] = entry_route.duplicate()
 			complete_route.append_array(graph_route)
 			complete_route.append_array(access_connection)
@@ -241,8 +238,6 @@ func _find_bounded_vertical_shelf_access(
 	var best_result: Dictionary = {"valid": false}
 	var checked_candidates := 0
 
-	# Pass 1: cheap direct/orthogonal marker connectors for all nearby access
-	# candidates. Surface A* is not allowed inside this loop.
 	for access_candidate in access_candidates:
 		checked_candidates += 1
 		if checked_candidates > PLACEMENT_ACCESS_CANDIDATE_LIMIT:
@@ -284,9 +279,6 @@ func _find_bounded_vertical_shelf_access(
 	if bool(best_result.get("valid", false)):
 		return best_result
 
-	# Pass 2: surface A* only when no direct connector exists, and only for the
-	# closest few access candidates. This turns the old candidate×node×surface
-	# multiplication into a bounded fallback.
 	var surface_candidate_count := mini(
 		clear_candidates.size(),
 		PLACEMENT_SURFACE_ACCESS_LIMIT
@@ -338,10 +330,11 @@ func _find_bounded_direct_access_connection(
 		if graph_marker == null:
 			continue
 
-		for route in _make_route_variants(
+		for route_variant in _make_route_variants(
 			graph_marker.global_position,
 			access_position
 		):
+			var route := _variant_route_to_vector2_array(route_variant)
 			if not _clearance.is_route_clear(
 				graph_marker.global_position,
 				route,
@@ -469,16 +462,12 @@ func _is_better_access_result(
 func _make_route_variants(
 	from_position: Vector2,
 	to_position: Vector2
-) -> Array[Array]:
-	var variants: Array[Array] = []
-	variants.append([to_position])
-	variants.append(
-		_routes.make_orthogonal_route(from_position, to_position, true)
-	)
-	variants.append(
+) -> Array:
+	return [
+		[to_position],
+		_routes.make_orthogonal_route(from_position, to_position, true),
 		_routes.make_orthogonal_route(from_position, to_position, false)
-	)
-	return variants
+	]
 
 
 func _has_current_access_metadata(
