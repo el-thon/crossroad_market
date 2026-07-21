@@ -14,8 +14,8 @@ const ITEM_GRID_GAP: int = 1
 const CATALOG_VIEW_RECT := Rect2(2, 211, 97, 55)
 const CATALOG_SCROLL_RECT := Rect2(100.5, 211.5, 5, 55)
 const CATALOG_SCROLL_STEP: float = 16.0
-const CATALOG_CARD_FONT_SIZE: int = 5
-const CATALOG_ICON_SIZE := Vector2(6, 6)
+const CATALOG_CARD_FONT_SIZE: int = 4
+const CATALOG_ICON_SCALE := Vector2(0.45, 0.45)
 const CATALOG_TEXT_RECT := Rect2(12, 1, 32, 6)
 const SMALL_FONT_SIZE: int = 7
 const BODY_FONT_SIZE: int = 8
@@ -203,6 +203,7 @@ func _build_scan_tab() -> void:
 	_customer_cash_label.position = Vector2(-24, -12)
 	_customer_cash_label.size = Vector2(48, 14)
 	_customer_cash_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_customer_cash_label.add_theme_color_override("font_color", Color("ad673c"))
 	customer_money.add_child(_customer_cash_label)
 
 	_scan_dialog = _make_dialog_label()
@@ -322,13 +323,13 @@ func _make_catalog_item(item: ItemData) -> Button:
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(card)
 
-	var icon := TextureRect.new()
+	# Match shelf rendering: item art is a Sprite2D whose source texture is
+	# explicitly scaled, rather than a TextureRect that may preserve its bounds.
+	var icon := Sprite2D.new()
 	icon.texture = item.get_icon()
-	icon.position = Vector2(4, 4)
-	icon.size = CATALOG_ICON_SIZE
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.position = Vector2(7, 7.5)
+	icon.scale = CATALOG_ICON_SCALE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_child(icon)
 
 	var item_name := _make_label("", CATALOG_CARD_FONT_SIZE)
@@ -341,11 +342,12 @@ func _make_catalog_item(item: ItemData) -> Button:
 		CATALOG_CARD_FONT_SIZE,
 		CATALOG_TEXT_RECT.size.x
 	)
+	item_name.add_theme_color_override("font_color", Color("ad673c"))
 	item_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(item_name)
 
 	var price := _make_label("%dG" % item.sell_price, CATALOG_CARD_FONT_SIZE)
-	price.position = Vector2(CATALOG_TEXT_RECT.position.x, 7)
+	price.position = Vector2(CATALOG_TEXT_RECT.position.x, 5)
 	price.size = CATALOG_TEXT_RECT.size
 	price.add_theme_color_override("font_color", Color("ead2a2"))
 	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
