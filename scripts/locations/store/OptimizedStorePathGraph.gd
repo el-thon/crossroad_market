@@ -14,6 +14,9 @@ const PLACEMENT_SURFACE_NODE_LIMIT: int = 2
 const FAST_PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 const LIVE_ACCESS_GRAPH_NODE_LIMIT: int = 8
 const LIVE_ACCESS_SHELF_ANCHOR_LIMIT: int = 2
+const SHELF_ENTRY_BLOCKER_META: StringName = &"store_path_blocks_shelf_entry"
+const SHELF_ENTRY_BLOCKER_RADIUS_META: StringName = &"store_path_shelf_entry_block_radius"
+const DEFAULT_SHELF_ENTRY_BLOCKER_RADIUS: float = 22.0
 
 
 func set_shelf_access_points(points: Array[Vector2]) -> void:
@@ -59,13 +62,6 @@ func get_route_to_shelf_access(
 		return []
 
 	var candidates: Array[Dictionary] = []
-	_append_fast_live_access_routes(
-		candidates,
-		from_position,
-		access_position,
-		shelf,
-		npc_node
-	)
 	_append_fast_marker_access_routes(
 		candidates,
 		from_position,
@@ -110,13 +106,22 @@ func _append_fast_marker_access_routes(
 ) -> void:
 	var marker_nodes: Array[StringName] = []
 	_append_nearest_shelf_anchor_nodes(marker_nodes, access_position)
+	var has_shelf_anchor := not marker_nodes.is_empty()
 	var aisle_node: StringName = _nav.get_role_node_name(
 		&"aisle_right",
 		AISLE_RIGHT
 	)
-	if shelf_graph_node != StringName() and shelf_graph_node not in marker_nodes:
+	if (
+		not has_shelf_anchor
+		and shelf_graph_node != StringName()
+		and shelf_graph_node not in marker_nodes
+	):
 		marker_nodes.append(shelf_graph_node)
-	if aisle_node != StringName() and aisle_node not in marker_nodes:
+	if (
+		not has_shelf_anchor
+		and aisle_node != StringName()
+		and aisle_node not in marker_nodes
+	):
 		marker_nodes.append(aisle_node)
 
 	for marker_node in marker_nodes:
@@ -140,6 +145,11 @@ func _append_fast_marker_access_routes(
 					)
 				)
 				candidate_route = _routes.dedupe_route_points(candidate_route)
+				if not _is_shelf_entry_route_allowed(
+					from_position,
+					candidate_route
+				):
+					continue
 				if _clearance.is_route_to_access_clear(
 					from_position,
 					candidate_route,
@@ -185,6 +195,69 @@ func _append_nearest_shelf_anchor_nodes(
 
 		marker_nodes.append(node_name)
 		appended_count += 1
+
+
+func _is_shelf_entry_route_allowed(
+	from_position: Vector2,
+	route: Array[Vector2]
+) -> bool:
+	if _markers == null:
+		return true
+
+	var current := from_position
+	for target in route:
+		if not _is_shelf_entry_segment_allowed(current, target):
+			return false
+		current = target
+
+	return true
+
+
+func _is_shelf_entry_segment_allowed(
+	from_position: Vector2,
+	to_position: Vector2
+) -> bool:
+	if from_position.distance_to(to_position) <= MARKER_ALIGNMENT_EPSILON:
+		return true
+
+	for child in _markers.get_children():
+		var marker := child as Marker2D
+		if marker == null:
+			continue
+		if not bool(marker.get_meta(SHELF_ENTRY_BLOCKER_META, false)):
+			continue
+
+		var marker_position := marker.global_position
+		var block_radius := float(marker.get_meta(
+			SHELF_ENTRY_BLOCKER_RADIUS_META,
+			DEFAULT_SHELF_ENTRY_BLOCKER_RADIUS
+		))
+		if _distance_to_segment(
+			marker_position,
+			from_position,
+			to_position
+		) <= block_radius:
+			return false
+
+	return true
+
+
+func _distance_to_segment(
+	point: Vector2,
+	segment_start: Vector2,
+	segment_end: Vector2
+) -> float:
+	var segment := segment_end - segment_start
+	var length_squared := segment.length_squared()
+	if length_squared <= 0.001:
+		return point.distance_to(segment_start)
+
+	var progress := clampf(
+		(point - segment_start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	return point.distance_to(segment_start + segment * progress)
 
 
 func _find_fast_vertical_shelf_access(

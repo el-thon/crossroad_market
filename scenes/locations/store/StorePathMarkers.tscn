@@ -42,6 +42,8 @@ metadata/store_path_allow_shelf_anchor = true
 [node name="StorePathCashier" type="Marker2D" parent="." unique_id=1161307822]
 position = Vector2(254, 168)
 metadata/store_path_role = "cashier"
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathStorageReturn" type="Marker2D" parent="." unique_id=361610037]
 position = Vector2(397, 109)
@@ -51,32 +53,46 @@ metadata/store_path_role = "storage_return"
 position = Vector2(254, 178)
 metadata/store_path_role = "queue_front"
 metadata/store_queue_index = 0
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueBack1" type="Marker2D" parent="." unique_id=1899601933]
 position = Vector2(254, 190)
 metadata/store_path_role = "queue_back"
 metadata/store_queue_index = 1
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueBack2" type="Marker2D" parent="." unique_id=571526423]
 position = Vector2(254, 202)
 metadata/store_path_role = "queue_back"
 metadata/store_queue_index = 2
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueFrontRight" type="Marker2D" parent="." unique_id=1038901678]
 position = Vector2(308, 178)
 metadata/store_path_role = "queue_front_right"
 metadata/store_queue_index = 0
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueBack1Right" type="Marker2D" parent="." unique_id=1518558975]
 position = Vector2(308, 190)
 metadata/store_path_role = "queue_back_right"
 metadata/store_queue_index = 1
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueBack2Right" type="Marker2D" parent="." unique_id=1164403890]
 position = Vector2(308, 202)
 metadata/store_path_role = "queue_back_right"
 metadata/store_queue_index = 2
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
 
 [node name="StorePathQueueExitRight" type="Marker2D" parent="." unique_id=1027131773]
 position = Vector2(308, 238)
 metadata/store_path_role = "queue_exit_right"
+metadata/store_path_blocks_shelf_entry = true
+metadata/store_path_shelf_entry_block_radius = 18.0
