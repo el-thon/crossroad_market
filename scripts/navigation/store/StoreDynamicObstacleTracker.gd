@@ -4,6 +4,7 @@ extends RefCounted
 const MAX_DIRTY_HISTORY: int = 24
 const DEFAULT_SHELF_SIZE := Vector2(64, 48)
 const POSITION_EPSILON: float = 0.5
+const FULL_INVALIDATION_RECT := Rect2(-1000000, -1000000, 2000000, 2000000)
 
 var _records: Dictionary = {}
 var _revision: int = 0
@@ -92,8 +93,17 @@ func get_dirty_regions_since(revision: int) -> Array[Rect2]:
 	if revision >= _revision:
 		return result
 
-	for history_revision_variant in _dirty_history.keys():
-		var history_revision := int(history_revision_variant)
+	var retained_revisions: Array[int] = []
+	for revision_variant in _dirty_history.keys():
+		retained_revisions.append(int(revision_variant))
+	retained_revisions.sort()
+	if (
+		retained_revisions.is_empty()
+		or revision < retained_revisions.front() - 1
+	):
+		return [FULL_INVALIDATION_RECT]
+
+	for history_revision in retained_revisions:
 		if history_revision <= revision:
 			continue
 		var regions_variant: Variant = _dirty_history[history_revision]
