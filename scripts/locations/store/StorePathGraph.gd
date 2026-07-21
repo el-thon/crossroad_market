@@ -454,6 +454,20 @@ func _append_access_route_variants(
 	if shelf != null and is_instance_valid(shelf):
 		shelf_position = shelf.global_position
 
+	for horizontal_first in [true, false]:
+		var direct_route: Array[Vector2] = _routes.make_orthogonal_route(
+			from_position,
+			access_position,
+			horizontal_first
+		)
+		if _clearance.is_route_to_access_clear(
+			from_position,
+			direct_route,
+			shelf,
+			npc_node
+		):
+			_append_route_candidate(candidates, from_position, direct_route)
+
 	var grid_result := _grid.find_route(
 		from_position,
 		access_position,
@@ -467,21 +481,6 @@ func _append_access_route_variants(
 			from_position,
 			_variant_route_to_vector2_array(grid_result.get("route", []))
 		)
-
-	# Orthogonal L routes remain as simple local fallback, never diagonal.
-	for horizontal_first in [true, false]:
-		var route: Array[Vector2] = _routes.make_orthogonal_route(
-			from_position,
-			access_position,
-			horizontal_first
-		)
-		if _clearance.is_route_to_access_clear(
-			from_position,
-			route,
-			shelf,
-			npc_node
-		):
-			_append_route_candidate(candidates, from_position, route)
 
 
 func _append_clear_route_variants(

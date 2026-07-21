@@ -11,6 +11,7 @@ extends StorePathGraph
 const PLACEMENT_ACCESS_CANDIDATE_LIMIT: int = 8
 const PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 const PLACEMENT_SURFACE_NODE_LIMIT: int = 2
+const FAST_PLACEMENT_GRAPH_NODE_LIMIT: int = 8
 
 
 func set_shelf_access_points(points: Array[Vector2]) -> void:
@@ -30,7 +31,7 @@ func store_shelf_access_metadata(
 	if object == null or not is_instance_valid(object):
 		return
 
-	var access_result := _find_bounded_vertical_shelf_access(
+	var access_result := _find_fast_vertical_shelf_access(
 		drop_position,
 		object
 	)
@@ -40,6 +41,124 @@ func store_shelf_access_metadata(
 		return
 
 	_store_access_metadata_from_result(object, access_result)
+
+
+func _find_fast_vertical_shelf_access(
+	shelf_position: Vector2,
+	shelf_object: Node2D
+) -> Dictionary:
+	var access_candidates := _shelf.get_shelf_access_candidates(
+		shelf_position,
+		true
+	)
+	var best_result: Dictionary = {"valid": false}
+	var best_score := INF
+	var checked_candidates := 0
+
+	for access_candidate in access_candidates:
+		checked_candidates += 1
+		if checked_candidates > PLACEMENT_ACCESS_CANDIDATE_LIMIT:
+			break
+
+		var access_position := access_candidate.get(
+			"access_point",
+			Vector2.INF
+		) as Vector2
+		if not access_position.is_finite():
+			continue
+
+		if not _clearance.is_npc_access_point_clear(
+			access_position,
+			shelf_object,
+			shelf_position
+		):
+			continue
+
+		var connection := _find_fast_access_connection(
+			access_position,
+			access_candidate.get("graph_node", StringName()) as StringName,
+			shelf_object,
+			shelf_position
+		)
+		if not bool(connection.get("valid", false)):
+			continue
+
+		var graph_node := connection.get("node", StringName()) as StringName
+		var score: float = (
+			float(access_candidate.get("tier", 2)) * 10000.0
+			+ float(access_candidate.get("vertical_distance", 0.0))
+			+ float(connection.get("distance", 0.0))
+			+ float(access_candidate.get("horizontal_distance", 0.0)) * 0.25
+		)
+		if score >= best_score:
+			continue
+
+		best_score = score
+		best_result = {
+			"valid": true,
+			"access_point": access_position,
+			"graph_node": graph_node,
+			"surface_route": connection.get("route", []),
+			"score": score,
+			"access_side": str(access_candidate.get("access_side", "")),
+			"checkout_source": &"fast_direct"
+		}
+
+	return best_result
+
+
+func _find_fast_access_connection(
+	access_position: Vector2,
+	preferred_node: StringName,
+	shelf_object: Node2D,
+	shelf_position: Vector2
+) -> Dictionary:
+	var node_names := super._get_nearest_graph_node_names_for_access(
+		access_position,
+		preferred_node,
+		FAST_PLACEMENT_GRAPH_NODE_LIMIT
+	)
+	var best_result: Dictionary = {"valid": false}
+	var best_distance := INF
+
+	for node_name in node_names:
+		var graph_marker: Marker2D = _nav.get_graph_marker(node_name)
+		if graph_marker == null:
+			continue
+
+		if _nav.find_checkout_graph_path(node_name).is_empty():
+			continue
+
+		for horizontal_first in [true, false]:
+			var route: Array[Vector2] = _routes.make_orthogonal_route(
+				graph_marker.global_position,
+				access_position,
+				horizontal_first
+			)
+			if not _clearance.is_route_clear(
+				graph_marker.global_position,
+				route,
+				shelf_object,
+				shelf_position
+			):
+				continue
+
+			var distance := _routes.get_route_distance(
+				graph_marker.global_position,
+				route
+			)
+			if distance >= best_distance:
+				continue
+
+			best_distance = distance
+			best_result = {
+				"valid": true,
+				"node": node_name,
+				"route": route,
+				"distance": distance
+			}
+
+	return best_result
 
 
 func _find_bounded_vertical_shelf_access(
