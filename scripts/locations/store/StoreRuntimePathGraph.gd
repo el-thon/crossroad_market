@@ -46,7 +46,7 @@ func invalidate_dynamic_navigation() -> void:
 		var shelf := shelf_variant as Shelf
 		if _shelf_metadata_touches_dirty_region(shelf, dirty_regions):
 			clear_shelf_access_metadata(shelf)
-		elif super.has_cached_shelf_access_metadata(shelf):
+		elif _has_raw_access_metadata(shelf):
 			# Preserve valid access metadata while advancing it to the new revision.
 			shelf.set_meta(ACCESS_NAV_REVISION_META, _navigation_revision)
 
@@ -217,6 +217,15 @@ func _is_shelf_queue_route_clear(
 	)
 
 
+func _has_raw_access_metadata(shelf: Shelf) -> bool:
+	return (
+		shelf != null
+		and is_instance_valid(shelf)
+		and shelf.has_meta(ACCESS_META)
+		and shelf.has_meta(ACCESS_NODE_META)
+	)
+
+
 func _collect_shelf_records() -> Dictionary:
 	var records: Dictionary = {}
 	if _store == null or _store.get_tree() == null:
@@ -282,7 +291,7 @@ func _shelf_metadata_touches_dirty_region(
 	shelf: Shelf,
 	regions: Array[Rect2]
 ) -> bool:
-	if not super.has_cached_shelf_access_metadata(shelf):
+	if not _has_raw_access_metadata(shelf):
 		return true
 	var stored_position: Variant = shelf.get_meta(
 		ACCESS_POSITION_REVISION_META,
