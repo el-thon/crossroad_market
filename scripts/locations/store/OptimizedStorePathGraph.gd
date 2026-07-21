@@ -128,15 +128,6 @@ func get_shelf_egress_route_to_queue_from(
 				)
 			)
 			candidate_route.append_array(queue_route)
-			if (
-				destination.is_finite()
-				and (
-					candidate_route.is_empty()
-					or candidate_route.back().distance_to(destination)
-					> MARKER_ALIGNMENT_EPSILON
-				)
-			):
-				candidate_route.append(destination)
 			candidate_route = _routes.dedupe_route_points(candidate_route)
 			_append_route_candidate(candidates, from_position, candidate_route)
 
@@ -173,13 +164,6 @@ func _get_anchor_route_to_queue_target(
 				anchor_position,
 				approach_position,
 				horizontal_first
-			)
-			route.append_array(
-				_routes.make_orthogonal_route(
-					approach_position,
-					target_position,
-					true
-				)
 			)
 			_append_route_candidate(candidates, anchor_position, route)
 
