@@ -4,17 +4,19 @@ extends Node
 
 ## Deterministic Store route provider.
 ##
-## Shopping movement uses hand-authored aisle markers and orthogonal segments.
-## Once an item has been taken, queue/cashier movement may use a direct segment.
+## Shopping, queue, cashier, and exit movement use hand-authored markers and
+## orthogonal segments.
 ## No navigation grid, path graph, runtime A*, Theta*, D* Lite, metadata job, or
 ## per-segment physics query is involved.
 
 const READY: StringName = &"ready"
 const INVALID: StringName = &"invalid"
-const SHELF_ACCESS_OFFSET: float = 34.0
 const ROUTE_POINT_EPSILON: float = 1.5
 const STORE_MIN_Y: float = 72.0
 const STORE_MAX_Y: float = 246.0
+const SHELF_ACCESS_GAP: float = 10.0
+const SHELF_APPROACH_DISTANCE: float = 18.0
+const NPC_HALF_HEIGHT_FALLBACK: float = 8.0
 
 const ENTRY_MARKER: StringName = &"StorePathEntryExit"
 const AISLE_MARKERS: Array[StringName] = [
@@ -28,6 +30,12 @@ const QUEUE_MARKERS: Array[StringName] = [
     &"StorePathQueueBack1",
     &"StorePathQueueBack2"
 ]
+const QUEUE_RIGHT_MARKERS: Array[StringName] = [
+    &"StorePathQueueFrontRight",
+    &"StorePathQueueBack1Right",
+    &"StorePathQueueBack2Right"
+]
+const QUEUE_EXIT_RIGHT_MARKER: StringName = &"StorePathQueueExitRight"
 
 var store: Node2D = null
 
@@ -62,7 +70,7 @@ func can_npc_visit_shelf(shelf: Shelf) -> bool:
         return false
     if bool(shelf.get_meta("is_carried_storage_object", false)):
         return false
-    return _choose_shelf_access_position(shelf).is_finite()
+    return not resolve_npc_shelf_access(shelf, Vector2.INF).is_empty()
 
 
 func request_npc_shelf_access_state(
@@ -82,16 +90,29 @@ func has_npc_shelf_access_metadata(shelf: Shelf) -> bool:
 
 
 func get_npc_shelf_access_position(shelf: Shelf) -> Vector2:
-    if not can_npc_visit_shelf(shelf):
+    var result: Dictionary = resolve_npc_shelf_access(shelf, Vector2.INF)
+    if result.is_empty():
         return Vector2.INF
-    return _choose_shelf_access_position(shelf)
+    return result["access"] as Vector2
 
 
 func get_npc_shelf_visit_position(
     shelf: Shelf,
-    _npc: Node = null
+    npc_node: Node = null
 ) -> Vector2:
-    return get_npc_shelf_access_position(shelf)
+    var npc: NPC = npc_node as NPC
+    var from_position: Vector2 = npc.global_position if npc != null else Vector2.INF
+    var access_result: Dictionary = resolve_npc_shelf_access(shelf, from_position)
+
+    if access_result.is_empty():
+        return Vector2.INF
+
+    if npc != null:
+        npc._target_shelf_access_position = access_result["access"] as Vector2
+        npc._target_shelf_access_approach = access_result["approach"] as Vector2
+        npc._target_shelf_access_side = access_result["side"] as StringName
+
+    return access_result["access"] as Vector2
 
 
 func get_npc_entry_route_to_shelf(
@@ -107,22 +128,60 @@ func get_npc_entry_route_to_shelf(
 func get_npc_route_to_shelf_access(
     shelf: Shelf,
     from_position: Vector2 = Vector2.INF,
-    _npc_node: Node = null
+    npc_node: Node = null
 ) -> Array[Vector2]:
-    var access: Vector2 = get_npc_shelf_access_position(shelf)
-    if not access.is_finite():
+    var npc: NPC = npc_node as NPC
+    var access: Vector2 = Vector2.INF
+    var approach: Vector2 = Vector2.INF
+
+    if npc != null and npc._target_shelf_access_position.is_finite():
+        access = npc._target_shelf_access_position
+        approach = npc._target_shelf_access_approach
+    else:
+        var access_result: Dictionary = resolve_npc_shelf_access(
+            shelf,
+            from_position
+        )
+        if access_result.is_empty():
+            return []
+        access = access_result["access"] as Vector2
+        approach = access_result["approach"] as Vector2
+        if npc != null:
+            npc._target_shelf_access_position = access
+            npc._target_shelf_access_approach = approach
+            npc._target_shelf_access_side = access_result["side"] as StringName
+
+    if not access.is_finite() or not approach.is_finite():
         return []
     var start: Vector2 = from_position
     if not start.is_finite():
         start = _marker_position(ENTRY_MARKER, NPC.entrance_position)
-    return _build_orthogonal_shelf_route(start, access)
+    var aisle: Marker2D = _nearest_aisle_marker(approach)
+    return _build_orthogonal_route_via(
+        start,
+        [
+            aisle.global_position if aisle != null else Vector2.INF,
+            approach,
+            access
+        ]
+    )
 
 
 func get_npc_route_to_cashier_from(
     from_position: Vector2,
     _npc_node: Node = null
 ) -> Array[Vector2]:
-    return _direct_route(from_position, get_npc_cashier_target(from_position))
+    var front: Vector2 = get_npc_cashier_target(from_position)
+    if from_position.is_finite() and from_position.distance_to(front) <= ROUTE_POINT_EPSILON:
+        return []
+
+    return _build_orthogonal_route_via(
+        from_position,
+        [
+            _marker_position(&"StorePathQueueFrontRight", Vector2.INF),
+            front
+        ]
+    )
 
 
 func get_npc_route_to_queue_target_from(
@@ -131,16 +190,32 @@ func get_npc_route_to_queue_target_from(
     _npc_node: Node = null
 ) -> Array[Vector2]:
     var target: Vector2 = get_npc_queue_target(queue_index, from_position)
-    return _direct_route(from_position, target)
+    return _build_orthogonal_route(from_position, target, false)
 
 
 func get_npc_route_from_shelf_to_queue_target(
-    _shelf: Shelf,
+    shelf: Shelf,
     from_position: Vector2,
     queue_index: int,
-    _npc_node: Node = null
+    npc_node: Node = null
 ) -> Array[Vector2]:
-    return get_npc_route_to_queue_target_from(from_position, queue_index)
+    var safe_index: int = clampi(queue_index, 0, QUEUE_MARKERS.size() - 1)
+    var start: Vector2 = from_position
+    var npc: NPC = npc_node as NPC
+
+    if not start.is_finite() and npc != null:
+        start = npc.global_position
+    if not start.is_finite() and shelf != null and is_instance_valid(shelf):
+        start = get_npc_shelf_access_position(shelf)
+
+    return _build_orthogonal_route_via(
+        start,
+        [
+            _marker_position(QUEUE_EXIT_RIGHT_MARKER, Vector2.INF),
+            _marker_position(QUEUE_RIGHT_MARKERS[safe_index], Vector2.INF),
+            _marker_position(QUEUE_MARKERS[safe_index], Vector2.INF)
+        ]
+    )
 
 
 func get_npc_route_from_shelf_to_cashier(
@@ -173,9 +248,13 @@ func get_npc_exit_route_from(
     from_position: Vector2,
     _npc_node: Node = null
 ) -> Array[Vector2]:
-    return _direct_route(
+    var aisle: Marker2D = _nearest_aisle_marker(from_position)
+    return _build_orthogonal_route_via(
         from_position,
-        _marker_position(ENTRY_MARKER, NPC.exit_position)
+        [
+            aisle.global_position if aisle != null else Vector2.INF,
+            _marker_position(ENTRY_MARKER, NPC.exit_position)
+        ]
     )
 
 
@@ -198,15 +277,14 @@ func get_npc_exit_route_from_cashier(
     from_position: Vector2,
     _npc_node: Node = null
 ) -> Array[Vector2]:
-    var route: Array[Vector2] = []
-    var aisle_right: Vector2 = _marker_position(
-        &"StorePathAisleRight",
-        Vector2.INF
+    return _build_orthogonal_route_via(
+        from_position,
+        [
+            _marker_position(&"StorePathQueueFrontRight", Vector2.INF),
+            _marker_position(QUEUE_EXIT_RIGHT_MARKER, Vector2.INF),
+            _marker_position(ENTRY_MARKER, NPC.exit_position)
+        ]
     )
-    if aisle_right.is_finite():
-        _append_unique(route, aisle_right)
-    _append_unique(route, _marker_position(ENTRY_MARKER, NPC.exit_position))
-    return route
 
 
 func get_npc_shelf_wait_position(index: int = 0) -> Vector2:
@@ -229,22 +307,72 @@ func invalidate_navigation() -> void:
     pass
 
 
-func _choose_shelf_access_position(shelf: Shelf) -> Vector2:
+func resolve_npc_shelf_access(
+    shelf: Shelf,
+    from_position: Vector2,
+    excluded_side: StringName = &""
+) -> Dictionary:
     if shelf == null or not is_instance_valid(shelf):
-        return Vector2.INF
-    var candidates: Array[Vector2] = [
-        shelf.global_position + Vector2(0.0, SHELF_ACCESS_OFFSET),
-        shelf.global_position - Vector2(0.0, SHELF_ACCESS_OFFSET)
+        return {}
+    if store == null:
+        return {}
+    if not shelf.is_in_group("shelves"):
+        return {}
+    if not _is_descendant_of(shelf, store):
+        return {}
+    if bool(shelf.get_meta("is_carried_storage_object", false)):
+        return {}
+
+    var body_rect: Rect2 = _get_shelf_body_rect(shelf)
+    var center_x: float = body_rect.get_center().x
+    var bottom_access := Vector2(
+        center_x,
+        body_rect.end.y + NPC_HALF_HEIGHT_FALLBACK + SHELF_ACCESS_GAP
+    )
+    var top_access := Vector2(
+        center_x,
+        body_rect.position.y - NPC_HALF_HEIGHT_FALLBACK - SHELF_ACCESS_GAP
+    )
+    var candidates: Array[Dictionary] = [
+        {
+            "side": &"bottom",
+            "access": bottom_access,
+            "approach": bottom_access + Vector2(0.0, SHELF_APPROACH_DISTANCE)
+        },
+        {
+            "side": &"top",
+            "access": top_access,
+            "approach": top_access - Vector2(0.0, SHELF_APPROACH_DISTANCE)
+        }
     ]
-    var best: Vector2 = Vector2.INF
+
+    var best: Dictionary = {}
     var best_score: float = INF
-    for candidate: Vector2 in candidates:
-        if candidate.y < STORE_MIN_Y or candidate.y > STORE_MAX_Y:
+    for candidate: Dictionary in candidates:
+        if candidate["side"] == excluded_side:
             continue
-        var aisle: Marker2D = _nearest_aisle_marker(candidate)
+
+        var access: Vector2 = candidate["access"] as Vector2
+        var approach: Vector2 = candidate["approach"] as Vector2
+        if not _is_store_position_valid(access):
+            continue
+        if not _is_store_position_valid(approach):
+            continue
+        if not _is_shelf_access_corridor_clear(shelf, approach, access):
+            continue
+
+        var aisle: Marker2D = _nearest_aisle_marker(approach)
         if aisle == null:
             continue
-        var score: float = _manhattan(candidate, aisle.global_position)
+
+        var start: Vector2 = from_position
+        if not start.is_finite():
+            start = _marker_position(ENTRY_MARKER, NPC.entrance_position)
+        var score: float = (
+            _manhattan(start, aisle.global_position)
+            + _manhattan(aisle.global_position, approach)
+            + _manhattan(approach, access)
+        )
         if score < best_score:
             best_score = score
             best = candidate
@@ -267,6 +395,56 @@ func _build_orthogonal_shelf_route(
     return route
 
 
+func _build_orthogonal_route(
+    from_position: Vector2,
+    to_position: Vector2,
+    horizontal_first: bool = true
+) -> Array[Vector2]:
+    var route: Array[Vector2] = []
+
+    if (
+        not from_position.is_finite()
+        or not to_position.is_finite()
+        or from_position.distance_to(to_position) <= ROUTE_POINT_EPSILON
+    ):
+        return route
+
+    var corner: Vector2 = (
+        Vector2(to_position.x, from_position.y)
+        if horizontal_first
+        else Vector2(from_position.x, to_position.y)
+    )
+
+    _append_unique(route, corner)
+    _append_unique(route, to_position)
+    return route
+
+
+func _build_orthogonal_route_via(
+    from_position: Vector2,
+    waypoints: Array[Vector2]
+) -> Array[Vector2]:
+    var route: Array[Vector2] = []
+    var segment_start: Vector2 = from_position
+
+    for waypoint: Vector2 in waypoints:
+        if not waypoint.is_finite():
+            continue
+
+        var segment: Array[Vector2] = _build_orthogonal_route(
+            segment_start,
+            waypoint,
+            true
+        )
+
+        for point: Vector2 in segment:
+            _append_unique(route, point)
+
+        segment_start = waypoint
+
+    return route
+
+
 func _append_orthogonal(
     route: Array[Vector2],
     from_position: Vector2,
@@ -274,21 +452,84 @@ func _append_orthogonal(
 ) -> void:
     if from_position.distance_to(to_position) <= ROUTE_POINT_EPSILON:
         return
-    var corner: Vector2 = Vector2(to_position.x, from_position.y)
-    if corner.distance_to(from_position) > ROUTE_POINT_EPSILON:
-        _append_unique(route, corner)
-    _append_unique(route, to_position)
+    for point: Vector2 in _build_orthogonal_route(from_position, to_position):
+        _append_unique(route, point)
 
 
-func _direct_route(
-    from_position: Vector2,
-    to_position: Vector2
-) -> Array[Vector2]:
-    if not from_position.is_finite() or not to_position.is_finite():
-        return []
-    if from_position.distance_to(to_position) <= ROUTE_POINT_EPSILON:
-        return []
-    return [to_position]
+func _get_shelf_body_rect(shelf: Shelf) -> Rect2:
+    var collision: CollisionShape2D = shelf.get_node_or_null(
+        "PhysicsBody/CollisionShape2D"
+    ) as CollisionShape2D
+
+    if collision == null:
+        return Rect2(
+            shelf.global_position - Vector2(32.0, 24.0),
+            Vector2(64.0, 24.0)
+        )
+
+    var rectangle: RectangleShape2D = collision.shape as RectangleShape2D
+    if rectangle == null:
+        return Rect2(
+            shelf.global_position - Vector2(32.0, 24.0),
+            Vector2(64.0, 24.0)
+        )
+
+    return Rect2(
+        collision.global_position - rectangle.size * 0.5,
+        rectangle.size
+    )
+
+
+func _is_store_position_valid(position: Vector2) -> bool:
+    return (
+        position.is_finite()
+        and position.y >= STORE_MIN_Y
+        and position.y <= STORE_MAX_Y
+    )
+
+
+func _is_shelf_access_corridor_clear(
+    shelf: Shelf,
+    approach: Vector2,
+    access: Vector2
+) -> bool:
+    var corridor: Rect2 = _get_access_corridor_rect(approach, access)
+    if not corridor.has_area():
+        return false
+
+    for shelf_variant in store.get_tree().get_nodes_in_group("shelves"):
+        var other_shelf := shelf_variant as Shelf
+        if other_shelf == null:
+            continue
+        if other_shelf == shelf:
+            continue
+        if not _is_descendant_of(other_shelf, store):
+            continue
+        if bool(other_shelf.get_meta("is_carried_storage_object", false)):
+            continue
+        if corridor.intersects(_get_shelf_body_rect(other_shelf)):
+            return false
+
+    return true
+
+
+func _get_access_corridor_rect(from_position: Vector2, to_position: Vector2) -> Rect2:
+    var min_position := Vector2(
+        minf(from_position.x, to_position.x),
+        minf(from_position.y, to_position.y)
+    )
+    var max_position := Vector2(
+        maxf(from_position.x, to_position.x),
+        maxf(from_position.y, to_position.y)
+    )
+    var size := max_position - min_position
+    if size.x < 16.0:
+        min_position.x -= 8.0
+        size.x = 16.0
+    if size.y < 16.0:
+        min_position.y -= 8.0
+        size.y = 16.0
+    return Rect2(min_position, size)
 
 
 func _nearest_aisle_marker(position: Vector2) -> Marker2D:
