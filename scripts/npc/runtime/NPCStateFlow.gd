@@ -2,7 +2,6 @@ class_name NPCStateFlow
 extends RefCounted
 
 const PERF_SHELF_THRESHOLD_MSEC: float = 16.0
-const DEBUG_SHELF_FLOW: bool = true
 const OUT_OF_STOCK_WARNING_SECONDS: float = 10.0
 const OUT_OF_STOCK_EXIT_SECONDS: float = 15.0
 
@@ -399,8 +398,8 @@ func finish_checkout_and_exit() -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _handle_shelf_wait_or_leave(debug_stage: String) -> bool:
-	_begin_wait_for_shelf(debug_stage)
+func _handle_shelf_wait_or_leave(wait_stage: String) -> bool:
+	_begin_wait_for_shelf(wait_stage)
 	return true
 
 

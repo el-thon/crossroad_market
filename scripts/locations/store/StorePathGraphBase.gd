@@ -56,6 +56,7 @@ var _clearance: StorePathGraphClearance
 var _nav: StorePathGraphGraph
 var _shelf: StorePathGraphShelfAccess
 var _surface: StorePathGraphSurface
+var _grid: StorePathGraphGrid
 
 
 func _init(store_node: Node2D = null, marker_root: Node2D = null) -> void:
@@ -66,6 +67,7 @@ func _init(store_node: Node2D = null, marker_root: Node2D = null) -> void:
 	_nav = StorePathGraphGraph.new(self)
 	_shelf = StorePathGraphShelfAccess.new(self)
 	_surface = StorePathGraphSurface.new(self)
+	_grid = StorePathGraphGrid.new(self)
 
 
 func setup(store_node: Node2D, marker_root: Node2D) -> void:
@@ -80,8 +82,8 @@ func setup(store_node: Node2D, marker_root: Node2D) -> void:
 
 func set_shelf_access_points(points: Array[Vector2]) -> void:
 	var next_points: Array[Vector2] = points.duplicate()
-	var next_signature := _get_surface_points_signature(next_points)
-	var current_signature := _get_surface_points_signature(_shelf_access_points)
+	var next_signature: String = _get_surface_points_signature(next_points)
+	var current_signature: String = _get_surface_points_signature(_shelf_access_points)
 	if next_signature != current_signature:
 		_surface_neighbor_cache.clear()
 		_surface_neighbor_signature = ""
@@ -97,14 +99,14 @@ func get_marker_for_role(
 	role: StringName,
 	fallback_node_name: StringName = StringName()
 ) -> Marker2D:
-	var role_node := _nav.get_role_node_name(role, fallback_node_name)
+	var role_node: StringName = _nav.get_role_node_name(role, fallback_node_name)
 	if role_node == StringName():
 		return null
 	return _nav.get_graph_marker(role_node)
 
 
 func get_shelf_anchor_positions() -> Array[Vector2]:
-	var graph_nodes := _nav.get_graph_node_names()
+	var graph_nodes: Array[StringName] = _nav.get_graph_node_names()
 	if _cached_shelf_anchor_count == graph_nodes.size():
 		return _cached_shelf_anchor_positions.duplicate()
 
@@ -125,12 +127,12 @@ func get_queue_target_position(
 	queue_index: int,
 	fallback_position: Vector2
 ) -> Vector2:
-	var queue_node := _nav.get_queue_target_node_name(queue_index)
+	var queue_node: StringName = _nav.get_queue_target_node_name(queue_index)
 	var queue_marker: Marker2D = _nav.get_graph_marker(queue_node)
 	if queue_marker == null:
 		return fallback_position
 
-	var front_node := _nav.get_role_node_name(ROLE_QUEUE_FRONT, QUEUE_FRONT)
+	var front_node: StringName = _nav.get_role_node_name(ROLE_QUEUE_FRONT, QUEUE_FRONT)
 	if queue_index > 0 and queue_node == front_node:
 		const QUEUE_SLOT_SPACING := Vector2(0, 22)
 		return queue_marker.global_position + QUEUE_SLOT_SPACING * queue_index
@@ -148,14 +150,16 @@ func get_entry_route_to_shelf(
 	shelf_position: Vector2,
 	from_position: Vector2 = Vector2.INF
 ) -> Array[Vector2]:
-	var route_start := from_position
+	var route_start: Vector2 = from_position
 	if not route_start.is_finite():
 		route_start = _nav.get_marker_position(
 			_nav.get_role_node_name(ROLE_ENTRY, ENTRY)
 		)
+
 	if not route_start.is_finite() or not shelf_position.is_finite():
 		return []
 
+	var aisle_node: StringName = _nav.get_role_node_name(&"aisle_right", AISLE_RIGHT)
 	var direct_candidates: Array[Dictionary] = []
 	_append_clear_route_variants(
 		direct_candidates,
@@ -165,34 +169,36 @@ func get_entry_route_to_shelf(
 		Vector2.INF,
 		false
 	)
-	var direct_route := _get_shortest_route(direct_candidates)
-	if not direct_route.is_empty():
-		return direct_route
+	var result_route: Array[Vector2] = _get_shortest_route(direct_candidates)
 
-	var aisle_node := _nav.get_role_node_name(&"aisle_right", AISLE_RIGHT)
-	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
-		route_start,
-		aisle_node
-	)
-	if not bool(graph_result.get("valid", false)):
-		return []
+	if result_route.is_empty():
+		var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
+			route_start,
+			aisle_node
+		)
+		if not bool(graph_result.get("valid", false)):
+			return []
 
-	var graph_route := _variant_route_to_vector2_array(
-		graph_result.get("route", [])
-	)
-	var graph_end := route_start
-	if not graph_route.is_empty():
-		graph_end = graph_route.back()
-	graph_route.append_array(
-		_routes.make_orthogonal_route(graph_end, shelf_position, true)
-	)
-	graph_route = _routes.dedupe_route_points(graph_route)
-	if not _clearance.is_route_clear_from_current_position(
-		route_start,
-		graph_route
-	):
-		return []
-	return graph_route
+		var graph_route: Array[Vector2] = _variant_route_to_vector2_array(
+			graph_result.get("route", [])
+		)
+		var graph_end: Vector2 = route_start
+		if not graph_route.is_empty():
+			graph_end = graph_route.back()
+
+		graph_route.append_array(
+			_routes.make_orthogonal_route(graph_end, shelf_position, true)
+		)
+		graph_route = _routes.dedupe_route_points(graph_route)
+		if not _clearance.is_route_clear_from_current_position(
+			route_start,
+			graph_route
+		):
+			return []
+
+		result_route = graph_route
+
+	return result_route
 
 
 func get_shelf_access_position(shelf: Shelf) -> Vector2:
@@ -244,17 +250,17 @@ func get_route_to_shelf_access(
 		shelf_graph_node,
 		MAX_ACCESS_GRAPH_NODE_CANDIDATES
 	):
-		var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+		var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
 			from_position,
 			candidate_node
 		)
 		if not bool(graph_result.get("valid", false)):
 			continue
 
-		var route := _variant_route_to_vector2_array(
+		var route: Array[Vector2] = _variant_route_to_vector2_array(
 			graph_result.get("route", [])
 		)
-		var route_end := from_position
+		var route_end: Vector2 = from_position
 		if not route.is_empty():
 			route_end = route.back()
 		var access_connection := _get_connection_from_graph_node_to_access(
@@ -265,12 +271,12 @@ func get_route_to_shelf_access(
 
 		if access_connection.is_empty():
 			for horizontal_first in [true, false]:
-				var fallback_connection := _routes.make_orthogonal_route(
+				var fallback_connection: Array[Vector2] = _routes.make_orthogonal_route(
 					route_end,
 					access_position,
 					horizontal_first
 				)
-				var fallback_route := route.duplicate()
+				var fallback_route: Array[Vector2] = route.duplicate()
 				fallback_route.append_array(fallback_connection)
 				fallback_route = _routes.dedupe_route_points(fallback_route)
 				if _clearance.is_route_to_access_clear(
@@ -286,7 +292,7 @@ func get_route_to_shelf_access(
 					)
 			continue
 
-		var complete_route := route.duplicate()
+		var complete_route: Array[Vector2] = route.duplicate()
 		complete_route.append_array(access_connection)
 		complete_route = _routes.dedupe_route_points(complete_route)
 		if _clearance.is_route_to_access_clear(
@@ -323,20 +329,26 @@ func get_route_to_queue_target_from(
 	queue_index: int
 ) -> Array[Vector2]:
 	var queue_target := get_queue_target_position(queue_index, from_position)
-	var direct_route: Array[Vector2] = [queue_target]
-	if _clearance.is_queue_route_clear_from_current_position(
+	var direct_route: Array[Vector2] = []
+	var grid_result: Dictionary = _grid.find_route(from_position, queue_target)
+	if bool(grid_result.get("valid", false)):
+		direct_route = _variant_route_to_vector2_array(
+			grid_result.get("route", [])
+		)
+	if not direct_route.is_empty() and _clearance.is_queue_route_clear_from_current_position(
 		from_position,
 		direct_route
 	):
 		return direct_route
 
-	var queue_node := _nav.get_queue_target_node_name(queue_index)
-	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+	var queue_node: StringName = _nav.get_queue_target_node_name(queue_index)
+	var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
 		from_position,
 		queue_node
 	)
 	if not bool(graph_result.get("valid", false)):
 		return []
+
 	return _routes.dedupe_route_points(
 		_variant_route_to_vector2_array(graph_result.get("route", []))
 	)
@@ -365,8 +377,8 @@ func get_exit_route_from(
 	from_position: Vector2,
 	fallback_exit_position: Vector2
 ) -> Array[Vector2]:
-	var exit_node := _nav.get_role_node_name(ROLE_EXIT, EXIT)
-	var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+	var exit_node: StringName = _nav.get_role_node_name(ROLE_EXIT, EXIT)
+	var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
 		from_position,
 		exit_node
 	)
@@ -375,7 +387,7 @@ func get_exit_route_from(
 			_variant_route_to_vector2_array(graph_result.get("route", []))
 		)
 
-	var fallback_route := _routes.make_orthogonal_route(
+	var fallback_route: Array[Vector2] = _routes.make_orthogonal_route(
 		from_position,
 		fallback_exit_position,
 		true

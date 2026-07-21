@@ -18,7 +18,6 @@ func render_store_os_home(
 	cashier._set_store_os_app(cashier.STORE_OS_APP_POS)
 	clear_container(cashier._item_list)
 	clear_container(cashier._action_row)
-	cashier._lock_player_actions()
 
 	cashier._cashier_panel.visible = true
 	cashier._panel_title.text = "POS APP"
@@ -40,6 +39,8 @@ func render_store_os_home(
 		Callable(cashier, "_close_store_os")
 	)
 
+	cashier._lock_player_actions()
+
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func render_pos_app() -> void:
@@ -57,7 +58,6 @@ func show_scan_panel() -> void:
 	cashier._set_store_os_app(cashier.STORE_OS_APP_POS)
 	clear_container(cashier._item_list)
 	clear_container(cashier._action_row)
-	cashier._lock_player_actions()
 
 	cashier._cashier_panel.visible = true
 	cashier._panel_title.text = "CHECKOUT"
@@ -108,6 +108,8 @@ func show_scan_panel() -> void:
 	cashier._item_list.queue_sort()
 	cashier._item_scroll.queue_sort()
 	cashier.call_deferred("_refresh_cashier_item_scroll")
+
+	cashier._lock_player_actions()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -202,7 +204,6 @@ func show_paid_panel() -> void:
 	cashier._set_store_os_app(cashier.STORE_OS_APP_POS)
 	clear_container(cashier._item_list)
 	clear_container(cashier._action_row)
-	cashier._lock_player_actions()
 
 	cashier._cashier_panel.visible = true
 	cashier._panel_title.text = "PAID"
@@ -231,6 +232,8 @@ func show_paid_panel() -> void:
 
 	add_app_navigation_buttons()
 
+	cashier._lock_player_actions()
+
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_gooby_choice_panel() -> void:
@@ -238,7 +241,6 @@ func show_gooby_choice_panel() -> void:
 	cashier._set_store_os_app(cashier.STORE_OS_APP_POS)
 	clear_container(cashier._item_list)
 	clear_container(cashier._action_row)
-	cashier._lock_player_actions()
 
 	cashier._cashier_panel.visible = true
 	cashier._panel_title.text = "GOOBY REQUEST"
@@ -274,6 +276,8 @@ func show_gooby_choice_panel() -> void:
 
 	add_app_navigation_buttons()
 
+	cashier._lock_player_actions()
+
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func set_store_os_app(app_id: StringName) -> void:
@@ -303,7 +307,6 @@ func render_empty_pos_app() -> void:
 	cashier._set_store_os_app(cashier.STORE_OS_APP_POS)
 	clear_container(cashier._item_list)
 	clear_container(cashier._action_row)
-	cashier._lock_player_actions()
 
 	cashier._cashier_panel.visible = true
 	cashier._panel_title.text = "POS APP"
@@ -319,6 +322,8 @@ func render_empty_pos_app() -> void:
 			cashier._item_list.add_child(create_catalog_item_row(item))
 
 	add_app_navigation_buttons()
+
+	cashier._lock_player_actions()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

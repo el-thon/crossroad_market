@@ -11,29 +11,32 @@ func setup(cashier_node: Cashier) -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func lock_player_actions() -> void:
+	# Prevent double-locking - the flag is cleared on unlock
 	if cashier._cashier_lock_active:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	@warning_ignore("shadowed_variable")
-	var hud := cashier.get_tree().get_first_node_in_group("hud")
+	var hud_node := cashier.get_tree().get_first_node_in_group("hud")
 
-	if hud != null and hud.has_method("begin_action_lock"):
-		hud.call("begin_action_lock")
-		cashier._cashier_lock_active = true
+	if hud_node != null and hud_node.has_method("begin_action_lock"):
+		hud_node.call("begin_action_lock")
+
+	cashier._cashier_lock_active = true
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func unlock_player_actions() -> void:
+	# Prevent double-unlocking - the flag is set on lock
 	if not cashier._cashier_lock_active:
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	@warning_ignore("shadowed_variable")
-	var hud := cashier.get_tree().get_first_node_in_group("hud")
+	var hud_node := cashier.get_tree().get_first_node_in_group("hud")
 
-	if hud != null and hud.has_method("end_action_lock"):
-		hud.call("end_action_lock")
+	if hud_node != null and hud_node.has_method("end_action_lock"):
+		hud_node.call("end_action_lock")
 
 	cashier._cashier_lock_active = false
 
@@ -42,10 +45,10 @@ func unlock_player_actions() -> void:
 func show_notification(text: String, duration: float = 2.0) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	@warning_ignore("shadowed_variable")
-	var hud := cashier.get_tree().get_first_node_in_group("hud")
+	var hud_node := cashier.get_tree().get_first_node_in_group("hud")
 
-	if hud != null and hud.has_method("show_notification"):
-		hud.call("show_notification", text, duration)
+	if hud_node != null and hud_node.has_method("show_notification"):
+		hud_node.call("show_notification", text, duration)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -70,17 +73,17 @@ func setup_cursor_hover() -> void:
 func on_cursor_mouse_entered() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	@warning_ignore("shadowed_variable")
-	var hud := cashier.get_tree().get_first_node_in_group("hud")
+	var hud_node := cashier.get_tree().get_first_node_in_group("hud")
 
-	if hud != null and hud.has_method("show_cursor_tooltip"):
-		hud.call("show_cursor_tooltip", "Cashier")
+	if hud_node != null and hud_node.has_method("show_cursor_tooltip"):
+		hud_node.call("show_cursor_tooltip", "Cashier")
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func on_cursor_mouse_exited() -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	@warning_ignore("shadowed_variable")
-	var hud := cashier.get_tree().get_first_node_in_group("hud")
+	var hud_node := cashier.get_tree().get_first_node_in_group("hud")
 
-	if hud != null and hud.has_method("hide_cursor_tooltip"):
-		hud.call("hide_cursor_tooltip")
+	if hud_node != null and hud_node.has_method("hide_cursor_tooltip"):
+		hud_node.call("hide_cursor_tooltip")

@@ -1,8 +1,6 @@
 class_name NPCPresentationRuntime
 extends RefCounted
 
-const DEBUG_SHELF_FLOW: bool = true
-
 var npc = null
 @warning_ignore("unused_private_class_variable")
 var _interaction_status: String = ""
@@ -273,11 +271,3 @@ func apply_face_position(target_face_position: Vector2) -> void:
 
 	npc._move_direction = get_direction(direction)
 	update_character_sprite()
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_debug_npc_label() -> String:
-	if npc != null and npc.npc_data != null and npc.npc_data.npc_id != "":
-		return npc.npc_data.npc_id
-
-	return npc.name if npc != null else "<null>"

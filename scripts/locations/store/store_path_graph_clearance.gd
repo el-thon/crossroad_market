@@ -22,13 +22,20 @@ func is_route_clear(
 	start: Vector2,
 	route: Array[Vector2],
 	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF
+	shelf_position: Vector2 = Vector2.INF,
+	npc_node: Node = null
 ) -> bool:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var current := start
 
 	for point in route:
-		if not is_route_segment_clear(current, point, shelf_object, shelf_position):
+		if not is_route_segment_clear(
+			current,
+			point,
+			shelf_object,
+			shelf_position,
+			npc_node
+		):
 			return false
 
 		current = point
@@ -94,16 +101,18 @@ func is_queue_route_clear_from_current_position(start: Vector2, route: Array[Vec
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var allow_blocked_endpoint := index == route.size() - 1
 
+		var segment_clear := false
 		if index == 0:
 			if allow_blocked_endpoint:
-				if not is_route_segment_clear_except_start_and_endpoint(current, point):
-					return false
-			elif not is_route_segment_clear_except_start(current, point):
-				return false
+				segment_clear = is_route_segment_clear_except_start_and_endpoint(current, point)
+			else:
+				segment_clear = is_route_segment_clear_except_start(current, point)
 		elif allow_blocked_endpoint:
-			if not is_route_segment_clear_except_endpoint(current, point):
-				return false
-		elif not is_route_segment_clear(current, point):
+			segment_clear = is_route_segment_clear_except_endpoint(current, point)
+		else:
+			segment_clear = is_route_segment_clear(current, point)
+
+		if not segment_clear:
 			return false
 
 		current = point
@@ -323,339 +332,6 @@ func is_any_direction_segment_clear(
 
 
 # ---------------------------------------------------------------------------
-#  Debug segment clearance (Dictionary variants)
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_clear(
-	start: Vector2,
-	route: Array[Vector2],
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF
-) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var current := start
-
-	for index in range(route.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := route[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var segment_result := debug_route_segment_clear(current, point, shelf_object, shelf_position)
-
-		if not bool(segment_result.get("valid", false)):
-			segment_result["blocked_segment_index"] = index
-			segment_result["blocked_from"] = current
-			segment_result["blocked_to"] = point
-			return segment_result
-
-		current = point
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_checkout_route_from_access_clear(
-	start: Vector2,
-	route: Array[Vector2],
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF
-) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var current := start
-
-	for index in range(route.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := route[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var segment_result: Dictionary
-
-		if index == 0:
-			segment_result = debug_route_segment_clear_except_start(current, point, shelf_object, shelf_position)
-		else:
-			segment_result = debug_route_segment_clear(current, point, shelf_object, shelf_position)
-
-		if not bool(segment_result.get("valid", false)):
-			segment_result["blocked_segment_index"] = index
-			segment_result["blocked_from"] = current
-			segment_result["blocked_to"] = point
-			return segment_result
-
-		current = point
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_queue_route_clear_from_current_position(start: Vector2, route: Array[Vector2]) -> Dictionary:
-	if route.is_empty():
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var current := start
-
-	for index in range(route.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := route[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var allow_blocked_endpoint := index == route.size() - 1
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var segment_result: Dictionary
-
-		if index == 0:
-			if allow_blocked_endpoint:
-				segment_result = debug_route_segment_clear_except_start_and_endpoint(current, point)
-			else:
-				segment_result = debug_route_segment_clear_except_start(current, point)
-		elif allow_blocked_endpoint:
-			segment_result = debug_route_segment_clear_except_endpoint(current, point)
-		else:
-			segment_result = debug_route_segment_clear(current, point)
-
-		if not bool(segment_result.get("valid", false)):
-			segment_result["blocked_segment_index"] = index
-			segment_result["blocked_from"] = current
-			segment_result["blocked_to"] = point
-			return segment_result
-
-		current = point
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_clear_from_current_position(start: Vector2, route: Array[Vector2]) -> Dictionary:
-	if route.is_empty():
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var current := start
-
-	for index in range(route.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := route[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var segment_result: Dictionary
-
-		if index == 0:
-			segment_result = debug_route_segment_clear_except_start(current, point)
-		else:
-			segment_result = debug_route_segment_clear(current, point)
-
-		if not bool(segment_result.get("valid", false)):
-			segment_result["blocked_segment_index"] = index
-			segment_result["blocked_from"] = current
-			segment_result["blocked_to"] = point
-			return segment_result
-
-		current = point
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_to_access_clear(start: Vector2, route: Array[Vector2], shelf: Shelf, npc_node: Node = null) -> Dictionary:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var start_clear := debug_npc_access_point_clear(start, null, Vector2.INF, npc_node)
-
-	if route.is_empty():
-		return {
-			"valid": true,
-			"route_start": start,
-			"route_distance": 0.0,
-			"is_start_blocked": not bool(start_clear.get("valid", false)),
-			"start_blocker": start_clear.get("blocker", ""),
-			"blocked_segment_index": -1,
-			"blocked_from": Vector2.INF,
-			"blocked_to": Vector2.INF,
-			"blocked_point": Vector2.INF,
-			"blocked_reason": "",
-			"blocker": ""
-		}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var current := start
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var shelf_position: Vector2 = shelf.global_position if shelf != null else Vector2.INF
-
-	for index in range(route.size()):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := route[index]
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var is_last_segment := index == route.size() - 1
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var segment_result := {}
-
-		if index == 0 and is_last_segment:
-			segment_result = debug_route_segment_clear_except_start_and_endpoint(current, point, shelf, shelf_position, npc_node)
-		elif index == 0:
-			segment_result = debug_route_segment_clear_except_start(current, point, shelf, shelf_position, npc_node)
-		elif is_last_segment:
-			segment_result = debug_route_segment_clear_except_endpoint(current, point, shelf, shelf_position, npc_node)
-		else:
-			segment_result = debug_route_segment_clear(current, point, shelf, shelf_position, npc_node)
-
-		if not bool(segment_result.get("valid", false)):
-			segment_result["blocked_segment_index"] = index
-			segment_result["blocked_from"] = current
-			segment_result["blocked_to"] = point
-			segment_result["is_start_blocked"] = not bool(start_clear.get("valid", false))
-			segment_result["start_blocker"] = start_clear.get("blocker", "")
-			return segment_result
-
-		current = point
-
-	return {
-		"valid": true,
-		"route_start": start,
-		"route_distance": _graph._routes.get_route_distance(start, route),
-		"is_start_blocked": not bool(start_clear.get("valid", false)),
-		"start_blocker": start_clear.get("blocker", ""),
-		"blocked_segment_index": -1,
-		"blocked_from": Vector2.INF,
-		"blocked_to": Vector2.INF,
-		"blocked_point": Vector2.INF,
-		"blocked_reason": "",
-		"blocker": ""
-	}
-
-
-# ---------------------------------------------------------------------------
-#  Debug segment clearance (Dictionary)
-# ---------------------------------------------------------------------------
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_segment_clear_except_endpoint(
-	from_pos: Vector2,
-	to_pos: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF,
-	npc_node: Node = null
-) -> Dictionary:
-	if from_pos.distance_to(to_pos) <= _graph.ROUTE_CLEARANCE_EPSILON:
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var distance := from_pos.distance_to(to_pos)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var steps: int = maxi(1, int(ceil(distance / _graph.ROUTE_SAMPLE_STEP)))
-
-	for index in range(steps):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := from_pos.lerp(to_pos, float(index) / float(steps))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point_result := debug_npc_access_point_clear(point, shelf_object, shelf_position, npc_node)
-
-		if not bool(point_result.get("valid", false)):
-			return {
-				"valid": false,
-				"blocked_point": point,
-				"blocked_reason": "blocked_except_endpoint:%s" % str(point_result.get("blocked_reason", "")),
-				"blocker": point_result.get("blocker", "")
-			}
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_segment_clear_except_start(
-	from_pos: Vector2,
-	to_pos: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF,
-	npc_node: Node = null
-) -> Dictionary:
-	if from_pos.distance_to(to_pos) <= _graph.ROUTE_CLEARANCE_EPSILON:
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var distance := from_pos.distance_to(to_pos)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var steps: int = maxi(1, int(ceil(distance / _graph.ROUTE_SAMPLE_STEP)))
-
-	for index in range(1, steps + 1):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := from_pos.lerp(to_pos, float(index) / float(steps))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point_result := debug_npc_access_point_clear(point, shelf_object, shelf_position, npc_node)
-
-		if not bool(point_result.get("valid", false)):
-			return {
-				"valid": false,
-				"blocked_point": point,
-				"blocked_reason": "blocked_except_start:%s" % str(point_result.get("blocked_reason", "")),
-				"blocker": point_result.get("blocker", "")
-			}
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_segment_clear_except_start_and_endpoint(
-	from_pos: Vector2,
-	to_pos: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF,
-	npc_node: Node = null
-) -> Dictionary:
-	if from_pos.distance_to(to_pos) <= _graph.ROUTE_CLEARANCE_EPSILON:
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var distance := from_pos.distance_to(to_pos)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var steps: int = maxi(1, int(ceil(distance / _graph.ROUTE_SAMPLE_STEP)))
-
-	for index in range(1, steps):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := from_pos.lerp(to_pos, float(index) / float(steps))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point_result := debug_npc_access_point_clear(point, shelf_object, shelf_position, npc_node)
-
-		if not bool(point_result.get("valid", false)):
-			return {
-				"valid": false,
-				"blocked_point": point,
-				"blocked_reason": "blocked_except_start_and_endpoint:%s" % str(point_result.get("blocked_reason", "")),
-				"blocker": point_result.get("blocker", "")
-			}
-
-	return {"valid": true}
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_route_segment_clear(
-	from_pos: Vector2,
-	to_pos: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF,
-	npc_node: Node = null
-) -> Dictionary:
-	if from_pos.distance_to(to_pos) <= _graph.ROUTE_CLEARANCE_EPSILON:
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var distance := from_pos.distance_to(to_pos)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var steps: int = maxi(1, int(ceil(distance / _graph.ROUTE_SAMPLE_STEP)))
-
-	for index in range(steps + 1):
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point := from_pos.lerp(to_pos, float(index) / float(steps))
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var point_result := debug_npc_access_point_clear(point, shelf_object, shelf_position, npc_node)
-
-		if not bool(point_result.get("valid", false)):
-			return {
-				"valid": false,
-				"blocked_point": point,
-				"blocked_reason": "blocked:%s" % str(point_result.get("blocked_reason", "")),
-				"blocker": point_result.get("blocker", "")
-			}
-
-	return {"valid": true}
-
-
-# ---------------------------------------------------------------------------
 #  Point-level clearance
 # ---------------------------------------------------------------------------
 
@@ -674,70 +350,6 @@ func is_npc_access_point_clear(
 			return false
 
 	return is_npc_standing_position_clear(position, npc_node)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func debug_npc_access_point_clear(
-	position: Vector2,
-	shelf_object: Node2D = null,
-	shelf_position: Vector2 = Vector2.INF,
-	npc_node: Node = null
-) -> Dictionary:
-	if shelf_object != null and shelf_position.is_finite():
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var shelf_rect := get_object_body_rect_at(shelf_object, shelf_position)
-
-		if _rect_has_area(shelf_rect) and get_npc_standing_rect(position).intersects(shelf_rect):
-			return {
-				"valid": false,
-				"blocked_reason": "shelf_body_rect",
-				"blocker": shelf_object.name
-			}
-
-	if _graph._store == null:
-		return {
-			"valid": false,
-			"blocked_reason": "missing_store",
-			"blocker": "<store_null>"
-		}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var shape := RectangleShape2D.new()
-	shape.size = _graph.STANDING_SHAPE_SIZE
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = shape
-	query.transform = Transform2D(0.0, position + _graph.STANDING_SHAPE_OFFSET)
-	query.collide_with_bodies = true
-	query.collide_with_areas = false
-	query.collision_mask = 1
-
-	if npc_node is CollisionObject2D:
-		query.exclude = [(npc_node as CollisionObject2D).get_rid()]
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var hits: Array[Dictionary] = _graph._store.get_world_2d().direct_space_state.intersect_shape(query, 16)
-
-	if hits.is_empty():
-		return {"valid": true}
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var hit: Dictionary = hits[0]
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var collider: Variant = hit.get("collider", null)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var collider_node := collider as Node
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var collider_name: String = collider_node.name if collider_node != null else str(collider)
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var collider_path: String = str(collider_node.get_path()) if collider_node != null and collider_node.is_inside_tree() else ""
-
-	return {
-		"valid": false,
-		"blocked_reason": _get_debug_blocker_reason(collider_node),
-		"blocker": "%s%s" % [collider_name, ":%s" % collider_path if collider_path != "" else ""]
-	}
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -806,32 +418,3 @@ func _get_object_collision_shape(object: Node2D) -> CollisionShape2D:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _rect_has_area(rect: Rect2) -> bool:
 	return rect.size.x > 0.0 and rect.size.y > 0.0
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_debug_blocker_reason(collider_node: Node) -> String:
-	if collider_node == null:
-		return "physics_body"
-
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var name_text := collider_node.name.to_lower()
-
-	if collider_node is NPC:
-		return "npc"
-
-	if name_text.contains("player"):
-		return "player"
-
-	if name_text.contains("cashier"):
-		return "cashier"
-
-	if name_text.contains("shelf"):
-		return "shelf"
-
-	if name_text.contains("wall") or name_text.contains("bound"):
-		return "wall_or_bounds"
-
-	if name_text.contains("queue"):
-		return "queue_area"
-
-	return "%s:%s" % [collider_node.get_class(), collider_node.name]

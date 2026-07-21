@@ -1,8 +1,6 @@
 class_name CashierCustomerDetector
 extends RefCounted
 
-const DEBUG_CASHIER_READY: bool = true
-
 var cashier: Cashier = null
 
 
@@ -75,5 +73,3 @@ func has_customer_approaching_counter() -> bool:
 			return true
 
 	return false
-
-

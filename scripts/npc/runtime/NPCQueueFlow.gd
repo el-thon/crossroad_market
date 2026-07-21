@@ -1,8 +1,6 @@
 class_name NPCQueueFlow
 extends RefCounted
 
-const DEBUG_QUEUE_TO_CASHIER: bool = true
-
 var npc = null
 
 

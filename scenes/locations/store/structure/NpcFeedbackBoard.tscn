@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bcn1tcfnwf23b"]
 
 [ext_resource type="Texture2D" uid="uid://be3xsyx5m1fyk" path="res://assets/store/npc-feedback-board.png" id="1_ehuxv"]
-[ext_resource type="Script" uid="uid://bs5r3itd7od6j" path="res://scripts/objects/NpcFeedbackBoard.gd" id="2_script"]
+[ext_resource type="Script" path="res://scripts/objects/NpcFeedbackBoard.gd" id="2_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(34, 14)

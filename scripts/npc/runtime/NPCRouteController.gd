@@ -2,15 +2,10 @@ class_name NPCRouteController
 extends RefCounted
 
 const StoreRouteSafetyScript = preload("res://scripts/npc/runtime/StoreRouteSafety.gd")
-const DEBUG_NPC_ROUTE_BUILD: bool = true
 
 var npc = null
 @warning_ignore("unused_private_class_variable")
 var _route_safety = null
-@warning_ignore("unused_private_class_variable")
-var _last_route_debug_key: String = ""
-@warning_ignore("unused_private_class_variable")
-var _last_stuck_debug_key: String = ""
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -458,42 +453,6 @@ func _trim_arrived_route_points(threshold: float) -> void:
 		and npc.global_position.distance_to(npc._movement_route[0]) <= threshold
 	):
 		npc._movement_route.remove_at(0)
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func should_print_route_debug(
-	source: String,
-	destination: Vector2,
-	route: Array[Vector2]
-) -> bool:
-	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var debug_key := "%s:%s:%d,%d:%d,%d:%d" % [
-		source,
-		str(npc.current_state),
-		roundi(npc.global_position.x),
-		roundi(npc.global_position.y),
-		roundi(destination.x),
-		roundi(destination.y),
-		route.size()
-	]
-
-	if route.is_empty() and debug_key == _last_route_debug_key:
-		return false
-
-	_last_route_debug_key = debug_key
-	return true
-
-
-@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func _get_debug_npc_label() -> String:
-	if (
-		npc != null
-		and npc.npc_data != null
-		and npc.npc_data.npc_id != ""
-	):
-		return npc.npc_data.npc_id
-
-	return npc.name if npc != null else "<null>"
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

@@ -77,13 +77,15 @@ func _find_best_shelf_access(
 			"node",
 			StringName()
 		) as StringName
-		var checkout_path := _nav.find_checkout_graph_path(reachable_graph_node)
+		var checkout_path: Array[StringName] = _nav.find_checkout_graph_path(
+			reachable_graph_node
+		)
 		if checkout_path.is_empty():
 			continue
 
 		var access_side := str(access_candidate.get("access_side", ""))
 		var candidate_prefers_below := access_side == "below"
-		var route_score := (
+		var route_score: float = (
 			float(access_candidate.get("vertical_distance", 0.0))
 			* SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
 			+ float(reachable_result.get("distance", 0.0))
@@ -206,6 +208,23 @@ func _find_reachable_graph_node_for_access(
 		if graph_marker == null:
 			continue
 
+		var grid_result := _grid.find_route(
+			graph_marker.global_position,
+			access_position,
+			shelf_object,
+			shelf_position
+		)
+		if bool(grid_result.get("valid", false)):
+			var grid_distance := float(grid_result.get("distance", INF))
+			if grid_distance < best_distance:
+				best_distance = grid_distance
+				best_result = {
+					"valid": true,
+					"node": candidate_node,
+					"route": grid_result.get("route", []),
+					"distance": grid_distance
+				}
+
 		for horizontal_first in [true, false]:
 			var direct_route := _routes.make_orthogonal_route(
 				graph_marker.global_position,
@@ -270,6 +289,16 @@ func _get_connection_from_graph_node_to_access(
 	var shelf_position := Vector2.INF
 	if shelf != null:
 		shelf_position = shelf.global_position
+
+	var grid_result := _grid.find_route(
+		_nav.get_marker_position(graph_node),
+		access_position,
+		shelf,
+		shelf_position
+	)
+	if bool(grid_result.get("valid", false)):
+		return _variant_route_to_vector2_array(grid_result.get("route", []))
+
 	var surface_result := _surface.find_surface_route_between_marker_and_access(
 		graph_node,
 		access_position,
@@ -289,20 +318,33 @@ func _get_shortest_checkout_route(
 		return []
 
 	var candidates: Array[Dictionary] = []
-	var checkout_nodes := _nav.get_checkout_goal_node_names()
+	var checkout_nodes: Array[StringName] = _nav.get_checkout_goal_node_names()
 
 	for checkout_node in checkout_nodes:
 		var checkout_marker: Marker2D = _nav.get_graph_marker(checkout_node)
 		if checkout_marker == null:
 			continue
 
-		var diagonal_route: Array[Vector2] = [checkout_marker.global_position]
-		if _is_checkout_route_clear(
+		var source_shelf_position := Vector2.INF
+		if source_shelf != null and is_instance_valid(source_shelf):
+			source_shelf_position = source_shelf.global_position
+
+		var grid_result := _grid.find_route(
 			from_position,
-			diagonal_route,
-			source_shelf
-		):
-			_append_route_candidate(candidates, from_position, diagonal_route)
+			checkout_marker.global_position,
+			source_shelf,
+			source_shelf_position
+		)
+		if bool(grid_result.get("valid", false)):
+			var grid_route := _variant_route_to_vector2_array(
+				grid_result.get("route", [])
+			)
+			if _is_checkout_route_clear(
+				from_position,
+				grid_route,
+				source_shelf
+			):
+				_append_route_candidate(candidates, from_position, grid_route)
 
 		for horizontal_first in [true, false]:
 			var direct_route := _routes.make_orthogonal_route(
@@ -319,13 +361,13 @@ func _get_shortest_checkout_route(
 
 	if source_shelf == null:
 		for checkout_node in checkout_nodes:
-			var graph_result := _nav.find_nearest_reachable_graph_node_for_route(
+			var graph_result: Dictionary = _nav.find_nearest_reachable_graph_node_for_route(
 				from_position,
 				checkout_node
 			)
 			if not bool(graph_result.get("valid", false)):
 				continue
-			var graph_route := _variant_route_to_vector2_array(
+			var graph_route: Array[Vector2] = _variant_route_to_vector2_array(
 				graph_result.get("route", [])
 			)
 			_append_route_candidate(candidates, from_position, graph_route)
@@ -341,7 +383,7 @@ func _get_shortest_checkout_route(
 				continue
 
 			for horizontal_first in [true, false]:
-				var start_route := _routes.make_orthogonal_route(
+				var start_route: Array[Vector2] = _routes.make_orthogonal_route(
 					from_position,
 					start_marker.global_position,
 					horizontal_first
@@ -354,14 +396,14 @@ func _get_shortest_checkout_route(
 					continue
 
 				for checkout_node in checkout_nodes:
-					var graph_path := _nav.find_graph_path(
+					var graph_path: Array[StringName] = _nav.find_graph_path(
 						start_node,
 						checkout_node
 					)
 					if graph_path.is_empty():
 						continue
 
-					var complete_route := start_route.duplicate()
+					var complete_route: Array[Vector2] = start_route.duplicate()
 					complete_route.append_array(
 						_routes.build_route_from_graph_path(graph_path)
 					)
@@ -408,17 +450,27 @@ func _append_access_route_variants(
 	shelf: Shelf,
 	npc_node: Node
 ) -> void:
-	var diagonal_route: Array[Vector2] = [access_position]
-	if _clearance.is_route_to_access_clear(
-		from_position,
-		diagonal_route,
-		shelf,
-		npc_node
-	):
-		_append_route_candidate(candidates, from_position, diagonal_route)
+	var shelf_position := Vector2.INF
+	if shelf != null and is_instance_valid(shelf):
+		shelf_position = shelf.global_position
 
+	var grid_result := _grid.find_route(
+		from_position,
+		access_position,
+		shelf,
+		shelf_position,
+		npc_node
+	)
+	if bool(grid_result.get("valid", false)):
+		_append_route_candidate(
+			candidates,
+			from_position,
+			_variant_route_to_vector2_array(grid_result.get("route", []))
+		)
+
+	# Orthogonal L routes remain as simple local fallback, never diagonal.
 	for horizontal_first in [true, false]:
-		var route := _routes.make_orthogonal_route(
+		var route: Array[Vector2] = _routes.make_orthogonal_route(
 			from_position,
 			access_position,
 			horizontal_first
@@ -438,22 +490,24 @@ func _append_clear_route_variants(
 	target_position: Vector2,
 	shelf_object: Node2D,
 	shelf_position: Vector2,
-	ignore_endpoint: bool
+	_ignore_endpoint: bool
 ) -> void:
-	var diagonal_route: Array[Vector2] = [target_position]
-	if _clearance.is_any_direction_segment_clear(
+	var grid_result := _grid.find_route(
 		from_position,
 		target_position,
 		shelf_object,
-		shelf_position,
-		null,
-		true,
-		ignore_endpoint
-	):
-		_append_route_candidate(candidates, from_position, diagonal_route)
+		shelf_position
+	)
+	if bool(grid_result.get("valid", false)):
+		_append_route_candidate(
+			candidates,
+			from_position,
+			_variant_route_to_vector2_array(grid_result.get("route", []))
+		)
 
+	# Orthogonal L routes remain as simple local fallback, never diagonal.
 	for horizontal_first in [true, false]:
-		var route := _routes.make_orthogonal_route(
+		var route: Array[Vector2] = _routes.make_orthogonal_route(
 			from_position,
 			target_position,
 			horizontal_first
@@ -537,15 +591,15 @@ func _build_cashier_exit_route_via_queue_right(
 	from_position: Vector2,
 	fallback_exit_position: Vector2
 ) -> Array[Vector2]:
-	var right_nodes := _nav.get_queue_right_node_names()
+	var right_nodes: Array[StringName] = _nav.get_queue_right_node_names()
 	if right_nodes.is_empty():
 		return get_exit_route_from(from_position, fallback_exit_position)
 
-	var nearest_right_node := _nav.get_nearest_queue_right_node_name(from_position)
+	var nearest_right_node: StringName = _nav.get_nearest_queue_right_node_name(from_position)
 	if nearest_right_node == StringName():
 		return get_exit_route_from(from_position, fallback_exit_position)
 
-	var start_index := right_nodes.find(nearest_right_node)
+	var start_index: int = right_nodes.find(nearest_right_node)
 	var route: Array[Vector2] = []
 	for index in range(start_index, right_nodes.size()):
 		var route_marker: Marker2D = _nav.get_graph_marker(right_nodes[index])
@@ -555,10 +609,10 @@ func _build_cashier_exit_route_via_queue_right(
 	if not _clearance.is_route_clear_from_current_position(from_position, route):
 		return get_exit_route_from(from_position, fallback_exit_position)
 
-	var route_end := from_position
+	var route_end: Vector2 = from_position
 	if not route.is_empty():
 		route_end = route.back()
-	var exit_route := get_exit_route_from(route_end, fallback_exit_position)
+	var exit_route: Array[Vector2] = get_exit_route_from(route_end, fallback_exit_position)
 	route.append_array(exit_route)
 	return _routes.dedupe_route_points(route)
 

@@ -92,13 +92,13 @@ func _find_bounded_vertical_shelf_access(
 			continue
 
 		var graph_node := connection.get("node", StringName()) as StringName
-		var checkout_path := _nav.find_checkout_graph_path(graph_node)
+		var checkout_path: Array[StringName] = _nav.find_checkout_graph_path(graph_node)
 		if checkout_path.is_empty():
 			continue
 
 		var access_side := str(access_candidate.get("access_side", ""))
 		var candidate_prefers_below := access_side == "below"
-		var score := (
+		var score: float = (
 			float(access_candidate.get("vertical_distance", 0.0))
 			* SHELF_ACCESS_DISTANCE_SCORE_WEIGHT
 			+ float(connection.get("distance", 0.0))
@@ -156,12 +156,14 @@ func _find_bounded_access_connection(
 			continue
 
 		var route_variants: Array = []
-		route_variants.append(
-			_routes.make_direct_route(
-				graph_marker.global_position,
-				access_position
-			)
+		var grid_result := _grid.find_route(
+			graph_marker.global_position,
+			access_position,
+			shelf_object,
+			shelf_position
 		)
+		if bool(grid_result.get("valid", false)):
+			route_variants.append(grid_result.get("route", []))
 		route_variants.append(
 			_routes.make_orthogonal_route(
 				graph_marker.global_position,

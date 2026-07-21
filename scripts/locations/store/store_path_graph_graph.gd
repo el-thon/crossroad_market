@@ -47,7 +47,7 @@ func get_graph_node_names() -> Array[StringName]:
 	if _graph == null or _graph._markers == null:
 		return node_names
 
-	var child_count = _graph._markers.get_child_count()
+	var child_count: int = _graph._markers.get_child_count()
 	if _graph._cached_graph_node_count == child_count:
 		return _graph._cached_graph_node_names.duplicate()
 
@@ -399,7 +399,7 @@ func find_nearest_reachable_graph_node_for_route(
 			continue
 
 		for horizontal_first in [true, false]:
-			var entry_route = _graph._routes.make_orthogonal_route(
+			var entry_route: Array[Vector2] = _graph._routes.make_orthogonal_route(
 				position,
 				start_marker.global_position,
 				horizontal_first
@@ -410,7 +410,7 @@ func find_nearest_reachable_graph_node_for_route(
 			):
 				continue
 
-			var complete_route = entry_route.duplicate()
+			var complete_route: Array[Vector2] = entry_route.duplicate()
 			complete_route.append_array(
 				_graph._routes.build_route_from_graph_path(graph_path)
 			)
@@ -431,7 +431,7 @@ func find_nearest_reachable_graph_node_for_route(
 			if not route_is_clear:
 				continue
 
-			var route_distance = _graph._routes.get_route_distance(
+			var route_distance: float = _graph._routes.get_route_distance(
 				position,
 				complete_route
 			)
@@ -444,7 +444,7 @@ func find_nearest_reachable_graph_node_for_route(
 				"node": start_node,
 				"route": complete_route,
 				"distance": route_distance
-			}
+				}
 
 	return best_result
 
@@ -484,20 +484,6 @@ func get_graph_neighbors(node_name: StringName) -> Array[StringName]:
 		1.0
 	)
 
-	for direction in [
-		Vector2(-1, -1),
-		Vector2(1, -1),
-		Vector2(-1, 1),
-		Vector2(1, 1)
-	]:
-		_append_diagonal_neighbor(
-			neighbors,
-			node_name,
-			source_marker.global_position,
-			direction.x,
-			direction.y
-		)
-
 	return neighbors
 
 
@@ -508,13 +494,13 @@ func _append_axis_neighbor(
 	horizontal: bool,
 	direction: float
 ) -> void:
-	var best_name = StringName()
-	var best_distance = INF
+	var best_name := StringName()
+	var best_distance := INF
+	var best_queue_name := StringName()
+	var best_queue_distance := INF
 
 	for candidate_name in get_graph_node_names():
 		if candidate_name == source_name:
-			continue
-		if is_queue_target_node(candidate_name) or is_queue_target_node(source_name):
 			continue
 
 		var candidate_marker = get_graph_marker(candidate_name)
@@ -540,81 +526,79 @@ func _append_axis_neighbor(
 		if not aligned or signf(offset) != signf(direction):
 			continue
 
-		var candidate_distance = absf(offset)
+		var candidate_distance := absf(offset)
+		if candidate_distance <= _graph.MARKER_ALIGNMENT_EPSILON:
+			continue
 		if (
-			candidate_distance <= _graph.MARKER_ALIGNMENT_EPSILON
-			or candidate_distance >= best_distance
+			is_queue_target_node(candidate_name)
+			and candidate_distance >= best_queue_distance
+		):
+			continue
+		if (
+			not is_queue_target_node(candidate_name)
+			and candidate_distance >= best_distance
 		):
 			continue
 
-		var segment_route = _graph._routes.make_orthogonal_route(
+		var segment_route: Array[Vector2] = _graph._routes.make_orthogonal_route(
 			source_position,
 			candidate_position,
 			horizontal
 		)
-		if not _graph._clearance.is_route_clear(
-			source_position,
-			segment_route
-		):
+		if not _is_marker_edge_clear(source_position, segment_route):
 			continue
 
-		best_name = candidate_name
-		best_distance = candidate_distance
+		if is_queue_target_node(candidate_name):
+			best_queue_name = candidate_name
+			best_queue_distance = candidate_distance
+		else:
+			best_name = candidate_name
+			best_distance = candidate_distance
 
 	if best_name != StringName() and best_name not in neighbors:
 		neighbors.append(best_name)
+	if best_queue_name != StringName() and best_queue_name not in neighbors:
+		neighbors.append(best_queue_name)
 
 
-func _append_diagonal_neighbor(
-	neighbors: Array[StringName],
-	source_name: StringName,
+func _is_marker_edge_clear(
 	source_position: Vector2,
-	direction_x: float,
-	direction_y: float
-) -> void:
-	var best_name = StringName()
-	var best_distance = INF
+	segment_route: Array[Vector2]
+) -> bool:
+	var current := source_position
 
-	for candidate_name in get_graph_node_names():
-		if candidate_name == source_name:
-			continue
-		if is_queue_target_node(candidate_name) or is_queue_target_node(source_name):
-			continue
+	for index in range(segment_route.size()):
+		var point := segment_route[index]
+		var is_last_segment := index == segment_route.size() - 1
+		var segment_clear := false
 
-		var candidate_marker = get_graph_marker(candidate_name)
-		if candidate_marker == null:
-			continue
+		if index == 0 and is_last_segment:
+			segment_clear = _graph._clearance.is_route_segment_clear_except_start_and_endpoint(
+				current,
+				point
+			)
+		elif index == 0:
+			segment_clear = _graph._clearance.is_route_segment_clear_except_start(
+				current,
+				point
+			)
+		elif is_last_segment:
+			segment_clear = _graph._clearance.is_route_segment_clear_except_endpoint(
+				current,
+				point
+			)
+		else:
+			segment_clear = _graph._clearance.is_route_segment_clear(
+				current,
+				point
+			)
 
-		var candidate_position = candidate_marker.global_position
-		var delta_x = candidate_position.x - source_position.x
-		var delta_y = candidate_position.y - source_position.y
-		if (
-			absf(delta_x) <= _graph.MARKER_ALIGNMENT_EPSILON
-			or absf(delta_y) <= _graph.MARKER_ALIGNMENT_EPSILON
-		):
-			continue
-		if signf(delta_x) != signf(direction_x):
-			continue
-		if signf(delta_y) != signf(direction_y):
-			continue
+		if not segment_clear:
+			return false
 
-		var candidate_distance = source_position.distance_to(candidate_position)
-		if (
-			candidate_distance <= _graph.MARKER_ALIGNMENT_EPSILON
-			or candidate_distance >= best_distance
-		):
-			continue
-		if not _graph._clearance.is_route_segment_clear(
-			source_position,
-			candidate_position
-		):
-			continue
+		current = point
 
-		best_name = candidate_name
-		best_distance = candidate_distance
-
-	if best_name != StringName() and best_name not in neighbors:
-		neighbors.append(best_name)
+	return true
 
 
 func get_graph_edge_cost(

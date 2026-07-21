@@ -71,9 +71,9 @@ func try_interact() -> void:
 		interact_with_restock_package(best_target as RestockPackage)
 		return
 
-	if best_target is NpcFeedbackBoard:
-		interact_with_npc_feedback_board(best_target as NpcFeedbackBoard)
-		return
+		if is_npc_feedback_board(best_target):
+			interact_with_npc_feedback_board(best_target)
+			return
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -212,9 +212,18 @@ func interact_with_restock_package(restock_package: RestockPackage) -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func interact_with_npc_feedback_board(feedback_board: NpcFeedbackBoard) -> void:
+func interact_with_npc_feedback_board(feedback_board: Node) -> void:
 	if player._get_carried_shelf() != null:
 		player._show_notification("Put down the shelf first.", 0.8)
 		return
 
-	feedback_board.request_interaction()
+	if feedback_board.has_method("request_interaction"):
+		feedback_board.call("request_interaction")
+
+
+func is_npc_feedback_board(target: Node) -> bool:
+	return (
+		target != null
+		and target.name == "NpcFeedbackBoard"
+		and target.has_method("request_interaction")
+	)

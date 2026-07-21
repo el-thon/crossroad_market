@@ -132,7 +132,11 @@ func trigger_interaction_guidance(areas: Array[Area2D]) -> void:
 		)
 		return
 
-	if best_target is NpcFeedbackBoard:
+	if (
+		best_target != null
+		and best_target.name == "NpcFeedbackBoard"
+		and best_target.has_method("request_interaction")
+	):
 		show_guided_hint_once(
 			"npc_feedback_board",
 			"Customer Feedback Board. Press E to read NPC feedback."
