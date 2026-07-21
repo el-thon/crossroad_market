@@ -19,7 +19,7 @@
 [ext_resource type="PackedScene" path="res://scenes/locations/store/ActivityBoard.tscn" id="20_vfc65"]
 [ext_resource type="Script" uid="uid://doibwr28kr880" path="res://scripts/locations/store/StoreLocationFlow.gd" id="24_location_flow"]
 [ext_resource type="Script" uid="uid://dmgjae2cldj8b" path="res://scripts/locations/store/StoreTaxFlow.gd" id="25_tax_flow"]
-[ext_resource type="Script" path="res://scripts/locations/store/StoreShelfPlacementController.gd" id="26_shelf_placement"]
+[ext_resource type="Script" path="res://scripts/locations/store/StoreShelfPlacementCollisionController.gd" id="26_shelf_placement"]
 [ext_resource type="Script" uid="uid://dqqma8ynisrxa" path="res://scripts/locations/store/StoreProgressionFlow.gd" id="27_progression"]
 [ext_resource type="Script" uid="uid://b53cmjqws3fs8" path="res://scripts/locations/store/StoreNpcRuntime.gd" id="28_npc_runtime"]
 [ext_resource type="Script" uid="uid://cr5t12g31aufu" path="res://scripts/locations/store/StorePresentation.gd" id="29_presentation"]
