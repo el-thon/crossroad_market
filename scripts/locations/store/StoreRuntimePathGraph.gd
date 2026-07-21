@@ -4,12 +4,14 @@ extends OptimizedStorePathGraph
 ## Store-only route operations that depend on customer state semantics.
 
 const QUEUE_GRAPH_START_NODE_LIMIT: int = 6
+const QUEUE_APPROACH_CONNECTOR_LIMIT: int = 4
 
 
 func get_route_from_shelf_to_queue_target(
 	shelf: Shelf,
 	from_position: Vector2,
-	queue_index: int
+	queue_index: int,
+	npc_node: Node = null
 ) -> Array[Vector2]:
 	if (
 		shelf == null
@@ -34,7 +36,8 @@ func get_route_from_shelf_to_queue_target(
 		if _is_shelf_queue_route_clear(
 			from_position,
 			route,
-			shelf
+			shelf,
+			npc_node
 		):
 			_append_route_candidate(
 				direct_candidates,
@@ -46,8 +49,8 @@ func get_route_from_shelf_to_queue_target(
 	if not direct_route.is_empty():
 		return direct_route
 
-	# Approach the assigned slot from its matching right-side marker. This keeps
-	# Back1/Back2 customers out of QueueFront while preserving a predictable lane.
+	# Approach the assigned slot from its matching right-side marker. Back1/Back2
+	# customers therefore never need QueueFront as an intermediate waypoint.
 	var approach_node := _nav.get_queue_approach_node_name(queue_index)
 	if approach_node == StringName():
 		approach_node = _nav.get_queue_target_node_name(queue_index)
@@ -58,52 +61,84 @@ func get_route_from_shelf_to_queue_target(
 	if approach_marker == null:
 		return []
 
-	var candidates: Array[Dictionary] = []
+	# Queue markers are intentionally excluded from normal graph edges. Connect
+	# the assigned approach marker to a few nearby non-queue graph nodes instead
+	# of asking A* to use the queue marker as a graph goal.
+	var approach_connectors := super._get_nearest_graph_node_names_for_access(
+		approach_marker.global_position,
+		StringName(),
+		QUEUE_APPROACH_CONNECTOR_LIMIT
+	)
 	var start_nodes := super._get_nearest_graph_node_names_for_access(
 		from_position,
 		StringName(),
 		QUEUE_GRAPH_START_NODE_LIMIT
 	)
+	var candidates: Array[Dictionary] = []
+
 	for start_node in start_nodes:
 		var start_marker: Marker2D = _nav.get_graph_marker(start_node)
 		if start_marker == null:
 			continue
 
-		var graph_path := _nav.find_graph_path(start_node, approach_node)
-		if graph_path.is_empty():
-			continue
-
-		var graph_route := _routes.build_route_from_graph_path(graph_path)
-		for entry_route_variant in _make_route_variants(
-			from_position,
-			start_marker.global_position
-		):
-			var entry_route := _variant_route_to_vector2_array(
-				entry_route_variant
+		for connector_node in approach_connectors:
+			var connector_marker: Marker2D = _nav.get_graph_marker(
+				connector_node
 			)
-			var complete_route: Array[Vector2] = entry_route.duplicate()
-			complete_route.append_array(graph_route)
-			if (
-				complete_route.is_empty()
-				or complete_route.back().distance_to(
-					approach_marker.global_position
-				) > ROUTE_CLEARANCE_EPSILON
-			):
-				complete_route.append(approach_marker.global_position)
-			complete_route.append(queue_target)
-			complete_route = _routes.dedupe_route_points(complete_route)
-
-			if not _is_shelf_queue_route_clear(
-				from_position,
-				complete_route,
-				shelf
-			):
+			if connector_marker == null:
 				continue
-			_append_route_candidate(
-				candidates,
-				from_position,
-				complete_route
+
+			var graph_path := _nav.find_graph_path(
+				start_node,
+				connector_node
 			)
+			if graph_path.is_empty():
+				continue
+
+			var graph_route := _routes.build_route_from_graph_path(
+				graph_path
+			)
+			for entry_route_variant in _make_route_variants(
+				from_position,
+				start_marker.global_position
+			):
+				var entry_route := _variant_route_to_vector2_array(
+					entry_route_variant
+				)
+				var complete_route: Array[Vector2] = entry_route.duplicate()
+				complete_route.append_array(graph_route)
+				if (
+					complete_route.is_empty()
+					or complete_route.back().distance_to(
+						connector_marker.global_position
+					) > ROUTE_CLEARANCE_EPSILON
+				):
+					complete_route.append(connector_marker.global_position)
+
+				complete_route.append_array(
+					_routes.make_orthogonal_route(
+						connector_marker.global_position,
+						approach_marker.global_position,
+						true
+					)
+				)
+				complete_route.append(queue_target)
+				complete_route = _routes.dedupe_route_points(
+					complete_route
+				)
+
+				if not _is_shelf_queue_route_clear(
+					from_position,
+					complete_route,
+					shelf,
+					npc_node
+				):
+					continue
+				_append_route_candidate(
+					candidates,
+					from_position,
+					complete_route
+				)
 
 	return _get_shortest_route(candidates)
 
@@ -111,11 +146,14 @@ func get_route_from_shelf_to_queue_target(
 func _is_shelf_queue_route_clear(
 	from_position: Vector2,
 	route: Array[Vector2],
-	shelf: Shelf
+	shelf: Shelf,
+	npc_node: Node
 ) -> bool:
-	return _clearance.is_checkout_route_from_access_clear(
+	# This variant ignores the source overlap, the assigned slot endpoint, the
+	# source shelf body, and the moving NPC's own collider.
+	return _clearance.is_route_to_access_clear(
 		from_position,
 		route,
 		shelf,
-		shelf.global_position
+		npc_node
 	)
