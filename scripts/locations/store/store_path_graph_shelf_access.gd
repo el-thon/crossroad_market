@@ -22,6 +22,16 @@ func get_shelf_access_candidates(shelf_position: Vector2, vertical_only: bool = 
 	if vertical_only:
 		append_rect_vertical_shelf_access_candidates(candidates, shelf_position)
 
+	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	var shelf_object := find_shelf_object_at_position(shelf_position) as Shelf
+	if shelf_object != null:
+		append_shelf_interaction_port_candidates(
+			candidates,
+			shelf_object,
+			shelf_position,
+			vertical_only
+		)
+
 	for node_name in _graph._nav.get_graph_node_names():
 		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 		var marker: Marker2D = _graph._nav.get_graph_marker(node_name)
@@ -66,6 +76,44 @@ func get_shelf_access_candidates(shelf_position: Vector2, vertical_only: bool = 
 	)
 
 	return candidates
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func append_shelf_interaction_port_candidates(
+	candidates: Array[Dictionary],
+	shelf: Shelf,
+	shelf_position: Vector2,
+	vertical_only: bool
+) -> void:
+	for port in shelf.get_interaction_ports():
+		var access_point := port.get("position", Vector2.INF) as Vector2
+		if not access_point.is_finite():
+			continue
+
+		var horizontal_distance := absf(access_point.x - shelf_position.x)
+		var vertical_distance := absf(access_point.y - shelf_position.y)
+		var direct_distance := access_point.distance_to(shelf_position)
+		var vertical_access: bool = (
+			horizontal_distance <= _graph.SHELF_ACCESS_COLUMN_EPSILON
+			and vertical_distance > _graph.MARKER_ALIGNMENT_EPSILON
+		)
+		if vertical_only and not vertical_access:
+			continue
+		if direct_distance <= _graph.MARKER_ALIGNMENT_EPSILON:
+			continue
+		if direct_distance > _graph.MAX_SHELF_ACCESS_DISTANCE:
+			continue
+
+		candidates.append({
+			"access_point": access_point,
+			"graph_node": StringName(),
+			"vertical_access": vertical_access,
+			"access_side": "below" if access_point.y >= shelf_position.y else "above",
+			"tier": -1,
+			"horizontal_distance": horizontal_distance,
+			"vertical_distance": vertical_distance,
+			"direct_distance": direct_distance
+		})
 
 
 ## Appends vertical shelf access candidates (above and below shelf).

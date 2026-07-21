@@ -873,7 +873,64 @@ func execute_deferred_shelf_access_update(
 			true
 		)
 		return true
+	if object is Shelf:
+		_notify_npcs_shelf_access_changed(object as Shelf)
 	return true
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _notify_npcs_shelf_access_changed(shelf: Shelf) -> void:
+	if store == null or shelf == null or not is_instance_valid(shelf):
+		return
+	if not bool(shelf.get_meta("npc_path_ready", false)):
+		return
+
+	for npc_node in store.get_tree().get_nodes_in_group("npcs"):
+		if npc_node == null or not is_instance_valid(npc_node):
+			continue
+		if not _is_npc_targeting_shelf(npc_node, shelf):
+			continue
+		if bool(npc_node.get("_has_taken_shelf_item")):
+			continue
+
+		var visit_position: Vector2 = npc_node._get_shelf_visit_position(shelf)
+		if not visit_position.is_finite():
+			continue
+
+		npc_node._target_shelf = shelf
+		if npc_node._shopping_job != null:
+			npc_node._shopping_job.set_target_shelf(shelf)
+		if (
+			npc_node._shopping_flow != null
+			and npc_node._shopping_flow.has_method("clear_shelf_route_failure")
+		):
+			npc_node._shopping_flow.clear_shelf_route_failure(shelf)
+
+		npc_node.target_position = visit_position
+		npc_node._movement_route.clear()
+		npc_node._movement_route_destination = Vector2.INF
+		npc_node.set_meta(&"path_possibly_invalid", true)
+		if npc_node.current_state == NPC.State.WAIT_FOR_SHELF:
+			npc_node._set_state(NPC.State.WALK_TO_SHELF)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _is_npc_targeting_shelf(npc_node: Node, shelf: Shelf) -> bool:
+	var target_shelf_variant: Variant = npc_node.get("_target_shelf")
+	if target_shelf_variant == shelf:
+		return true
+
+	var shopping_job_variant: Variant = npc_node.get("_shopping_job")
+	if shopping_job_variant == null:
+		return false
+
+	var target_shelf_id: StringName = StringName(str(
+		shopping_job_variant.get("target_shelf_id")
+	))
+	return (
+		target_shelf_id != StringName()
+		and target_shelf_id == shelf.get_shelf_id()
+	)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

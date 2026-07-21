@@ -7,7 +7,7 @@ const PERF_SHELF_THRESHOLD_MSEC: float = 16.0
 const OUT_OF_STOCK_WARNING_SECONDS: float = 10.0
 const OUT_OF_STOCK_EXIT_SECONDS: float = 15.0
 const SHELF_APPROACH_PROBE_COOLDOWN_MSEC: int = 650
-const SHELF_APPROACH_ARRIVAL_DISTANCE: float = 14.0
+const SHELF_APPROACH_ARRIVAL_DISTANCE: float = 6.0
 
 var npc = null
 var _next_shelf_approach_probe_msec: int = 0

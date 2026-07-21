@@ -10,6 +10,9 @@ const LIFECYCLE_BEING_PICKED_UP: StringName = &"being_picked_up"
 const LIFECYCLE_CARRIED: StringName = &"carried"
 const LIFECYCLE_BEING_DROPPED: StringName = &"being_dropped"
 const LIFECYCLE_DESTROYED: StringName = &"destroyed"
+const NPC_APPROACH_PORTS_PATH: NodePath = NodePath("NPCApproachPorts")
+const NPC_PORT_ID_META: StringName = &"npc_shelf_port_id"
+const NPC_PORT_FACING_META: StringName = &"npc_shelf_port_facing"
 
 @export var shelf_type: ItemData.ShelfType = ItemData.ShelfType.HUMAN
 @export var max_slots: int = 9
@@ -170,6 +173,10 @@ func get_interaction_ports() -> Array[Dictionary]:
 	if get_lifecycle() != LIFECYCLE_PLACED:
 		return []
 
+	var marker_ports := _get_marker_interaction_ports()
+	if not marker_ports.is_empty():
+		return marker_ports
+
 	var body_rect: Rect2 = _get_body_rect()
 	var standing_margin: float = 18.0
 	var shelf_id: StringName = get_shelf_id()
@@ -206,6 +213,52 @@ func get_interaction_ports() -> Array[Dictionary]:
 			revision
 		)
 	]
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_marker_interaction_ports() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var port_root := get_node_or_null(NPC_APPROACH_PORTS_PATH) as Node2D
+	if port_root == null:
+		return result
+
+	var shelf_id: StringName = get_shelf_id()
+	var revision: int = get_revision()
+	for child in port_root.get_children():
+		var marker := child as Marker2D
+		if marker == null:
+			continue
+
+		var port_id := StringName(str(marker.get_meta(
+			NPC_PORT_ID_META,
+			marker.name
+		)))
+		if port_id == StringName():
+			continue
+
+		result.append(_make_interaction_port(
+			port_id,
+			marker.global_position,
+			_get_port_facing(marker),
+			shelf_id,
+			revision
+		))
+
+	return result
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_port_facing(marker: Marker2D) -> CharacterSprite.Direction:
+	var facing := str(marker.get_meta(NPC_PORT_FACING_META, "up"))
+	match facing:
+		"down":
+			return CharacterSprite.Direction.DOWN
+		"left":
+			return CharacterSprite.Direction.LEFT
+		"right":
+			return CharacterSprite.Direction.RIGHT
+		_:
+			return CharacterSprite.Direction.UP
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

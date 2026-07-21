@@ -52,6 +52,28 @@ shape = SubResource("RectangleShape2D_interact")
 position = Vector2(0, -12)
 shape = SubResource("RectangleShape2D_body")
 
+[node name="NPCApproachPorts" type="Node2D" parent="." unique_id=1680307821]
+
+[node name="Front" type="Marker2D" parent="NPCApproachPorts" unique_id=1648812168]
+position = Vector2(0, 43)
+metadata/npc_shelf_port_id = "front"
+metadata/npc_shelf_port_facing = "up"
+
+[node name="Back" type="Marker2D" parent="NPCApproachPorts" unique_id=488826490]
+position = Vector2(0, -43)
+metadata/npc_shelf_port_id = "back"
+metadata/npc_shelf_port_facing = "down"
+
+[node name="Left" type="Marker2D" parent="NPCApproachPorts" unique_id=1253710488]
+position = Vector2(-48, -12)
+metadata/npc_shelf_port_id = "left"
+metadata/npc_shelf_port_facing = "right"
+
+[node name="Right" type="Marker2D" parent="NPCApproachPorts" unique_id=1438612184]
+position = Vector2(48, -12)
+metadata/npc_shelf_port_id = "right"
+metadata/npc_shelf_port_facing = "left"
+
 [node name="Slots" type="Node2D" parent="." unique_id=815516597]
 
 [node name="Slot0" type="Area2D" parent="Slots" unique_id=1041457075]
