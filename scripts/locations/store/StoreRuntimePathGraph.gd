@@ -60,8 +60,13 @@ func invalidate_dynamic_navigation() -> void:
 func get_shelf_access_position(shelf: Shelf) -> Vector2:
 	if shelf == null or not is_instance_valid(shelf):
 		return Vector2.INF
+
+	# If cache miss, try to compute and cache the access position
 	if not has_cached_shelf_access_metadata(shelf):
-		return Vector2.INF
+		store_shelf_access_metadata(shelf, shelf.global_position)
+		# If still no cache (e.g., computation failed), try base class fallback
+		if not has_cached_shelf_access_metadata(shelf):
+			return _compute_fallback_access_position(shelf)
 
 	var stored_access: Variant = shelf.get_meta(
 		ACCESS_META,
@@ -70,6 +75,29 @@ func get_shelf_access_position(shelf: Shelf) -> Vector2:
 	if stored_access is Vector2:
 		return stored_access as Vector2
 	return Vector2.INF
+
+
+func _compute_fallback_access_position(shelf: Shelf) -> Vector2:
+	# Fallback: compute access position directly without caching
+	# This handles cases where cache population fails
+	var access_candidates := _shelf.get_shelf_access_candidates(
+		shelf.global_position,
+		true
+	)
+	var best_position := Vector2.INF
+	var best_distance := INF
+
+	for candidate in access_candidates:
+		var access_point: Vector2 = candidate.get("access_point", Vector2.INF)
+		if not access_point.is_finite():
+			continue
+		# Prefer the nearest access point
+		var distance := shelf.global_position.distance_to(access_point)
+		if distance < best_distance:
+			best_distance = distance
+			best_position = access_point
+
+	return best_position
 
 
 func get_route_from_shelf_to_queue_target(
