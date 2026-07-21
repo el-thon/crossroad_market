@@ -7,6 +7,24 @@ const QUEUE_GRAPH_START_NODE_LIMIT: int = 6
 const QUEUE_APPROACH_CONNECTOR_LIMIT: int = 4
 
 
+func get_shelf_access_position(shelf: Shelf) -> Vector2:
+	# StorePathGraphBase falls back to the exhaustive planner when metadata is
+	# absent. Runtime reads must never trigger that synchronous fallback; metadata
+	# is produced explicitly by the bounded placement/warmup flow.
+	if shelf == null or not is_instance_valid(shelf):
+		return Vector2.INF
+	if not has_cached_shelf_access_metadata(shelf):
+		return Vector2.INF
+
+	var stored_access: Variant = shelf.get_meta(
+		ACCESS_META,
+		Vector2.INF
+	)
+	if stored_access is Vector2:
+		return stored_access as Vector2
+	return Vector2.INF
+
+
 func get_route_from_shelf_to_queue_target(
 	shelf: Shelf,
 	from_position: Vector2,
@@ -105,40 +123,44 @@ func get_route_from_shelf_to_queue_target(
 				var entry_route := _variant_route_to_vector2_array(
 					entry_route_variant
 				)
-				var complete_route: Array[Vector2] = entry_route.duplicate()
-				complete_route.append_array(graph_route)
-				if (
-					complete_route.is_empty()
-					or complete_route.back().distance_to(
-						connector_marker.global_position
-					) > ROUTE_CLEARANCE_EPSILON
-				):
-					complete_route.append(connector_marker.global_position)
 
-				complete_route.append_array(
-					_routes.make_orthogonal_route(
-						connector_marker.global_position,
-						approach_marker.global_position,
-						true
+				for approach_route_variant in _make_route_variants(
+					connector_marker.global_position,
+					approach_marker.global_position
+				):
+					var approach_route := _variant_route_to_vector2_array(
+						approach_route_variant
 					)
-				)
-				complete_route.append(queue_target)
-				complete_route = _routes.dedupe_route_points(
-					complete_route
-				)
+					var complete_route: Array[Vector2] = entry_route.duplicate()
+					complete_route.append_array(graph_route)
+					if (
+						complete_route.is_empty()
+						or complete_route.back().distance_to(
+							connector_marker.global_position
+						) > ROUTE_CLEARANCE_EPSILON
+					):
+						complete_route.append(
+							connector_marker.global_position
+						)
 
-				if not _is_shelf_queue_route_clear(
-					from_position,
-					complete_route,
-					shelf,
-					npc_node
-				):
-					continue
-				_append_route_candidate(
-					candidates,
-					from_position,
-					complete_route
-				)
+					complete_route.append_array(approach_route)
+					complete_route.append(queue_target)
+					complete_route = _routes.dedupe_route_points(
+						complete_route
+					)
+
+					if not _is_shelf_queue_route_clear(
+						from_position,
+						complete_route,
+						shelf,
+						npc_node
+					):
+						continue
+					_append_route_candidate(
+						candidates,
+						from_position,
+						complete_route
+					)
 
 	return _get_shortest_route(candidates)
 
