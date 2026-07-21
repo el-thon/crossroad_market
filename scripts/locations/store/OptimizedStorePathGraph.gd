@@ -118,18 +118,25 @@ func get_shelf_egress_route_to_queue_from(
 	if not anchor_position.is_finite():
 		return []
 
-	var queue_route := _get_anchor_route_to_queue_target(
+	var queue_route := _get_anchor_route_to_queue_egress(
 		anchor_position,
 		queue_index,
 		destination
 	)
 	if queue_route.is_empty():
-		var queue_target := get_queue_target_position(queue_index, destination)
-		if not queue_target.is_finite():
-			queue_target = destination
-		if not queue_target.is_finite():
+		var queue_egress_target := get_queue_egress_target_position(
+			queue_index,
+			destination
+		)
+		if not queue_egress_target.is_finite():
+			queue_egress_target = destination
+		if not queue_egress_target.is_finite():
 			return []
-		queue_route = _routes.make_orthogonal_route(anchor_position, queue_target, true)
+		queue_route = _routes.make_orthogonal_route(
+			anchor_position,
+			queue_egress_target,
+			true
+		)
 
 	var candidates: Array[Dictionary] = []
 	for horizontal_first in [true, false]:
@@ -247,6 +254,52 @@ func _get_anchor_route_to_queue_target(
 		)
 
 	return _get_shortest_route(candidates)
+
+
+func _get_anchor_route_to_queue_egress(
+	anchor_position: Vector2,
+	queue_index: int,
+	destination: Vector2
+) -> Array[Vector2]:
+	if not anchor_position.is_finite():
+		return []
+
+	var approach_node := _nav.get_queue_approach_node_name(queue_index)
+	var approach_position := _nav.get_marker_position(approach_node)
+	if not approach_position.is_finite():
+		approach_position = get_queue_egress_target_position(
+			queue_index,
+			destination
+		)
+	if not approach_position.is_finite():
+		return []
+
+	var candidates: Array[Dictionary] = []
+	for horizontal_first in [false, true]:
+		var route: Array[Vector2] = _build_route_leg(
+			anchor_position,
+			approach_position,
+			null,
+			Vector2.INF,
+			null,
+			horizontal_first
+		)
+		if route.is_empty():
+			route.append(approach_position)
+		route = _routes.dedupe_route_points(route)
+		if _clearance.is_queue_route_clear(anchor_position, route):
+			_append_route_candidate(candidates, anchor_position, route)
+
+	var result := _get_shortest_route(candidates)
+	_record_path_graph_probe(&"npc_queue_egress_anchor_route", {
+		"queue_index": queue_index,
+		"anchor": _format_vector(anchor_position),
+		"approach": _format_vector(approach_position),
+		"destination": _format_vector(destination),
+		"candidate_count": candidates.size(),
+		"route_points": result.size()
+	})
+	return result
 
 
 func get_queue_egress_target_position(
