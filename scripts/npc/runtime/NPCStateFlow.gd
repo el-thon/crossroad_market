@@ -305,6 +305,21 @@ func _record_shelf_probe(
 		context["npc_path_ready"] = bool(
 			npc._target_shelf.get_meta("npc_path_ready", false)
 		)
+		var access_variant: Variant = npc._target_shelf.get_meta(
+			&"npc_access_point",
+			Vector2.INF
+		)
+		if access_variant is Vector2:
+			context["npc_access_point"] = _format_vector(access_variant as Vector2)
+		context["npc_access_source"] = str(
+			npc._target_shelf.get_meta(&"npc_access_source", "")
+		)
+		context["npc_access_port_id"] = str(
+			npc._target_shelf.get_meta(&"npc_access_port_id", "")
+		)
+		context["npc_access_checkout_source"] = str(
+			npc._target_shelf.get_meta(&"npc_access_checkout_source", "")
+		)
 
 	for key in extra_context:
 		context[key] = extra_context[key]

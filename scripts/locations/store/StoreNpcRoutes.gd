@@ -4,6 +4,7 @@ extends Node
 const OptimizedStorePathGraphScript = preload(
 	"res://scripts/locations/store/OptimizedStorePathGraph.gd"
 )
+const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 const STORE_ENTRY_FALLBACK_POSITION = Vector2(240, 204)
 const CHECKOUT_RIGHT_ROUTE_MARKERS: Array[StringName] = [
 	&"StorePathQueueFrontRight",
@@ -24,6 +25,7 @@ const CHECKOUT_APPROACH_ROUTE_MARKERS: Array[StringName] = [
 ]
 const CHECKOUT_GRAPH_REJOIN_MARKER: StringName = &"StorePathAisleRight"
 const CHECKOUT_ROUTE_RESUME_DISTANCE: float = 18.0
+const SHELF_QUAD_MARKER_PREFIX: String = "StorePathShelfQuad"
 
 var store: Node = null
 
@@ -114,6 +116,46 @@ func get_npc_shelf_egress_route_to_queue_from(
 		destination,
 		npc_node
 	)
+
+
+func get_npc_marker_lane_route_to_queue_egress(
+	from_position: Vector2,
+	queue_index: int,
+	fallback_position: Vector2
+) -> Array[Vector2]:
+	if not from_position.is_finite():
+		return []
+
+	var shelf_quad := _get_nearest_shelf_quad_marker(from_position)
+	var egress_marker := _get_queue_egress_marker(queue_index)
+	if shelf_quad == null or egress_marker == null:
+		_record_route_probe(&"npc_marker_lane_egress_route", {
+			"reason": "missing_marker",
+			"queue_index": queue_index,
+			"from": _format_vector(from_position),
+			"has_shelf_quad": shelf_quad != null,
+			"has_egress_marker": egress_marker != null
+		})
+		return []
+
+	var route: Array[Vector2] = []
+	_append_unique_route_point(route, shelf_quad.global_position)
+	_append_unique_route_point(route, egress_marker.global_position)
+
+	if route.is_empty() and fallback_position.is_finite():
+		_append_unique_route_point(route, fallback_position)
+
+	_record_route_probe(&"npc_marker_lane_egress_route", {
+		"reason": "built",
+		"queue_index": queue_index,
+		"from": _format_vector(from_position),
+		"shelf_quad": String(shelf_quad.name),
+		"shelf_quad_position": _format_vector(shelf_quad.global_position),
+		"egress_marker": String(egress_marker.name),
+		"egress_position": _format_vector(egress_marker.global_position),
+		"route_points": route.size()
+	})
+	return route
 
 
 func get_npc_queue_egress_target(
@@ -342,6 +384,42 @@ func _get_named_markers(
 	return result
 
 
+func _get_nearest_shelf_quad_marker(from_position: Vector2) -> Marker2D:
+	if store == null or store.store_path_markers == null:
+		return null
+
+	var best_marker: Marker2D = null
+	var best_distance := INF
+	for child in store.store_path_markers.get_children():
+		var marker := child as Marker2D
+		if marker == null:
+			continue
+		if not String(marker.name).begins_with(SHELF_QUAD_MARKER_PREFIX):
+			continue
+
+		var distance := from_position.distance_to(marker.global_position)
+		if distance >= best_distance:
+			continue
+
+		best_marker = marker
+		best_distance = distance
+
+	return best_marker
+
+
+func _get_queue_egress_marker(queue_index: int) -> Marker2D:
+	var marker_names: Array[StringName] = [
+		&"StorePathQueueFrontRight",
+		&"StorePathQueueBack1Right",
+		&"StorePathQueueBack2Right"
+	]
+	var marker_index := clampi(queue_index, 0, marker_names.size() - 1)
+	var marker_name := marker_names[marker_index]
+	if store == null or store.store_path_markers == null:
+		return null
+	return store.store_path_markers.get_node_or_null(String(marker_name)) as Marker2D
+
+
 func _get_checkout_route_start_index(
 	from_position: Vector2,
 	route_markers: Array[Marker2D]
@@ -377,3 +455,11 @@ func _append_unique_route_point(
 	if not route.is_empty() and route.back().distance_to(point) <= 2.0:
 		return
 	route.append(point)
+
+
+func _record_route_probe(label: StringName, context: Dictionary) -> void:
+	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
+
+
+func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]

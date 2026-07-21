@@ -710,7 +710,12 @@ func get_shelf_egress_queue_route(
 				"raw_route_points": chain_route.size(),
 				"sanitized_route_points": 0
 			})
-			return []
+			return _get_marker_lane_egress_route(
+				store,
+				queue_index,
+				destination,
+				"explicit_sanitized_empty"
+			)
 
 		_record_route_probe(&"npc_shelf_egress_route", {
 			"reason": "explicit_shelf_anchor_empty",
@@ -720,7 +725,12 @@ func get_shelf_egress_queue_route(
 			"entry_shelf_revision": npc._queue_entry_shelf.get_revision(),
 			"route_points": chain_route.size()
 		})
-		return []
+		return _get_marker_lane_egress_route(
+			store,
+			queue_index,
+			destination,
+			"explicit_empty"
+		)
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var egress_route := call_store_route(
@@ -828,6 +838,55 @@ func get_shelf_egress_queue_route(
 		"route_points": route.size()
 	})
 	return dedupe_route_points(route)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_marker_lane_egress_route(
+	store: Node,
+	queue_index: int,
+	destination: Vector2,
+	source_reason: String
+) -> Array[Vector2]:
+	if not store.has_method("get_npc_marker_lane_route_to_queue_egress"):
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "marker_lane_unavailable",
+			"source_reason": source_reason,
+			"queue_index": queue_index,
+			"destination": _format_vector(destination)
+		})
+		return []
+
+	var fallback_route := call_store_route(
+		store,
+		&"get_npc_marker_lane_route_to_queue_egress",
+		[
+			npc.global_position,
+			queue_index,
+			destination
+		]
+	)
+	if fallback_route.is_empty():
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "marker_lane_empty",
+			"source_reason": source_reason,
+			"queue_index": queue_index,
+			"destination": _format_vector(destination)
+		})
+		return []
+
+	var sanitized_route: Array[Vector2] = fallback_route
+	if _route_safety != null:
+		sanitized_route = _route_safety.sanitize_store_route(fallback_route)
+
+	_record_route_probe(&"npc_shelf_egress_route", {
+		"reason": "marker_lane_fallback",
+		"source_reason": source_reason,
+		"queue_index": queue_index,
+		"destination": _format_vector(destination),
+		"raw_route_points": fallback_route.size(),
+		"sanitized_route_points": sanitized_route.size()
+	})
+	return dedupe_route_points(sanitized_route)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

@@ -141,7 +141,9 @@ func clear_shelf_access_metadata(object: Node2D) -> void:
 		ACCESS_NODE_META,
 		ACCESS_ROUTE_META,
 		ACCESS_SIDE_META,
-		ACCESS_CHECKOUT_SOURCE_META
+		ACCESS_CHECKOUT_SOURCE_META,
+		ACCESS_SOURCE_META,
+		ACCESS_PORT_ID_META
 	]:
 		if object.has_meta(metadata_key):
 			object.remove_meta(metadata_key)
@@ -164,6 +166,8 @@ func _store_access_metadata_from_result(
 		ACCESS_CHECKOUT_SOURCE_META,
 		result.get("checkout_source", "")
 	)
+	object.set_meta(ACCESS_SOURCE_META, result.get("access_source", ""))
+	object.set_meta(ACCESS_PORT_ID_META, result.get("port_id", ""))
 	object.set_meta("npc_path_ready", true)
 
 

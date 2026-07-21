@@ -146,6 +146,9 @@ func process_shelf_egress_to_queue_lane(queue_index: int) -> void:
 			"queue_index": queue_index,
 			"arrived": arrived,
 			"target_kind": "queue_egress",
+			"egress_pending": npc._queue_egress_route_pending,
+			"moving_to_cashier": npc._is_moving_from_queue_to_cashier,
+			"has_origin_shelf": npc.has_meta(EXIT_ORIGIN_SHELF_META),
 			"distance": snappedf(
 				npc.global_position.distance_to(egress_target),
 				0.01

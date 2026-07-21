@@ -455,6 +455,13 @@ func _find_fast_vertical_shelf_access(
 	shelf_position: Vector2,
 	shelf_object: Node2D
 ) -> Dictionary:
+	var marker_port_result := _find_fast_marker_port_access(
+		shelf_position,
+		shelf_object
+	)
+	if bool(marker_port_result.get("valid", false)):
+		return marker_port_result
+
 	var access_candidates := _shelf.get_shelf_access_candidates(
 		shelf_position,
 		true
@@ -509,7 +516,68 @@ func _find_fast_vertical_shelf_access(
 			"surface_route": connection.get("route", []),
 			"score": score,
 			"access_side": str(access_candidate.get("access_side", "")),
+			"access_source": str(access_candidate.get("access_source", "")),
+			"port_id": str(access_candidate.get("port_id", "")),
 			"checkout_source": &"fast_direct"
+		}
+
+	return best_result
+
+
+func _find_fast_marker_port_access(
+	shelf_position: Vector2,
+	shelf_object: Node2D
+) -> Dictionary:
+	var shelf := shelf_object as Shelf
+	if shelf == null or not is_instance_valid(shelf):
+		return {"valid": false}
+
+	var best_result: Dictionary = {"valid": false}
+	var best_score := INF
+	for port in shelf.get_interaction_ports():
+		var access_position := port.get("position", Vector2.INF) as Vector2
+		if not access_position.is_finite():
+			continue
+
+		var vertical_distance := absf(access_position.y - shelf_position.y)
+		var horizontal_distance := absf(access_position.x - shelf_position.x)
+		if horizontal_distance > SHELF_ACCESS_COLUMN_EPSILON:
+			continue
+		if not _clearance.is_npc_access_point_clear(
+			access_position,
+			shelf_object,
+			shelf_position
+		):
+			continue
+
+		var connection := _find_fast_access_connection(
+			access_position,
+			StringName(),
+			shelf_object,
+			shelf_position
+		)
+		if not bool(connection.get("valid", false)):
+			continue
+
+		var score: float = (
+			vertical_distance
+			+ float(connection.get("distance", 0.0))
+			+ horizontal_distance * 0.25
+		)
+		if score >= best_score:
+			continue
+
+		best_score = score
+		best_result = {
+			"valid": true,
+			"access_point": access_position,
+			"graph_node": connection.get("node", StringName()),
+			"surface_route": connection.get("route", []),
+			"score": score,
+			"access_side": "below" if access_position.y >= shelf_position.y else "above",
+			"access_source": "marker_port",
+			"port_id": str(port.get("port_id", "")),
+			"checkout_source": &"fast_marker_port"
 		}
 
 	return best_result
