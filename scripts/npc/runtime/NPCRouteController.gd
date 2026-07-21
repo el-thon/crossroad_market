@@ -8,12 +8,17 @@ const NPCPathRequestServiceScript = preload("res://scripts/npc/runtime/NPCPathRe
 const NPCShoppingJobScript = preload("res://scripts/npc/runtime/NPCShoppingJob.gd")
 
 const NO_ROUTE_RETRY_COOLDOWN_MSEC: int = 450
+const PATH_REQUEST_RETRY_COOLDOWN_MSEC: int = 1500
+const PATH_REQUEST_BACKOFF_MAX_MSEC: int = 5000
 
 var npc = null
 @warning_ignore("unused_private_class_variable")
 var _route_safety = null
 var _no_route_retry_destination: Vector2 = Vector2.INF
 var _next_no_route_retry_msec: int = 0
+var _last_path_request_destination: Vector2 = Vector2.INF
+var _next_path_request_msec: int = 0
+var _path_request_backoff_msec: int = PATH_REQUEST_RETRY_COOLDOWN_MSEC
 var _pending_path_request: Dictionary = {}
 
 
@@ -35,6 +40,12 @@ func move_to(target: Vector2, arrival_threshold: float = -1.0) -> bool:
 		NPCMovementReservationSystemScript.release_for(npc)
 
 		if uses_store_navigation_state():
+			if not _can_request_path_to(target):
+				npc.velocity = Vector2.ZERO
+				npc.move_and_slide()
+				_mark_waiting_for_path()
+				return false
+
 			_request_movement_route(target)
 			npc.velocity = Vector2.ZERO
 			npc.move_and_slide()
@@ -183,6 +194,9 @@ func reset_stuck_watchdog() -> void:
 	npc._stuck_watchdog_rebuilds = 0
 	_no_route_retry_destination = Vector2.INF
 	_next_no_route_retry_msec = 0
+	_last_path_request_destination = Vector2.INF
+	_next_path_request_msec = 0
+	_path_request_backoff_msec = PATH_REQUEST_RETRY_COOLDOWN_MSEC
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -206,6 +220,17 @@ func should_rebuild_movement_route(target: Vector2) -> bool:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _can_request_path_to(target: Vector2) -> bool:
+	if not _last_path_request_destination.is_finite():
+		return true
+
+	if not _last_path_request_destination.is_equal_approx(target):
+		return true
+
+	return Time.get_ticks_msec() >= _next_path_request_msec
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _request_movement_route(target: Vector2) -> void:
 	if not _pending_path_request.is_empty():
 		var pending_destination: Vector2 = _pending_path_request.get(
@@ -223,6 +248,8 @@ func _request_movement_route(target: Vector2) -> void:
 		Callable(self, "build_movement_route").bind(target),
 		_get_path_request_priority()
 	)
+	_last_path_request_destination = target
+	_next_path_request_msec = Time.get_ticks_msec() + _path_request_backoff_msec
 	npc._movement_route.clear()
 	npc._movement_route_destination = target
 	_mark_waiting_for_path()
@@ -257,11 +284,15 @@ func _consume_pending_path_request(target: Vector2) -> bool:
 		_pending_path_request.clear()
 		if npc._movement_route.is_empty() and uses_store_navigation_state():
 			_set_no_route_retry(target)
+			_increase_path_request_backoff(target)
+		else:
+			_reset_path_request_backoff()
 		return true
 
 	_pending_path_request.clear()
 	if uses_store_navigation_state():
 		_set_no_route_retry(target)
+		_increase_path_request_backoff(target)
 	return false
 
 
@@ -269,8 +300,31 @@ func _consume_pending_path_request(target: Vector2) -> bool:
 func _set_no_route_retry(target: Vector2) -> void:
 	_no_route_retry_destination = target
 	_next_no_route_retry_msec = (
-		Time.get_ticks_msec() + NO_ROUTE_RETRY_COOLDOWN_MSEC
+		Time.get_ticks_msec() + maxi(
+			NO_ROUTE_RETRY_COOLDOWN_MSEC,
+			_path_request_backoff_msec
+		)
 	)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _increase_path_request_backoff(target: Vector2) -> void:
+	_last_path_request_destination = target
+	_path_request_backoff_msec = mini(
+		PATH_REQUEST_BACKOFF_MAX_MSEC,
+		maxi(
+			PATH_REQUEST_RETRY_COOLDOWN_MSEC,
+			_path_request_backoff_msec * 2
+		)
+	)
+	_next_path_request_msec = Time.get_ticks_msec() + _path_request_backoff_msec
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _reset_path_request_backoff() -> void:
+	_last_path_request_destination = Vector2.INF
+	_next_path_request_msec = 0
+	_path_request_backoff_msec = PATH_REQUEST_RETRY_COOLDOWN_MSEC
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
