@@ -80,13 +80,27 @@ jobs:
                   entry = directory.get_next()
               directory.list_dir_end()
           GDSCRIPT
+          set +e
           timeout 180s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
-            --headless --path . --script /tmp/check_all_scripts.gd
+            --headless --path . --script /tmp/check_all_scripts.gd \
+            > /tmp/compile.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            tail -n 160 /tmp/compile.log
+            exit "$status"
+          fi
+          echo "Godot 4.7 loaded every GDScript resource successfully."
 
       - name: Verify project boots headlessly
+        shell: bash
         run: |
+          set +e
           timeout 60s /tmp/godot/Godot_v4.7-stable_linux.x86_64 \
-            --headless --path . --quit
+            --headless --path . --quit \
+            > /tmp/boot.log 2>&1
+          status=$?
+          tail -n 200 /tmp/boot.log
+          exit "$status"
 
       - name: Commit verified migration
         shell: bash
