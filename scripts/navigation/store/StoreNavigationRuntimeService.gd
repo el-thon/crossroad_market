@@ -21,6 +21,83 @@ func _init() -> void:
 		_policy = policy_copy as StoreNavigationCostPolicy
 
 
+func setup(
+	store: Node2D,
+	marker_root: Node2D,
+	legacy_graph,
+	anchors: Array[Vector2]
+) -> void:
+	var first_setup := not _initialized
+	var store_changed := _store != store or _marker_root != marker_root
+	_store = store
+	_marker_root = marker_root
+	_legacy_graph = legacy_graph
+
+	var next_anchor_signature := _make_anchor_signature(anchors)
+	var anchors_changed := next_anchor_signature != _anchor_signature
+	if anchors_changed:
+		_anchor_signature = next_anchor_signature
+		_anchors = anchors.duplicate()
+
+	if first_setup or store_changed or anchors_changed:
+		_last_dirty_regions = _obstacles.refresh(_store)
+		_theta.setup(_store, _anchors, _obstacles)
+		_semantic.setup(_marker_root, _anchors, _obstacles, _policy)
+		_reverse.setup(_semantic)
+		_avoidance.setup(_store, _theta)
+		_route_cache.setup(_obstacles)
+		_route_cache.invalidate_all()
+		_reverse.clear()
+		_dstar_by_goal.clear()
+		_theta.clear_dynamic_cache()
+		_last_changed_nodes = _semantic.get_nodes_touching_regions(
+			_last_dirty_regions
+		)
+
+	_initialized = true
+
+
+func refresh_dynamic_state() -> void:
+	if not _initialized:
+		return
+	var previous_revision := _obstacles.get_revision()
+	var dirty_regions := _obstacles.refresh(_store)
+	if _obstacles.get_revision() == previous_revision:
+		return
+
+	_last_dirty_regions = dirty_regions
+	_last_changed_nodes = _semantic.get_nodes_touching_regions(
+		_last_dirty_regions
+	)
+	_theta.clear_dynamic_cache()
+	_reverse.clear()
+	_route_cache.invalidate_for_regions(_last_dirty_regions)
+
+
+func get_revision() -> int:
+	refresh_dynamic_state()
+	return _obstacles.get_revision()
+
+
+func plan_to_shelf(
+	shelf: Shelf,
+	start_position: Vector2,
+	npc: Node = null
+) -> Array[Vector2]:
+	var request := RequestScript.new() as StoreNavigationRequest
+	request.start_position = start_position
+	request.goal_type = StoreNavigationRequest.GOAL_SHELF
+	request.target_shelf = shelf
+	request.npc = npc
+	request.allow_direct = true
+	request.force_semantic = false
+	# The access point itself was calculated against the target shelf shape. The
+	# final sample may touch that shape boundary, so only the final endpoint is
+	# permitted to ignore the target shelf.
+	request.ignore_goal_collision = true
+	return plan(request)
+
+
 func set_cost_policy(policy: StoreNavigationCostPolicy) -> void:
 	if policy == null or _policy == policy:
 		return
@@ -46,7 +123,8 @@ func should_repair_route(
 	refresh_dynamic_state()
 	if built_revision < 0:
 		return true
-	if built_revision == get_revision():
+	var current_revision := _obstacles.get_revision()
+	if built_revision == current_revision:
 		return false
 	var dirty_regions := _obstacles.get_dirty_regions_since(built_revision)
 	return _obstacles.route_intersects_regions(
@@ -59,6 +137,22 @@ func should_repair_route(
 func get_dirty_regions_since(revision: int) -> Array[Rect2]:
 	refresh_dynamic_state()
 	return _obstacles.get_dirty_regions_since(revision)
+
+
+func _make_planner_context(
+	request: StoreNavigationRequest
+) -> Dictionary:
+	var context := request.get_policy_context()
+	context["npc"] = request.npc
+	context["agent_radius"] = request.agent_radius
+	context["ignore_start_collision"] = request.ignore_start_collision
+	context["ignore_goal_collision"] = request.ignore_goal_collision
+	context["policy_signature"] = _policy.get_signature()
+	if request.source_shelf != null and is_instance_valid(request.source_shelf):
+		context["source_shelf"] = request.source_shelf
+	if request.target_shelf != null and is_instance_valid(request.target_shelf):
+		context["target_shelf"] = request.target_shelf
+	return context
 
 
 func _get_reachable_connectors(
