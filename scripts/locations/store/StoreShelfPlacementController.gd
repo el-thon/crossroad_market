@@ -884,18 +884,38 @@ func _notify_npcs_shelf_access_changed(shelf: Shelf) -> void:
 	if store == null or shelf == null or not is_instance_valid(shelf):
 		return
 	if not bool(shelf.get_meta("npc_path_ready", false)):
+		_record_shelf_move_probe(&"npc_shelf_retarget_after_drop", shelf, {
+			"reason": "path_not_ready",
+			"matched_npcs": 0,
+			"retargeted_npcs": 0
+		})
 		return
 
+	var matched_count := 0
+	var retargeted_count := 0
 	for npc_node in store.get_tree().get_nodes_in_group("npcs"):
 		if npc_node == null or not is_instance_valid(npc_node):
 			continue
 		if not _is_npc_targeting_shelf(npc_node, shelf):
 			continue
+		matched_count += 1
 		if bool(npc_node.get("_has_taken_shelf_item")):
+			_record_npc_shelf_move_probe(
+				&"npc_shelf_retarget_after_drop",
+				shelf,
+				npc_node,
+				{"reason": "already_has_item"}
+			)
 			continue
 
 		var visit_position: Vector2 = npc_node._get_shelf_visit_position(shelf)
 		if not visit_position.is_finite():
+			_record_npc_shelf_move_probe(
+				&"npc_shelf_retarget_after_drop",
+				shelf,
+				npc_node,
+				{"reason": "visit_position_invalid"}
+			)
 			continue
 
 		npc_node._target_shelf = shelf
@@ -913,6 +933,22 @@ func _notify_npcs_shelf_access_changed(shelf: Shelf) -> void:
 		npc_node.set_meta(&"path_possibly_invalid", true)
 		if npc_node.current_state == NPC.State.WAIT_FOR_SHELF:
 			npc_node._set_state(NPC.State.WALK_TO_SHELF)
+		retargeted_count += 1
+		_record_npc_shelf_move_probe(
+			&"npc_shelf_retarget_after_drop",
+			shelf,
+			npc_node,
+			{
+				"reason": "retargeted",
+				"visit_position": _format_vector(visit_position)
+			}
+		)
+
+	_record_shelf_move_probe(&"npc_shelf_retarget_after_drop", shelf, {
+		"reason": "summary",
+		"matched_npcs": matched_count,
+		"retargeted_npcs": retargeted_count
+	})
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -920,12 +956,21 @@ func _notify_npcs_shelf_picked_up(shelf: Shelf) -> void:
 	if store == null or shelf == null or not is_instance_valid(shelf):
 		return
 
+	var matched_count := 0
+	var waiting_count := 0
 	for npc_node in store.get_tree().get_nodes_in_group("npcs"):
 		if npc_node == null or not is_instance_valid(npc_node):
 			continue
 		if not _is_npc_targeting_shelf(npc_node, shelf):
 			continue
+		matched_count += 1
 		if bool(npc_node.get("_has_taken_shelf_item")):
+			_record_npc_shelf_move_probe(
+				&"npc_shelf_move_notify",
+				shelf,
+				npc_node,
+				{"reason": "already_has_item"}
+			)
 			continue
 
 		npc_node.velocity = Vector2.ZERO
@@ -937,6 +982,82 @@ func _notify_npcs_shelf_picked_up(shelf: Shelf) -> void:
 		npc_node.set_meta(&"path_possibly_invalid", true)
 		if npc_node.current_state != NPC.State.WAIT_FOR_SHELF:
 			npc_node._set_state(NPC.State.WAIT_FOR_SHELF)
+		waiting_count += 1
+		_record_npc_shelf_move_probe(
+			&"npc_shelf_move_notify",
+			shelf,
+			npc_node,
+			{"reason": "set_wait_for_shelf"}
+		)
+
+	_record_shelf_move_probe(&"npc_shelf_move_notify", shelf, {
+		"reason": "summary",
+		"matched_npcs": matched_count,
+		"waiting_npcs": waiting_count
+	})
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_npc_shelf_move_probe(
+	label: StringName,
+	shelf: Shelf,
+	npc_node: Node,
+	extra_context: Dictionary
+) -> void:
+	var context: Dictionary = _get_shelf_move_context(shelf)
+	if npc_node != null and is_instance_valid(npc_node):
+		context["npc_id"] = npc_node.get_instance_id()
+		context["npc_state"] = int(npc_node.get("current_state"))
+		if npc_node is Node2D:
+			context["npc_position"] = _format_vector((npc_node as Node2D).global_position)
+		var target_variant: Variant = npc_node.get("target_position")
+		if target_variant is Vector2:
+			context["npc_target"] = _format_vector(target_variant as Vector2)
+		var route_variant: Variant = npc_node.get("_movement_route")
+		context["npc_route_points"] = (
+			(route_variant as Array).size()
+			if route_variant is Array
+			else 0
+		)
+		context["npc_waiting_for_shelf"] = bool(npc_node.get("_waiting_for_shelf_return"))
+		context["npc_has_item"] = bool(npc_node.get("_has_taken_shelf_item"))
+
+	for key in extra_context:
+		context[key] = extra_context[key]
+
+	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_shelf_move_probe(
+	label: StringName,
+	shelf: Shelf,
+	extra_context: Dictionary
+) -> void:
+	var context: Dictionary = _get_shelf_move_context(shelf)
+	for key in extra_context:
+		context[key] = extra_context[key]
+
+	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_shelf_move_context(shelf: Shelf) -> Dictionary:
+	var context: Dictionary = {}
+	if shelf != null and is_instance_valid(shelf):
+		context["shelf_id"] = String(shelf.get_shelf_id())
+		context["shelf_revision"] = shelf.get_revision()
+		context["shelf_position"] = _format_vector(shelf.global_position)
+		context["npc_path_ready"] = bool(shelf.get_meta("npc_path_ready", false))
+		var access_variant: Variant = shelf.get_meta("npc_access_point", Vector2.INF)
+		if access_variant is Vector2:
+			context["npc_access_point"] = _format_vector(access_variant as Vector2)
+
+	return context
+
+
+func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

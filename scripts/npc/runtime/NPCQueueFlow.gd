@@ -4,8 +4,10 @@ extends RefCounted
 const NPCQueueReservationControllerScript = preload("res://scripts/npc/runtime/NPCQueueReservationController.gd")
 const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 const EXIT_ORIGIN_SHELF_META: StringName = &"exit_origin_shelf"
+const QUEUE_MOVE_PROBE_COOLDOWN_MSEC: int = 650
 
 var npc = null
+var _next_queue_move_probe_msec: int = 0
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -72,6 +74,15 @@ func process_wait_in_queue(delta: float) -> void:
 
 	if not arrived:
 		arrived = npc._move_to_with_arrival_threshold(npc.target_position, npc.QUEUE_SLOT_ARRIVAL_DISTANCE)
+		_record_queue_move_probe(&"npc_queue_move_wait", {
+			"queue_index": queue_index,
+			"arrived": arrived,
+			"target_kind": "queue_slot",
+			"distance": snappedf(
+				npc.global_position.distance_to(npc.target_position),
+				0.01
+			)
+		})
 
 	if (
 		queue_index == 0
@@ -210,6 +221,19 @@ func _record_queue_probe(
 	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
 
 
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_queue_move_probe(
+	label: StringName,
+	extra_context: Dictionary
+) -> void:
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < _next_queue_move_probe_msec:
+		return
+
+	_next_queue_move_probe_msec = now_msec + QUEUE_MOVE_PROBE_COOLDOWN_MSEC
+	_record_queue_probe(label, extra_context)
+
+
 func _format_vector(value: Vector2) -> String:
 	return "%.1f,%.1f" % [value.x, value.y]
 
@@ -225,6 +249,15 @@ func process_queue_to_cashier(queue_index: int) -> void:
 
 	if not arrived:
 		arrived = npc._move_to_with_arrival_threshold(cashier_target, npc.QUEUE_SLOT_ARRIVAL_DISTANCE)
+		_record_queue_move_probe(&"npc_queue_move_wait", {
+			"queue_index": queue_index,
+			"arrived": arrived,
+			"target_kind": "cashier",
+			"distance": snappedf(
+				npc.global_position.distance_to(cashier_target),
+				0.01
+			)
+		})
 
 	if arrived:
 		npc.velocity = Vector2.ZERO

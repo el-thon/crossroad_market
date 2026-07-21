@@ -6,6 +6,7 @@ const NPCMovementReservationSystemScript = preload("res://scripts/npc/runtime/NP
 const NPCQueueReservationControllerScript = preload("res://scripts/npc/runtime/NPCQueueReservationController.gd")
 const NPCPathRequestServiceScript = preload("res://scripts/npc/runtime/NPCPathRequestService.gd")
 const NPCShoppingJobScript = preload("res://scripts/npc/runtime/NPCShoppingJob.gd")
+const StoreRuntimeDebugProbeScript = preload("res://scripts/debug/StoreRuntimeDebugProbe.gd")
 
 const NO_ROUTE_RETRY_COOLDOWN_MSEC: int = 450
 const PATH_REQUEST_RETRY_COOLDOWN_MSEC: int = 1500
@@ -508,37 +509,71 @@ func get_store_route_for_current_state(destination: Vector2) -> Array[Vector2]:
 				if not egress_queue_route.is_empty():
 					npc._queue_egress_route_pending = false
 					npc._queue_entry_shelf = null
+					_record_route_probe(&"npc_queue_route_branch", {
+						"branch": "shelf_egress",
+						"queue_index": queue_index,
+						"route_points": egress_queue_route.size(),
+						"destination": _format_vector(destination)
+					})
 					return egress_queue_route
 
 			if npc._is_moving_from_queue_to_cashier:
-				return call_store_route(
+				var cashier_route := call_store_route(
 					store,
 					&"get_npc_route_to_cashier_from",
 					[npc.global_position]
 				)
+				_record_route_probe(&"npc_queue_route_branch", {
+					"branch": "direct_cashier",
+					"queue_index": queue_index,
+					"route_points": cashier_route.size(),
+					"destination": _format_vector(destination)
+				})
+				return cashier_route
 
 			if (
 				queue_index >= 0
 				and store.has_method("get_npc_route_to_queue_target_from")
 			):
 				if queue_index == 0 and NPCQueueReservationControllerScript.size() <= 1:
-					return call_store_route(
+					var solo_cashier_route := call_store_route(
 						store,
 						&"get_npc_route_to_cashier_from",
 						[npc.global_position]
 					)
+					_record_route_probe(&"npc_queue_route_branch", {
+						"branch": "solo_cashier",
+						"queue_index": queue_index,
+						"route_points": solo_cashier_route.size(),
+						"destination": _format_vector(destination)
+					})
+					return solo_cashier_route
 
-				return call_store_route(
+				var queue_target_route := call_store_route(
 					store,
 					&"get_npc_route_to_queue_target_from",
 					[npc.global_position, queue_index]
 				)
+				_record_route_probe(&"npc_queue_route_branch", {
+					"branch": "queue_target",
+					"queue_index": queue_index,
+					"route_points": queue_target_route.size(),
+					"destination": _format_vector(destination)
+				})
+				return queue_target_route
 
-			return call_store_route(
+			var fallback_cashier_route := call_store_route(
 				store,
 				&"get_npc_route_to_cashier_from",
 				[npc.global_position]
 			)
+			_record_route_probe(&"npc_queue_route_branch", {
+				"branch": "fallback_cashier",
+				"queue_index": queue_index,
+				"route_points": fallback_cashier_route.size(),
+				"destination": _format_vector(destination)
+			})
+			return fallback_cashier_route
 
 		NPC.State.EXIT:
 			if (
@@ -571,6 +606,11 @@ func get_shelf_egress_queue_route(
 		or npc._queue_entry_shelf == null
 		or not is_instance_valid(npc._queue_entry_shelf)
 	):
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "missing_shelf",
+			"queue_index": queue_index,
+			"destination": _format_vector(destination)
+		})
 		return []
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -581,6 +621,13 @@ func get_shelf_egress_queue_route(
 	)
 
 	if egress_route.is_empty():
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "shelf_to_cashier_empty",
+			"queue_index": queue_index,
+			"destination": _format_vector(destination),
+			"entry_shelf_id": String(npc._queue_entry_shelf.get_shelf_id()),
+			"entry_shelf_revision": npc._queue_entry_shelf.get_revision()
+		})
 		return []
 
 	var access_position: Vector2 = egress_route.front()
@@ -602,6 +649,14 @@ func get_shelf_egress_queue_route(
 	)
 
 	if queue_route.is_empty():
+		_record_route_probe(&"npc_shelf_egress_route", {
+			"reason": "queue_route_empty",
+			"queue_index": queue_index,
+			"destination": _format_vector(destination),
+			"access_position": _format_vector(access_position),
+			"egress_end": _format_vector(egress_end),
+			"shelf_route_points": egress_route.size()
+		})
 		return []
 
 	var route: Array[Vector2] = []
@@ -627,6 +682,14 @@ func get_shelf_egress_queue_route(
 				candidate_route
 			)
 		if sanitized_route.is_empty():
+			_record_route_probe(&"npc_shelf_egress_route", {
+				"reason": "sanitized_empty",
+				"queue_index": queue_index,
+				"horizontal_first": horizontal_first,
+				"destination": _format_vector(destination),
+				"access_position": _format_vector(access_position),
+				"candidate_points": candidate_route.size()
+			})
 			continue
 
 		var route_distance := _get_route_distance(
@@ -645,6 +708,16 @@ func get_shelf_egress_queue_route(
 	):
 		route.append(destination)
 
+	_record_route_probe(&"npc_shelf_egress_route", {
+		"reason": "success" if not route.is_empty() else "no_safe_candidate",
+		"queue_index": queue_index,
+		"destination": _format_vector(destination),
+		"access_position": _format_vector(access_position),
+		"egress_end": _format_vector(egress_end),
+		"shelf_route_points": egress_route.size(),
+		"queue_route_points": queue_route.size(),
+		"route_points": route.size()
+	})
 	return dedupe_route_points(route)
 
 
@@ -760,6 +833,40 @@ func _get_route_distance(from_position: Vector2, route: Array[Vector2]) -> float
 		distance += current.distance_to(point)
 		current = point
 	return distance
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _record_route_probe(label: StringName, extra_context: Dictionary) -> void:
+	if npc == null:
+		return
+
+	var context: Dictionary = {
+		"npc_id": npc.get_instance_id(),
+		"state": int(npc.current_state),
+		"position": _format_vector(npc.global_position),
+		"target": _format_vector(npc.target_position),
+		"target_distance": snappedf(
+			npc.global_position.distance_to(npc.target_position),
+			0.01
+		),
+		"current_route_points": npc._movement_route.size(),
+		"egress_pending": npc._queue_egress_route_pending,
+		"moving_to_cashier": npc._is_moving_from_queue_to_cashier,
+		"has_origin_shelf": npc.has_meta(&"exit_origin_shelf")
+	}
+
+	if npc._queue_entry_shelf != null and is_instance_valid(npc._queue_entry_shelf):
+		context["entry_shelf_id"] = String(npc._queue_entry_shelf.get_shelf_id())
+		context["entry_shelf_revision"] = npc._queue_entry_shelf.get_revision()
+
+	for key in extra_context:
+		context[key] = extra_context[key]
+
+	StoreRuntimeDebugProbeScript.record(label, 0.0, context, 0.0)
+
+
+func _format_vector(value: Vector2) -> String:
+	return "%.1f,%.1f" % [value.x, value.y]
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
