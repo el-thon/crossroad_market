@@ -22,22 +22,18 @@ func _is_segment_clear(
 	if _line_cache.has(cache_key):
 		return bool(_line_cache[cache_key])
 
-	var source_shelf: Shelf = null
-	var source_variant: Variant = context.get("ignored_shelf", null)
-	if (
-		ignore_start
-		and is_instance_valid(source_variant)
-		and source_variant is Shelf
-	):
-		source_shelf = source_variant as Shelf
-
+	var ignored_shelf := _get_segment_ignored_shelf(
+		context,
+		ignore_start,
+		ignore_endpoint
+	)
 	var agent_margin := float(context.get("agent_radius", 10.5))
 	if (
 		_obstacles != null
 		and _obstacles.is_segment_blocked(
 			from_position,
 			to_position,
-			source_shelf,
+			ignored_shelf,
 			agent_margin
 		)
 	):
@@ -50,7 +46,7 @@ func _is_segment_clear(
 		context,
 		ignore_start,
 		ignore_endpoint,
-		source_shelf
+		ignored_shelf
 	)
 	_line_cache[cache_key] = clear
 	return clear
@@ -109,6 +105,22 @@ func _physics_segment_clear(
 	return true
 
 
+func _get_segment_ignored_shelf(
+	context: Dictionary,
+	ignore_start: bool,
+	ignore_endpoint: bool
+) -> Shelf:
+	if ignore_start:
+		var source_variant: Variant = context.get("source_shelf", null)
+		if is_instance_valid(source_variant) and source_variant is Shelf:
+			return source_variant as Shelf
+	if ignore_endpoint:
+		var target_variant: Variant = context.get("target_shelf", null)
+		if is_instance_valid(target_variant) and target_variant is Shelf:
+			return target_variant as Shelf
+	return null
+
+
 func _make_line_cache_key(
 	from_position: Vector2,
 	to_position: Vector2,
@@ -120,13 +132,13 @@ func _make_line_cache_key(
 	if _obstacles != null:
 		revision = _obstacles.get_revision()
 	var shelf_id := 0
-	var shelf_variant: Variant = context.get("ignored_shelf", null)
-	if (
-		ignore_start
-		and is_instance_valid(shelf_variant)
-		and shelf_variant is Shelf
-	):
-		shelf_id = (shelf_variant as Shelf).get_instance_id()
+	var ignored_shelf := _get_segment_ignored_shelf(
+		context,
+		ignore_start,
+		ignore_endpoint
+	)
+	if ignored_shelf != null:
+		shelf_id = ignored_shelf.get_instance_id()
 	var radius_key := roundi(float(context.get("agent_radius", 10.5)) * 10.0)
 	return "%d:%d,%d:%d,%d:%d:%d:%d:r%d" % [
 		revision,
