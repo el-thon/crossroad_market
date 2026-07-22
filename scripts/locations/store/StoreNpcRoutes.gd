@@ -22,6 +22,11 @@ const SINGLE_CUSTOMER_EXIT_ROUTE_MARKERS: Array[StringName] = [
 	&"StorePathAisleRight",
 	&"StorePathExit"
 ]
+const STORE_EXIT_LANE_MARKERS: Array[StringName] = [
+	&"StorePathQueueBack2",
+	&"StorePathAisleRight",
+	&"StorePathExit"
+]
 const CHECKOUT_APPROACH_ROUTE_MARKERS: Array[StringName] = [
 	&"StorePathQueueFrontRight",
 	&"StorePathQueueFront",
@@ -225,9 +230,23 @@ func get_npc_exit_route_from(
 		store.npc_exit_marker,
 		STORE_ENTRY_FALLBACK_POSITION
 	)
-	return get_store_path_graph().get_exit_route_from(
+	var graph_route = get_store_path_graph().get_exit_route_from(
 		from_position,
 		exit_position
+	)
+	if not graph_route.is_empty():
+		_record_route_probe(&"npc_exit_route_select", {
+			"reason": "graph",
+			"from": _format_vector(from_position),
+			"exit": _format_vector(exit_position),
+			"route_points": graph_route.size()
+		})
+		return graph_route
+
+	return _build_exit_lane_route(
+		from_position,
+		exit_position,
+		"graph_empty"
 	)
 
 
@@ -248,9 +267,26 @@ func get_npc_shelf_wait_position(index: int = 0) -> Vector2:
 func get_npc_single_customer_exit_route(
 	from_position: Vector2
 ) -> Array[Vector2]:
-	return _build_named_marker_route(
+	var route := _build_named_marker_route(
 		from_position,
 		SINGLE_CUSTOMER_EXIT_ROUTE_MARKERS
+	)
+	if not route.is_empty():
+		_record_route_probe(&"npc_exit_route_select", {
+			"reason": "single_customer_markers",
+			"from": _format_vector(from_position),
+			"route_points": route.size()
+		})
+		return route
+
+	var exit_position = get_marker_position_or(
+		store.npc_exit_marker,
+		STORE_ENTRY_FALLBACK_POSITION
+	)
+	return _build_exit_lane_route(
+		from_position,
+		exit_position,
+		"single_customer_empty"
 	)
 
 
@@ -280,17 +316,36 @@ func get_npc_exit_route_from_shelf(
 func get_npc_exit_route_from_cashier(
 	from_position: Vector2
 ) -> Array[Vector2]:
+	var exit_position = get_marker_position_or(
+		store.npc_exit_marker,
+		STORE_ENTRY_FALLBACK_POSITION
+	)
+	var center_exit_route := _build_exit_lane_route_if_centered(
+		from_position,
+		exit_position
+	)
+	if not center_exit_route.is_empty():
+		return center_exit_route
+
 	var mandatory_markers = _get_named_markers(
 		CHECKOUT_RIGHT_ROUTE_MARKERS
 	)
 	if mandatory_markers.size() != CHECKOUT_RIGHT_ROUTE_MARKERS.size():
-		return []
+		return _build_exit_lane_route(
+			from_position,
+			exit_position,
+			"missing_checkout_right_marker"
+		)
 
 	var rejoin_marker = store.store_path_markers.get_node_or_null(
 		String(CHECKOUT_GRAPH_REJOIN_MARKER)
 	) as Marker2D
 	if rejoin_marker == null:
-		return []
+		return _build_exit_lane_route(
+			from_position,
+			exit_position,
+			"missing_rejoin_marker"
+		)
 
 	var route: Array[Vector2] = []
 	var current := from_position
@@ -312,10 +367,6 @@ func get_npc_exit_route_from_cashier(
 		rejoin_marker.global_position,
 		true
 	)
-	var exit_position = get_marker_position_or(
-		store.npc_exit_marker,
-		STORE_ENTRY_FALLBACK_POSITION
-	)
 	var graph_route = get_store_path_graph().get_exit_route_from(
 		rejoin_marker.global_position,
 		exit_position
@@ -326,6 +377,21 @@ func get_npc_exit_route_from_cashier(
 	# Keep the real exit as the final mandatory waypoint even when the graph is
 	# already rejoined at AisleRight.
 	_append_orthogonal_route_leg(route, current, exit_position, true)
+	route = _dedupe_route_points(route)
+	if route.is_empty():
+		return _build_exit_lane_route(
+			from_position,
+			exit_position,
+			"checkout_right_empty"
+		)
+
+	_record_route_probe(&"npc_exit_route_select", {
+		"reason": "checkout_right_lane",
+		"from": _format_vector(from_position),
+		"exit": _format_vector(exit_position),
+		"route_points": route.size(),
+		"graph_tail_points": graph_route.size()
+	})
 	return route
 
 
@@ -414,6 +480,67 @@ func _build_checkout_approach_route(from_position: Vector2) -> Array[Vector2]:
 			route_markers[index].global_position,
 			true
 		)
+	return route
+
+
+func _build_exit_lane_route_if_centered(
+	from_position: Vector2,
+	exit_position: Vector2
+) -> Array[Vector2]:
+	var cashier_marker := _get_named_marker(&"StorePathCashier")
+	if cashier_marker == null:
+		return []
+
+	if from_position.x > cashier_marker.global_position.x + 16.0:
+		return []
+	if from_position.y < cashier_marker.global_position.y - 8.0:
+		return []
+
+	return _build_exit_lane_route(
+		from_position,
+		exit_position,
+		"center_cashier_exit"
+	)
+
+
+func _build_exit_lane_route(
+	from_position: Vector2,
+	exit_position: Vector2,
+	reason: String
+) -> Array[Vector2]:
+	if not from_position.is_finite():
+		_record_route_probe(&"npc_exit_route_select", {
+			"reason": "invalid_from",
+			"source_reason": reason,
+			"exit": _format_vector(exit_position)
+		})
+		return []
+
+	var route: Array[Vector2] = []
+	var current := from_position
+	var used_markers: Array[String] = []
+	var route_markers := _get_named_markers(STORE_EXIT_LANE_MARKERS)
+	for marker in route_markers:
+		if marker.global_position.y < current.y - 4.0:
+			continue
+
+		current = _append_orthogonal_route_leg(
+			route,
+			current,
+			marker.global_position,
+			true
+		)
+		used_markers.append(String(marker.name))
+
+	current = _append_orthogonal_route_leg(route, current, exit_position, true)
+	route = _dedupe_route_points(route)
+	_record_route_probe(&"npc_exit_route_select", {
+		"reason": reason,
+		"from": _format_vector(from_position),
+		"exit": _format_vector(exit_position),
+		"route_points": route.size(),
+		"markers": ",".join(used_markers)
+	})
 	return route
 
 
