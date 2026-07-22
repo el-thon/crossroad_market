@@ -131,6 +131,8 @@ var _mystery_supply_depleted: bool = false
 @warning_ignore("unused_private_class_variable")
 var _mystery_items_taken: Array[String] = []
 @warning_ignore("unused_private_class_variable")
+var _phantom_human_shelf_attempted: bool = false
+@warning_ignore("unused_private_class_variable")
 var _human_shelf_installed: bool = false
 @warning_ignore("unused_private_class_variable")
 var _ghost_shelf_installed: bool = false
@@ -892,6 +894,20 @@ func _on_storage_mystery_item_taken(item_id: String) -> void:
 func _on_storage_mystery_supply_depleted() -> void:
 	if progression_flow != null:
 		progression_flow.on_storage_mystery_supply_depleted()
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _should_prioritize_phantom_for_human_shelf() -> bool:
+	return (
+		progression_flow != null
+		and progression_flow.should_prioritize_phantom_for_human_shelf()
+	)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _on_phantom_human_shelf_attempted() -> void:
+	if progression_flow != null:
+		await progression_flow.on_phantom_human_shelf_attempted()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

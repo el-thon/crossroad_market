@@ -131,6 +131,11 @@ func enter_storage() -> void:
 	if store._current_storage.has_method("set_mystery_supply_depleted"):
 		store._current_storage.set_mystery_supply_depleted(store._mystery_supply_depleted)
 
+	if store._current_storage.has_method("set_phantom_human_shelf_attempted"):
+		store._current_storage.set_phantom_human_shelf_attempted(
+			store._phantom_human_shelf_attempted
+		)
+
 	if store._current_storage.has_method("set_mystery_phase_unlocked"):
 		store._current_storage.set_mystery_phase_unlocked(store._mystery_phase_unlocked)
 
