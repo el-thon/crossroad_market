@@ -253,6 +253,8 @@ func expand_customer_pool(source_pool: Array[NPCData], desired_count: int, day: 
 	for story_npc in story_customers:
 		if result.size() >= desired_count:
 			break
-		result.append(story_npc)
+		var story_visit := story_npc.duplicate(true) as NPCData
+		story_visit.spawn_order = result.size()
+		result.append(story_visit)
 
 	return result

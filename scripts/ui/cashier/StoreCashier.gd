@@ -85,6 +85,8 @@ var _checkout_conversation_active: bool = false
 var _checkout_conversation_index: int = -1
 var _checkout_conversation_lines: Array[CashierDialogueLine] = []
 var _exchange_default_visibility: Dictionary = {}
+var _active_conditional_conversation_id: String = ""
+var _shown_conditional_conversations_by_day: Dictionary[int, Dictionary] = {}
 
 
 func _ready() -> void:
@@ -122,6 +124,8 @@ func get_patience_bar() -> ProgressBar:
 func begin_checkout(npc: NPC) -> bool:
 	if npc == null or not is_instance_valid(npc):
 		return false
+	if _is_hud_dialog_visible():
+		return false
 
 	_customer = npc
 	_target_item_ids = npc.get_cart_item_ids() if npc.has_method("get_cart_item_ids") else [npc.item_to_buy]
@@ -139,10 +143,7 @@ func begin_checkout(npc: NPC) -> bool:
 	_change_due = 0
 	_entered_change = ""
 	_reset_checkout_conversation()
-	_cashier_conversation = CashierConversationResolver.get_conversation(
-		TimeManager.current_day,
-		npc.npc_data.npc_id if npc.npc_data != null else ""
-	)
+	_cashier_conversation = _resolve_cashier_conversation(npc)
 	# Checkout totals may be overridden for scripted customers. Always fund the
 	# customer against the actual prices of every item they are buying as well.
 	var minimum_cash: int = maxi(
@@ -180,6 +181,8 @@ func has_active_checkout() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not has_active_checkout():
+		return
+	if _is_hud_dialog_visible():
 		return
 
 	if _checkout_conversation_active:
@@ -347,6 +350,8 @@ func _bind_exchange_control(control: Control, action: Callable, tooltip: String)
 
 
 func _on_exchange_control_input(event: InputEvent, action: Callable) -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _checkout_conversation_active:
 		get_viewport().set_input_as_handled()
 		return
@@ -598,11 +603,15 @@ func _set_catalog_scroll_from_thumb(thumb_y: float) -> void:
 
 
 func _on_item_scanned(item_id: String) -> void:
+	if _is_hud_dialog_visible():
+		return
 	_cart_quantities[item_id] = _cart_quantities.get(item_id, 0) + 1
 	_refresh_scan_tab()
 
 
 func _on_item_decremented(item_id: String) -> void:
+	if _is_hud_dialog_visible():
+		return
 	if not _cart_quantities.has(item_id):
 		return
 	_cart_quantities[item_id] -= 1
@@ -612,6 +621,8 @@ func _on_item_decremented(item_id: String) -> void:
 
 
 func _on_scan_continue_pressed() -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _cart_quantities.is_empty():
 		_show_notification("Scan at least one item first.")
 		return
@@ -623,6 +634,8 @@ func _on_scan_continue_pressed() -> void:
 
 
 func _on_digit_pressed(digit: String) -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _checkout_conversation_active:
 		return
 	if _entered_change.length() >= 6:
@@ -632,6 +645,8 @@ func _on_digit_pressed(digit: String) -> void:
 
 
 func _on_delete_or_back_pressed() -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _checkout_conversation_active:
 		return
 	if _entered_change.is_empty():
@@ -642,6 +657,8 @@ func _on_delete_or_back_pressed() -> void:
 
 
 func _on_confirm_exchange_pressed() -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _checkout_conversation_active:
 		return
 	if _customer_cash < _total:
@@ -658,6 +675,8 @@ func _on_confirm_exchange_pressed() -> void:
 
 
 func _on_free_pressed() -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _checkout_conversation_active:
 		return
 	if not _cart_matches_customer():
@@ -667,6 +686,8 @@ func _on_free_pressed() -> void:
 
 
 func _complete_checkout(is_free: bool) -> void:
+	if _is_hud_dialog_visible():
+		return
 	if _customer == null or not is_instance_valid(_customer):
 		reset_runtime_ui()
 		return
@@ -709,6 +730,12 @@ func _begin_post_payment_conversation() -> bool:
 	if _checkout_conversation_lines.is_empty():
 		return false
 
+	if not _active_conditional_conversation_id.is_empty():
+		_mark_conditional_conversation_shown(
+			TimeManager.current_day,
+			_active_conditional_conversation_id
+		)
+
 	_checkout_conversation_active = true
 	_checkout_conversation_index = -1
 	_set_exchange_post_payment_mode(true)
@@ -718,6 +745,8 @@ func _begin_post_payment_conversation() -> bool:
 
 
 func _advance_checkout_conversation() -> void:
+	if _is_hud_dialog_visible():
+		return
 	if not _checkout_conversation_active:
 		return
 
@@ -761,6 +790,7 @@ func _reset_checkout_conversation() -> void:
 	_checkout_conversation_index = -1
 	_checkout_conversation_lines.clear()
 	_cashier_conversation = null
+	_active_conditional_conversation_id = ""
 	if _exchange_dialog_next != null:
 		_exchange_dialog_next.visible = false
 		_exchange_dialog_next.text = "Next..."
@@ -1053,3 +1083,48 @@ func _show_notification(text: String) -> void:
 	var hud := get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("show_notification"):
 		hud.call("show_notification", text, 1.2)
+
+
+func _resolve_cashier_conversation(npc: NPC) -> CashierConversationData:
+	var day := TimeManager.current_day
+	var shown_conversations: Dictionary = _shown_conditional_conversations_by_day.get(
+		day,
+		{}
+	)
+	var conditional_conversation := CashierConversationResolver.get_conditional_conversation(
+		day,
+		_get_customer_number(npc),
+		shown_conversations
+	)
+	if conditional_conversation != null:
+		_active_conditional_conversation_id = conditional_conversation.conversation_id
+		return conditional_conversation
+
+	return CashierConversationResolver.get_conversation(
+		day,
+		npc.npc_data.npc_id if npc.npc_data != null else ""
+	)
+
+
+func _get_customer_number(npc: NPC) -> int:
+	if npc == null or npc.npc_data == null:
+		return 1
+	return maxi(1, npc.npc_data.spawn_order + 1)
+
+
+func _mark_conditional_conversation_shown(day: int, conversation_id: String) -> void:
+	if not _shown_conditional_conversations_by_day.has(day):
+		_shown_conditional_conversations_by_day[day] = {}
+	var shown_conversations: Dictionary = _shown_conditional_conversations_by_day[day]
+	shown_conversations[conversation_id] = true
+	_shown_conditional_conversations_by_day[day] = shown_conversations
+
+
+func _is_hud_dialog_visible() -> bool:
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud == null:
+		return false
+	if hud.has_method("is_dialog_visible"):
+		return bool(hud.call("is_dialog_visible"))
+	var dialog := hud.get_node_or_null("Dialog") as CanvasItem
+	return dialog != null and dialog.visible

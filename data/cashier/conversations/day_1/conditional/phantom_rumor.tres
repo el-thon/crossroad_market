@@ -18,7 +18,8 @@ text = "It's so weird... I can't even seem to touch the thing. Maybe they're jus
 [resource]
 script = ExtResource("1_conversation")
 day = 1
-customer_id = "day1_water_customer"
+conversation_id = "phantom_rumor"
+minimum_customer_number = 2
 post_payment_dialogue = Array[ExtResource("2_line")]([SubResource("CashierDialogueLine_phantom_sale"), SubResource("CashierDialogueLine_phantom_taste"), SubResource("CashierDialogueLine_phantom_touch")])
-player_exit_dialogue = Array[String](["Can't touch it?", "That's weird, I didn't have any trouble moving the box earlier. People in this village have some strange jokes..."])
+player_exit_dialogue = Array[String](["Can't touch it?", "That's weird, I didn't have any trouble moving the box earlier.", "People in this village have some strange jokes..."])
 wait_for_customer_exit = true

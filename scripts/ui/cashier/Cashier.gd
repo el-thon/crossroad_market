@@ -174,6 +174,8 @@ func reset_runtime_ui() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func try_checkout() -> void:
+	if _hud_bridge.is_dialog_visible():
+		return
 	if not _is_player_nearby():
 		pass
 		return
@@ -207,6 +209,8 @@ func try_checkout() -> void:
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func _unhandled_input(event: InputEvent) -> void:
 	if _cashier_panel == null or not _cashier_panel.visible:
+		return
+	if _hud_bridge.is_dialog_visible():
 		return
 
 	if event is InputEventMouseButton and event.pressed:
