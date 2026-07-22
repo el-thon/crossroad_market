@@ -4,4 +4,4 @@
 y_sort_enabled = true
 
 [node name="RestockDropA" type="Marker2D" parent="."]
-position = Vector2(436, 336)
+position = Vector2(680, 440)

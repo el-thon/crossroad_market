@@ -39,7 +39,6 @@ script = ExtResource("3_restock_flow")
 [node name="YardObjects" parent="." unique_id=733206462 instance=ExtResource("12_yard_objects")]
 
 [node name="RestockDropZone" parent="." unique_id=1411080129 instance=ExtResource("6_restock_drop")]
-position = Vector2(-133, -96)
 
 [node name="ReturnDoor" parent="." unique_id=2017965161 instance=ExtResource("11_return_door")]
 position = Vector2(449, 313)
