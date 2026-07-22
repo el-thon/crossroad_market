@@ -2,10 +2,10 @@ class_name PurpleSparkleBlink
 extends Node2D
 
 const BLINK_COUNT: int = 3
-const FADE_DURATION: float = 0.11
-const HOLD_DURATION: float = 0.08
-const BETWEEN_BLINKS_DURATION: float = 0.1
-const SPARKLE_OFFSETS: Array[Vector2] = [
+const FADE_DURATION: float = 0.2
+const HOLD_DURATION: float = 0.3
+const BETWEEN_BLINKS_DURATION: float = 0.2
+const CLUSTER_OFFSETS: Array[Vector2] = [
 	Vector2(-16, -9),
 	Vector2(0, -17),
 	Vector2(17, -7),
@@ -13,21 +13,32 @@ const SPARKLE_OFFSETS: Array[Vector2] = [
 	Vector2(4, 4),
 	Vector2(20, 13),
 ]
+# Screen-space positions taken from the three panels in the supplied timing
+# reference. The final beat intentionally shows two clusters together.
+const BLINK_POSITION_RATIOS: Array = [
+	[Vector2(0.23, 0.73)],
+	[Vector2(0.81, 0.35)],
+	[Vector2(0.45, 0.54), Vector2(0.575, 0.35)],
+]
+
+var _cluster_roots: Array[Node2D] = []
 
 
 func _ready() -> void:
 	z_index = 120
 	modulate.a = 0.0
-	_build_sparkles()
 
 
-func play() -> void:
+func play(viewport_size: Vector2) -> void:
 	for blink_index in BLINK_COUNT:
-		scale = Vector2(0.72, 0.72)
+		_build_blink_layout(blink_index, viewport_size)
+		modulate.a = 0.0
 		var appear := create_tween()
 		appear.set_parallel(true)
 		appear.tween_property(self, "modulate:a", 1.0, FADE_DURATION)
-		appear.tween_property(self, "scale", Vector2.ONE, FADE_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		for cluster_root in _cluster_roots:
+			cluster_root.scale = Vector2(0.72, 0.72)
+			appear.tween_property(cluster_root, "scale", Vector2.ONE, FADE_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		await appear.finished
 		await get_tree().create_timer(HOLD_DURATION).timeout
 
@@ -40,10 +51,32 @@ func play() -> void:
 	queue_free()
 
 
-func _build_sparkles() -> void:
-	for index in SPARKLE_OFFSETS.size():
+func _build_blink_layout(blink_index: int, viewport_size: Vector2) -> void:
+	_clear_clusters()
+	var position_ratios: Array = BLINK_POSITION_RATIOS[blink_index]
+	for position_ratio: Vector2 in position_ratios:
+		var cluster_root := Node2D.new()
+		cluster_root.position = Vector2(
+			roundf(viewport_size.x * position_ratio.x),
+			roundf(viewport_size.y * position_ratio.y)
+		)
+		add_child(cluster_root)
+		_cluster_roots.append(cluster_root)
+		_build_sparkle_cluster(cluster_root)
+
+
+func _clear_clusters() -> void:
+	for cluster_root in _cluster_roots:
+		if is_instance_valid(cluster_root):
+			remove_child(cluster_root)
+			cluster_root.queue_free()
+	_cluster_roots.clear()
+
+
+func _build_sparkle_cluster(cluster_root: Node2D) -> void:
+	for index in CLUSTER_OFFSETS.size():
 		var sparkle := Polygon2D.new()
-		sparkle.position = SPARKLE_OFFSETS[index]
+		sparkle.position = CLUSTER_OFFSETS[index]
 		var radius := 4.5 if index % 2 == 0 else 3.0
 		sparkle.polygon = _make_sparkle_polygon(radius)
 		sparkle.color = (
@@ -51,7 +84,7 @@ func _build_sparkles() -> void:
 			if index % 2 == 0
 			else Color(0.56, 0.25, 0.95, 1.0)
 		)
-		add_child(sparkle)
+		cluster_root.add_child(sparkle)
 
 
 func _make_sparkle_polygon(radius: float) -> PackedVector2Array:

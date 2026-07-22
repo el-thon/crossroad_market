@@ -11,8 +11,10 @@ const GIVE_CHOICE_INDEX: int = 0
 const REJECT_CHOICE_INDEX: int = 1
 const GOOBY_TRUST_GAIN: int = 20
 const FAST_FADE_DURATION: float = 0.13
-const PLAYER_CASHIER_OFFSET := Vector2(0, 42)
-const GOOBY_PLAYER_OFFSET := Vector2(0, -24)
+const NIGHT_REVEAL_DURATION: float = 0.65
+const SPARKLE_CANVAS_LAYER: int = 1001
+const PLAYER_CASHIER_OFFSET := Vector2(-24, 42)
+const GOOBY_PLAYER_OFFSET := Vector2(52, 0)
 
 var store: Node = null
 var _story_started: bool = false
@@ -119,8 +121,11 @@ func _run_day_one_story() -> void:
 	_take_phantom_ice_cream()
 	await store._fade_from_black()
 
-	await _play_purple_sparkles()
+	# Give the player a moment to register the night-time store before the
+	# apparition begins. The sparkles themselves play over the black screen.
+	await get_tree().create_timer(NIGHT_REVEAL_DURATION).timeout
 	await StoreTransitionController.fade_to(store, store._fade_rect, 1.0, FAST_FADE_DURATION)
+	await _play_purple_sparkles()
 	_spawn_cinematic_gooby()
 	await StoreTransitionController.fade_to(store, store._fade_rect, 0.0, FAST_FADE_DURATION)
 
@@ -194,8 +199,8 @@ func _place_player_at_cashier() -> void:
 
 	store.player.global_position = store.cashier.global_position + PLAYER_CASHIER_OFFSET
 	store.player.velocity = Vector2.ZERO
-	store.player.facing_direction = Vector2.UP
-	store.player._move_direction = CharacterSprite.Direction.UP
+	store.player.facing_direction = Vector2.RIGHT
+	store.player._move_direction = CharacterSprite.Direction.RIGHT
 	store.player._update_interaction_area_position()
 	store.player._update_character_sprite(Vector2.ZERO)
 
@@ -209,10 +214,16 @@ func _get_gooby_spawn_position() -> Vector2:
 
 
 func _play_purple_sparkles() -> void:
+	var sparkle_layer := CanvasLayer.new()
+	sparkle_layer.name = "GoobySparkleLayer"
+	sparkle_layer.layer = SPARKLE_CANVAS_LAYER
+	store.add_child(sparkle_layer)
+
 	var sparkles := PurpleSparkleBlink.new()
-	store.add_child(sparkles)
-	sparkles.global_position = _get_gooby_spawn_position()
-	await sparkles.play()
+	sparkle_layer.add_child(sparkles)
+	await sparkles.play(store.get_viewport_rect().size)
+	if is_instance_valid(sparkle_layer):
+		sparkle_layer.queue_free()
 
 
 func _spawn_cinematic_gooby() -> void:
@@ -234,12 +245,16 @@ func _spawn_cinematic_gooby() -> void:
 	_gooby.collision_layer = 0
 	_gooby.collision_mask = 0
 	_gooby.velocity = Vector2.ZERO
-	_gooby._move_direction = CharacterSprite.Direction.DOWN
+	_gooby._move_direction = CharacterSprite.Direction.LEFT
 	_gooby._update_character_sprite()
+	_gooby._disconnect_trust_signal()
 
 	var trust_label := _gooby.get_node_or_null("TrustLabel") as CanvasItem
 	if trust_label != null:
 		trust_label.visible = false
+	var name_label := _gooby.get_node_or_null("NameLabel") as CanvasItem
+	if name_label != null:
+		name_label.visible = false
 
 
 func _animate_gooby_exit() -> void:
@@ -254,18 +269,20 @@ func _animate_gooby_exit() -> void:
 	if route.is_empty():
 		route.append(_gooby.global_position + Vector2(0, 120))
 
-	var first_motion := route[0] - _gooby.global_position
-	_gooby.velocity = first_motion.normalized() * 80.0
-	_gooby._update_character_sprite()
-
-	var tween := store.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR)
-	var previous := _gooby.global_position
 	for point in route:
-		var duration := maxf(previous.distance_to(point) / 85.0, 0.08)
+		var motion := point - _gooby.global_position
+		if motion.length_squared() <= 0.01:
+			continue
+
+		# Checkout exits have multiple orthogonal legs. Refresh the walking
+		# direction at every turn instead of keeping the first leg's facing.
+		_gooby.velocity = motion.normalized() * 80.0
+		_gooby._update_character_sprite()
+		var tween := store.create_tween()
+		tween.set_trans(Tween.TRANS_LINEAR)
+		var duration := maxf(motion.length() / 85.0, 0.08)
 		tween.tween_property(_gooby, "global_position", point, duration)
-		previous = point
-	await tween.finished
+		await tween.finished
 
 	if _gooby != null and is_instance_valid(_gooby):
 		_gooby.queue_free()
