@@ -8,6 +8,7 @@ const NORMAL_HUD_PATHS: Array[NodePath] = [
 	NodePath("TopCenterHUD"),
 	NodePath("TopRightHUD"),
 	NodePath("InventoryUI"),
+	NodePath("GoobyStoryDebugButton"),
 	NodePath("NotificationLabel"),
 	NodePath("ObjectiveLabel"),
 ]
