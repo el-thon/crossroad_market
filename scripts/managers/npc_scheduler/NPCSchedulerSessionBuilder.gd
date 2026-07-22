@@ -42,6 +42,8 @@ func generate_customer_sessions_for_day(day: int) -> void:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var human_pool := build_customer_session_pool(day, human_blueprint)
 	human_pool = expand_customer_pool(human_pool, int(human_blueprint.get("customer_count", 0)), day)
+	if day == 1:
+		human_pool = move_customer_to_end(human_pool, "irene")
 	scheduler._customer_sessions[scheduler.SESSION_HUMAN] = make_customer_session(human_blueprint, human_pool)
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -256,5 +258,18 @@ func expand_customer_pool(source_pool: Array[NPCData], desired_count: int, day: 
 		var story_visit := story_npc.duplicate(true) as NPCData
 		story_visit.spawn_order = result.size()
 		result.append(story_visit)
+
+	return result
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func move_customer_to_end(pool: Array[NPCData], npc_id: String) -> Array[NPCData]:
+	var result: Array[NPCData] = pool.duplicate()
+	for index in range(result.size() - 1, -1, -1):
+		var npc_data: NPCData = result[index]
+		if npc_data != null and npc_data.npc_id == npc_id:
+			result.remove_at(index)
+			result.append(npc_data)
+			break
 
 	return result
