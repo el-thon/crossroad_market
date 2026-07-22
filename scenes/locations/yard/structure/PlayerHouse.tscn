@@ -11,9 +11,11 @@ size = Vector2(32, 24)
 [node name="PlayerHouse" type="Node2D" unique_id=719157645]
 y_sort_enabled = true
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=2021270317]
-position = Vector2(480, 270)
-y_sort_origin = 233
+[node name="VisualDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 503)
+
+[node name="Sprite2D" type="Sprite2D" parent="VisualDepthAnchor" unique_id=2021270317]
+position = Vector2(480, -233)
 texture = ExtResource("1_rmg5u")
 
 [node name="PlayerHouse2" type="StaticBody2D" parent="." unique_id=1840217544]

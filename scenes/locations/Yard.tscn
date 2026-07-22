@@ -19,6 +19,9 @@ distance = -1.0
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_due37"]
 normal = Vector2(-1, 0)
 
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_top"]
+normal = Vector2(0, 1)
+
 [node name="Yard" type="Node2D" unique_id=1319554124]
 y_sort_enabled = true
 script = ExtResource("1_yard")
@@ -49,6 +52,7 @@ position = Vector2(480, 354)
 [node name="LeftBoundary" type="StaticBody2D" parent="Bounds" unique_id=2139461928]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Bounds/LeftBoundary" unique_id=1770206333]
+position = Vector2(1, 0)
 shape = SubResource("WorldBoundaryShape2D_ry2rs")
 
 [node name="BottomBoundary" type="StaticBody2D" parent="Bounds" unique_id=1378007408]
@@ -62,3 +66,9 @@ position = Vector2(960, 540)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Bounds/RightBoundary" unique_id=1889356402]
 shape = SubResource("WorldBoundaryShape2D_due37")
+
+[node name="TopBoundary" type="StaticBody2D" parent="Bounds" unique_id=354975145]
+position = Vector2(960, 0)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bounds/TopBoundary" unique_id=1447595910]
+shape = SubResource("WorldBoundaryShape2D_top")

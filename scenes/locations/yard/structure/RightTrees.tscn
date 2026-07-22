@@ -20,17 +20,21 @@ size = Vector2(37.5, 141.4375)
 [node name="RightTrees" type="Node2D" unique_id=1518412750]
 y_sort_enabled = true
 
-[node name="UpperTreeVisual" type="Sprite2D" parent="." unique_id=688215650]
-position = Vector2(820, 71)
-y_sort_origin = 226
+[node name="UpperTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 297)
+
+[node name="UpperTreeVisual" type="Sprite2D" parent="UpperTreeDepthAnchor" unique_id=688215650]
+position = Vector2(820, -226)
 texture = ExtResource("1_jl8j8")
 centered = false
 region_enabled = true
 region_rect = Rect2(820, 71, 140, 226)
 
-[node name="LowerTreeVisual" type="Sprite2D" parent="."]
-position = Vector2(751, 319)
-y_sort_origin = 187
+[node name="LowerTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 506)
+
+[node name="LowerTreeVisual" type="Sprite2D" parent="LowerTreeDepthAnchor"]
+position = Vector2(751, -187)
 texture = ExtResource("1_jl8j8")
 centered = false
 region_enabled = true

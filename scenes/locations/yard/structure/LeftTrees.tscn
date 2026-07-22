@@ -14,16 +14,21 @@ size = Vector2(44.75, 174)
 [node name="LeftTrees" type="Node2D" unique_id=1511979151]
 y_sort_enabled = true
 
-[node name="TopTreeVisual" type="Sprite2D" parent="." unique_id=1595130733]
-y_sort_origin = 174
+[node name="TopTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 174)
+
+[node name="TopTreeVisual" type="Sprite2D" parent="TopTreeDepthAnchor" unique_id=1595130733]
+position = Vector2(0, -174)
 texture = ExtResource("1_jxwej")
 centered = false
 region_enabled = true
 region_rect = Rect2(0, 0, 84, 169)
 
-[node name="LowerTreeVisual" type="Sprite2D" parent="."]
-position = Vector2(0, 169)
-y_sort_origin = 179
+[node name="LowerTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 348)
+
+[node name="LowerTreeVisual" type="Sprite2D" parent="LowerTreeDepthAnchor"]
+position = Vector2(0, -179)
 texture = ExtResource("1_jxwej")
 centered = false
 region_enabled = true

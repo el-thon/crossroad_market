@@ -41,15 +41,19 @@ z_index = -99
 position = Vector2(479.99997, 270)
 texture = ExtResource("2_1m6w5")
 
-[node name="TopTrees" type="Sprite2D" parent="." unique_id=1259640681]
-position = Vector2(480, 270)
-y_sort_origin = -144
+[node name="TopTreesDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 126)
+
+[node name="TopTrees" type="Sprite2D" parent="TopTreesDepthAnchor" unique_id=1259640681]
+position = Vector2(480, 144)
 texture = ExtResource("4_7smw2")
 
-[node name="EmptyHouse" type="Sprite2D" parent="." unique_id=397226996]
-position = Vector2(480, 269.99997)
+[node name="EmptyHouseDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 140)
+
+[node name="EmptyHouse" type="Sprite2D" parent="EmptyHouseDepthAnchor" unique_id=397226996]
+position = Vector2(480, 129.99997)
 scale = Vector2(1, 0.99999994)
-y_sort_origin = -130
 texture = ExtResource("5_72r58")
 
 [node name="Collidables" type="Node2D" parent="." unique_id=1033003499]
