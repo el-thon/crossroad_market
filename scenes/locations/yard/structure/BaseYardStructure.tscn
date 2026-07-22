@@ -41,20 +41,122 @@ z_index = -99
 position = Vector2(479.99997, 270)
 texture = ExtResource("2_1m6w5")
 
-[node name="TopTreesDepthAnchor" type="Node2D" parent="."]
+[node name="TopTreesDepthAnchor" type="Node2D" parent="." unique_id=1784322319]
 position = Vector2(0, 126)
 
 [node name="TopTrees" type="Sprite2D" parent="TopTreesDepthAnchor" unique_id=1259640681]
 position = Vector2(480, 144)
 texture = ExtResource("4_7smw2")
 
-[node name="EmptyHouseDepthAnchor" type="Node2D" parent="."]
-position = Vector2(0, 140)
+[node name="EmptyHouseDepth01" type="Node2D" parent="." unique_id=916092959]
+position = Vector2(0, 101)
 
-[node name="EmptyHouse" type="Sprite2D" parent="EmptyHouseDepthAnchor" unique_id=397226996]
-position = Vector2(480, 129.99997)
-scale = Vector2(1, 0.99999994)
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth01" unique_id=397226996]
+position = Vector2(768, -101)
 texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(768, 0, 16, 140)
+
+[node name="EmptyHouseDepth02" type="Node2D" parent="." unique_id=1275388498]
+position = Vector2(0, 107)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth02" unique_id=1850593460]
+position = Vector2(784, -107)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(784, 0, 16, 140)
+
+[node name="EmptyHouseDepth03" type="Node2D" parent="." unique_id=1224345287]
+position = Vector2(0, 113)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth03" unique_id=842603580]
+position = Vector2(800, -113)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(800, 0, 16, 140)
+
+[node name="EmptyHouseDepth04" type="Node2D" parent="." unique_id=2011790549]
+position = Vector2(0, 119)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth04" unique_id=107122921]
+position = Vector2(816, -119)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(816, 0, 16, 140)
+
+[node name="EmptyHouseDepth05" type="Node2D" parent="." unique_id=2051292946]
+position = Vector2(0, 124)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth05" unique_id=759874192]
+position = Vector2(832, -124)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(832, 0, 16, 140)
+
+[node name="EmptyHouseDepth06" type="Node2D" parent="." unique_id=1161332940]
+position = Vector2(0, 130)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth06" unique_id=897074826]
+position = Vector2(848, -130)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(848, 0, 16, 140)
+
+[node name="EmptyHouseDepth07" type="Node2D" parent="." unique_id=2121796027]
+position = Vector2(0, 136)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth07" unique_id=1715907438]
+position = Vector2(864, -136)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(864, 0, 16, 140)
+
+[node name="EmptyHouseDepth08" type="Node2D" parent="." unique_id=2023150719]
+position = Vector2(0, 127)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth08" unique_id=18125674]
+position = Vector2(880, -127)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(880, 0, 16, 140)
+
+[node name="EmptyHouseDepth09" type="Node2D" parent="." unique_id=1328324027]
+position = Vector2(0, 111)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth09" unique_id=24196429]
+position = Vector2(896, -111)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(896, 0, 16, 140)
+
+[node name="EmptyHouseDepth10" type="Node2D" parent="." unique_id=821175887]
+position = Vector2(0, 96)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth10" unique_id=496358424]
+position = Vector2(912, -96)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(912, 0, 16, 140)
+
+[node name="EmptyHouseDepth11" type="Node2D" parent="." unique_id=2009292872]
+position = Vector2(0, 86)
+
+[node name="Visual" type="Sprite2D" parent="EmptyHouseDepth11" unique_id=1415482695]
+position = Vector2(928, -86)
+texture = ExtResource("5_72r58")
+centered = false
+region_enabled = true
+region_rect = Rect2(928, 0, 4, 140)
 
 [node name="Collidables" type="Node2D" parent="." unique_id=1033003499]
 

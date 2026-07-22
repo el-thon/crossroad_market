@@ -20,25 +20,55 @@ size = Vector2(37.5, 141.4375)
 [node name="RightTrees" type="Node2D" unique_id=1518412750]
 y_sort_enabled = true
 
-[node name="UpperTreeDepthAnchor" type="Node2D" parent="."]
-position = Vector2(0, 297)
+[node name="UpperLeftTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 298)
 
-[node name="UpperTreeVisual" type="Sprite2D" parent="UpperTreeDepthAnchor" unique_id=688215650]
-position = Vector2(820, -226)
+[node name="UpperLeftTreeVisual" type="Sprite2D" parent="UpperLeftTreeDepthAnchor" unique_id=688215650]
+position = Vector2(820, -227)
 texture = ExtResource("1_jl8j8")
 centered = false
 region_enabled = true
-region_rect = Rect2(820, 71, 140, 226)
+region_rect = Rect2(820, 71, 86, 226)
 
-[node name="LowerTreeDepthAnchor" type="Node2D" parent="."]
+[node name="UpperRightTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 262)
+
+[node name="UpperRightTreeVisual" type="Sprite2D" parent="UpperRightTreeDepthAnchor"]
+position = Vector2(906, -191)
+texture = ExtResource("1_jl8j8")
+centered = false
+region_enabled = true
+region_rect = Rect2(906, 71, 54, 226)
+
+[node name="LowerLeftTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 479)
+
+[node name="LowerLeftTreeVisual" type="Sprite2D" parent="LowerLeftTreeDepthAnchor"]
+position = Vector2(751, -160)
+texture = ExtResource("1_jl8j8")
+centered = false
+region_enabled = true
+region_rect = Rect2(751, 319, 78, 187)
+
+[node name="LowerMiddleTreeDepthAnchor" type="Node2D" parent="."]
 position = Vector2(0, 506)
 
-[node name="LowerTreeVisual" type="Sprite2D" parent="LowerTreeDepthAnchor"]
-position = Vector2(751, -187)
+[node name="LowerMiddleTreeVisual" type="Sprite2D" parent="LowerMiddleTreeDepthAnchor"]
+position = Vector2(829, -187)
 texture = ExtResource("1_jl8j8")
 centered = false
 region_enabled = true
-region_rect = Rect2(751, 319, 209, 187)
+region_rect = Rect2(829, 319, 59, 187)
+
+[node name="LowerRightTreeDepthAnchor" type="Node2D" parent="."]
+position = Vector2(0, 440)
+
+[node name="LowerRightTreeVisual" type="Sprite2D" parent="LowerRightTreeDepthAnchor"]
+position = Vector2(888, -121)
+texture = ExtResource("1_jl8j8")
+centered = false
+region_enabled = true
+region_rect = Rect2(888, 319, 72, 187)
 
 [node name="Collisions" type="Node2D" parent="." unique_id=803238978]
 
