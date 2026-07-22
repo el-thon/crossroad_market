@@ -494,29 +494,15 @@ func _build_queue_aware_shelf_transit_route(
 		true
 	)
 
-	var shelf_route := graph.get_route_to_shelf_access(
-		shelf,
-		transit_marker.global_position,
-		npc_node
-	)
-	if shelf_route.is_empty():
-		var shelf_quad := _get_nearest_shelf_quad_marker(access_position)
-		if shelf_quad != null:
-			current = _append_orthogonal_route_leg(
-				route,
-				current,
-				shelf_quad.global_position,
-				false
-			)
-			current = _append_orthogonal_route_leg(
-				route,
-				current,
-				access_position,
-				true
-			)
-	else:
-		for point in shelf_route:
-			current = _append_orthogonal_route_leg(route, current, point, true)
+	var shelf_quad := _get_queue_transit_shelf_quad_marker(access_position)
+	if shelf_quad != null:
+		current = _append_orthogonal_route_leg(
+			route,
+			current,
+			shelf_quad.global_position,
+			false
+		)
+	current = _append_orthogonal_route_leg(route, current, access_position, true)
 
 	route = _dedupe_route_points(route)
 	_record_route_probe(&"npc_transit_queue_bypass_select", {
@@ -524,6 +510,10 @@ func _build_queue_aware_shelf_transit_route(
 		"queue_size": queue_size,
 		"chosen_bypass_marker": String(transit_marker.name),
 		"chosen_bypass_position": _format_vector(transit_marker.global_position),
+		"shelf_quad": String(shelf_quad.name) if shelf_quad != null else "",
+		"shelf_quad_position": _format_vector(
+			shelf_quad.global_position if shelf_quad != null else Vector2.INF
+		),
 		"from": _format_vector(from_position),
 		"access": _format_vector(access_position),
 		"shelf_id": String(shelf.get_shelf_id()),
@@ -543,6 +533,39 @@ func _get_queue_shelf_transit_marker(queue_size: int) -> Marker2D:
 	if store == null or store.store_path_markers == null:
 		return null
 	return store.store_path_markers.get_node_or_null(String(marker_name)) as Marker2D
+
+
+func _get_queue_transit_shelf_quad_marker(access_position: Vector2) -> Marker2D:
+	if store == null or store.store_path_markers == null:
+		return null
+
+	var best_marker: Marker2D = null
+	var best_score := INF
+	for child in store.store_path_markers.get_children():
+		var marker := child as Marker2D
+		if marker == null:
+			continue
+		if not String(marker.name).begins_with(SHELF_QUAD_MARKER_PREFIX):
+			continue
+
+		var below_score := 0.0
+		if marker.global_position.y < access_position.y + 24.0:
+			below_score = 10000.0
+
+		var score := (
+			below_score
+			+ absf(marker.global_position.x - access_position.x)
+			+ absf(marker.global_position.y - access_position.y) * 0.25
+		)
+		if score >= best_score:
+			continue
+
+		best_marker = marker
+		best_score = score
+
+	if best_marker != null:
+		return best_marker
+	return _get_nearest_shelf_quad_marker(access_position)
 
 
 func _get_queue_egress_marker(queue_index: int) -> Marker2D:
