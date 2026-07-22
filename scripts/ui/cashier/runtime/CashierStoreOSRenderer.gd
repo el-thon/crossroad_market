@@ -13,6 +13,7 @@ const PLAYER_EXIT_DIALOG_DELAY: float = 0.35
 var cashier: Cashier = null
 var cashier_ui: StoreCashierUI = null
 var _player_exit_dialog_serial: int = 0
+var _player_exit_dialog_pending: bool = false
 
 
 func setup(cashier_node: Cashier) -> void:
@@ -38,6 +39,8 @@ func render_pos_app() -> void:
 
 
 func show_scan_panel() -> void:
+	if _player_exit_dialog_pending:
+		return
 	ensure_cashier_panel()
 	if cashier_ui == null or not cashier._has_scanned_customer():
 		return
@@ -50,6 +53,8 @@ func show_scan_panel() -> void:
 
 
 func show_paid_panel() -> void:
+	if _player_exit_dialog_pending:
+		return
 	ensure_cashier_panel()
 	if cashier_ui == null or not cashier._has_scanned_customer():
 		return
@@ -94,6 +99,10 @@ func is_cashier_visible() -> bool:
 		and is_instance_valid(cashier_ui)
 		and cashier_ui.has_active_checkout()
 	)
+
+
+func is_player_exit_dialog_pending() -> bool:
+	return _player_exit_dialog_pending
 
 
 func hide_cashier_panel() -> void:
@@ -146,6 +155,7 @@ func _on_player_exit_dialog_requested(
 	wait_for_customer_exit: bool
 ) -> void:
 	_player_exit_dialog_serial += 1
+	_player_exit_dialog_pending = true
 	_show_player_exit_dialog(
 		messages,
 		customer,
@@ -162,6 +172,7 @@ func _show_player_exit_dialog(
 ) -> void:
 	var tree := cashier.get_tree()
 	if tree == null:
+		_player_exit_dialog_pending = false
 		return
 
 	if (
@@ -178,8 +189,11 @@ func _show_player_exit_dialog(
 		return
 
 	if cashier == null or not is_instance_valid(cashier):
+		_player_exit_dialog_pending = false
 		return
 	await StoreDialogBridge.show_player_sequence(cashier, messages)
+	if dialog_serial == _player_exit_dialog_serial:
+		_player_exit_dialog_pending = false
 
 
 func _apply_ui_selection(total: int, item_label: String, quantities: Dictionary) -> void:

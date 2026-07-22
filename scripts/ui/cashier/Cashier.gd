@@ -174,7 +174,10 @@ func reset_runtime_ui() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func try_checkout() -> void:
-	if _hud_bridge.is_dialog_visible():
+	if (
+		_hud_bridge.is_dialog_visible()
+		or _store_os_renderer.is_player_exit_dialog_pending()
+	):
 		return
 	if not _is_player_nearby():
 		pass
@@ -210,7 +213,10 @@ func try_checkout() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _cashier_panel == null or not _cashier_panel.visible:
 		return
-	if _hud_bridge.is_dialog_visible():
+	if (
+		_hud_bridge.is_dialog_visible()
+		or _store_os_renderer.is_player_exit_dialog_pending()
+	):
 		return
 
 	if event is InputEventMouseButton and event.pressed:
