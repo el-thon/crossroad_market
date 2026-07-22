@@ -4,6 +4,7 @@ extends RefCounted
 const INTERACTION_PURCHASE: StringName = &"purchase"
 const INTERACTION_GIFT: StringName = &"gift"
 const DAY_ONE_IRENE_TRUST_GAIN: int = 20
+const DAY_ONE_GOOBY_TRUST_GAIN: int = 20
 
 var cashier: Cashier = null
 
@@ -48,11 +49,8 @@ func apply_story_interaction_trust(
 			return DAY_ONE_IRENE_TRUST_GAIN
 
 		if npc_id == cashier.GOOBY_ID and interaction_type == INTERACTION_GIFT:
-			RelationshipManager.add_trust(
-				npc_id,
-				RelationshipManager.INTERACTION_TRUST_GAIN
-			)
-			return RelationshipManager.INTERACTION_TRUST_GAIN
+			RelationshipManager.add_trust(npc_id, DAY_ONE_GOOBY_TRUST_GAIN)
+			return DAY_ONE_GOOBY_TRUST_GAIN
 
 		return 0
 

@@ -112,6 +112,8 @@ var _hint_dialog_flow: HUDHintDialog = HUDHintDialog.new()
 var _cursor_tooltip_flow: HUDCursorTooltip = HUDCursorTooltip.new()
 @warning_ignore("unused_private_class_variable")
 var _objective_toast_flow: HUDObjectiveToast = HUDObjectiveToast.new()
+@warning_ignore("unused_private_class_variable")
+var _story_mode_controller: HUDStoryModeController = HUDStoryModeController.new()
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -152,7 +154,8 @@ func _setup_hud_controllers() -> void:
 		_tax_panel_flow,
 		_hint_dialog_flow,
 		_cursor_tooltip_flow,
-		_objective_toast_flow
+		_objective_toast_flow,
+		_story_mode_controller
 	]:
 		controller.setup(self)
 
@@ -219,6 +222,8 @@ func show_notification(
 	blocks_actions: bool = true,
 	instant_text: bool = false
 ) -> void:
+	if _story_mode_controller.is_active():
+		return
 	_notification_flow.show_notification(text, duration, blocks_actions, instant_text)
 
 
@@ -259,11 +264,15 @@ func hide_tax_notice() -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_hint_dialog(key: String, text: String) -> void:
+	if _story_mode_controller.is_active():
+		return
 	_hint_dialog_flow.show_hint_dialog(key, text)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func show_cursor_tooltip(text: String) -> void:
+	if _story_mode_controller.is_active():
+		return
 	_cursor_tooltip_flow.show_cursor_tooltip(text)
 
 
@@ -304,7 +313,39 @@ func _get_hover_target_priority(target: Node) -> int:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func set_objective(text: String) -> void:
+	if _story_mode_controller.is_active():
+		return
 	_objective_toast_flow.set_objective(text)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func begin_story_mode() -> void:
+	_story_mode_controller.begin_story_mode()
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func end_story_mode() -> void:
+	_story_mode_controller.end_story_mode()
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func is_story_mode_active() -> bool:
+	return _story_mode_controller.is_active()
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func show_story_choice(prompt: String, options: Array[String]) -> int:
+	return await _story_mode_controller.show_choice(prompt, options)
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func has_pending_story_choice() -> bool:
+	return _story_mode_controller.has_pending_choice()
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func select_story_choice(index: int) -> void:
+	_story_mode_controller.select_choice(index)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

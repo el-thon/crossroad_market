@@ -16,6 +16,8 @@ const STORE_OS_APP_POS: StringName = &"pos"
 
 @warning_ignore("unused_signal")
 signal checkout_done(npc: NPC, item_id: String, price: int)
+@warning_ignore("unused_signal")
+signal player_exit_dialog_finished(customer_id: String)
 
 @warning_ignore("unused_private_class_variable")
 var _scanned_npc: NPC = null

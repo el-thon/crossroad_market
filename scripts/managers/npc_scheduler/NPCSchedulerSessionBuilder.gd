@@ -82,9 +82,6 @@ func get_customer_session_blueprint(day: int, session_name: StringName) -> Dicti
 		if npc.visit_phase == visit_phase and not scheduler._is_day_one_follow_up_story_npc(day, npc):
 			customer_count += 1
 
-	if session_name == scheduler.SESSION_NIGHT and day == 1 and scheduler._npc_database.has("gooby"):
-		customer_count += 1
-
 	return {
 		"customer_count": customer_count,
 		"window_start": scheduler.HUMAN_CUSTOMER_START_MINUTES if session_name == scheduler.SESSION_HUMAN else scheduler.NIGHT_CUSTOMER_START_MINUTES,
@@ -138,13 +135,6 @@ func build_customer_session_pool(day: int, blueprint: Dictionary) -> Array[NPCDa
 	if visit_phase == NPCData.VisitPhase.NIGHT:
 		pool = scheduler._align_night_customer_items(pool)
 	pool.shuffle()
-
-	if visit_phase == NPCData.VisitPhase.NIGHT and day == 1:
-		@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-		var gooby := scheduler._npc_database.get("gooby") as NPCData
-
-		if gooby != null:
-			pool.push_front(scheduler._make_day_one_customer_from_data(gooby, "phantom_ice_cream"))
 
 	return pool
 

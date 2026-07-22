@@ -174,6 +174,9 @@ func _show_player_exit_dialog(
 	if tree == null:
 		_player_exit_dialog_pending = false
 		return
+	var customer_id := ""
+	if customer != null and is_instance_valid(customer) and customer.npc_data != null:
+		customer_id = customer.npc_data.npc_id
 
 	if (
 		wait_for_customer_exit
@@ -194,6 +197,8 @@ func _show_player_exit_dialog(
 	await StoreDialogBridge.show_player_sequence(cashier, messages)
 	if dialog_serial == _player_exit_dialog_serial:
 		_player_exit_dialog_pending = false
+		if not customer_id.is_empty():
+			cashier.player_exit_dialog_finished.emit(customer_id)
 
 
 func _apply_ui_selection(total: int, item_label: String, quantities: Dictionary) -> void:
