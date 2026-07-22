@@ -9,12 +9,16 @@ const ROUTE_SAMPLE_STEP: float = 6.0
 const START_CLEARANCE: float = 16.0
 const ENDPOINT_CLEARANCE: float = 8.0
 const START_OBSTACLE_RELEASE_DISTANCE: float = 28.0
+const START_DOOR_RELEASE_DISTANCE: float = 42.0
+const START_DOOR_MARKER_DISTANCE: float = 52.0
 const MARKER_CORRIDOR_RADIUS: float = 7.0
 const POINT_EPSILON: float = 2.0
 const ALL_PHYSICS_LAYERS: int = 0x7FFFFFFF
 const EXIT_ORIGIN_SHELF_META: StringName = &"exit_origin_shelf"
+const YARD_DOOR_BODY_PATH: NodePath = NodePath("YardDoor/DoorBody")
 
 var npc: CharacterBody2D = null
+var _last_reject_context: Dictionary = {}
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -24,6 +28,7 @@ func setup(npc_node: CharacterBody2D) -> void:
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
 func sanitize_store_route(route: Array[Vector2]) -> Array[Vector2]:
+	_last_reject_context.clear()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var clean_route := _dedupe_route_points(route)
 	var raw_route_points := clean_route.size()
@@ -50,6 +55,8 @@ func sanitize_store_route(route: Array[Vector2]) -> Array[Vector2]:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var start_obstacle := _get_start_obstacle()
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
+	var start_door_obstacle := _get_start_door_obstacle(store)
+	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
 	var endpoint_obstacle := _get_endpoint_obstacle()
 
 	var reject_context := _get_route_reject_context(
@@ -57,12 +64,14 @@ func sanitize_store_route(route: Array[Vector2]) -> Array[Vector2]:
 		clean_route,
 		store,
 		start_obstacle,
+		start_door_obstacle,
 		endpoint_obstacle
 	)
 	if not reject_context.is_empty():
 		reject_context["raw_route_points"] = raw_route_points
 		reject_context["after_marker_insert_points"] = after_marker_insert_points
 		reject_context["sanitized_route_points"] = 0
+		_last_reject_context = reject_context.duplicate(true)
 		_record_safety_probe(&"npc_route_safety_reject", reject_context)
 		return []
 
@@ -70,9 +79,14 @@ func sanitize_store_route(route: Array[Vector2]) -> Array[Vector2]:
 		"raw_route_points": raw_route_points,
 		"after_marker_insert_points": after_marker_insert_points,
 		"sanitized_route_points": clean_route.size(),
-		"has_origin_shelf": start_obstacle != null and is_instance_valid(start_obstacle)
+		"has_origin_shelf": start_obstacle != null and is_instance_valid(start_obstacle),
+		"has_start_door": start_door_obstacle != null and is_instance_valid(start_door_obstacle)
 	})
 	return clean_route
+
+
+func get_last_reject_context() -> Dictionary:
+	return _last_reject_context.duplicate(true)
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
@@ -175,6 +189,7 @@ func _is_route_clear(
 	route: Array[Vector2],
 	store: Node2D,
 	start_obstacle: Node = null,
+	start_door_obstacle: Node = null,
 	endpoint_obstacle: Node = null
 ) -> bool:
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
@@ -183,6 +198,10 @@ func _is_route_clear(
 	var start_obstacle_active := (
 		start_obstacle != null
 		and is_instance_valid(start_obstacle)
+	)
+	var start_door_obstacle_active := (
+		start_door_obstacle != null
+		and is_instance_valid(start_door_obstacle)
 	)
 
 	for index in range(route.size()):
@@ -195,14 +214,8 @@ func _is_route_clear(
 
 		if start_obstacle_active:
 			allowed_obstacles.append(start_obstacle)
-
-		if (
-			index == route.size() - 1
-			and endpoint_obstacle != null
-			and is_instance_valid(endpoint_obstacle)
-			and endpoint_obstacle not in allowed_obstacles
-		):
-			allowed_obstacles.append(endpoint_obstacle)
+		if start_door_obstacle_active:
+			allowed_obstacles.append(start_door_obstacle)
 
 		if not _is_segment_clear(
 			current,
@@ -219,6 +232,12 @@ func _is_route_clear(
 			>= START_OBSTACLE_RELEASE_DISTANCE
 		):
 			start_obstacle_active = false
+		if (
+			start_door_obstacle_active
+			and target.distance_to(start_position)
+			>= START_DOOR_RELEASE_DISTANCE
+		):
+			start_door_obstacle_active = false
 
 		current = target
 
@@ -231,12 +250,17 @@ func _get_route_reject_context(
 	route: Array[Vector2],
 	store: Node2D,
 	start_obstacle: Node = null,
+	start_door_obstacle: Node = null,
 	endpoint_obstacle: Node = null
 ) -> Dictionary:
 	var current := start_position
 	var start_obstacle_active := (
 		start_obstacle != null
 		and is_instance_valid(start_obstacle)
+	)
+	var start_door_obstacle_active := (
+		start_door_obstacle != null
+		and is_instance_valid(start_door_obstacle)
 	)
 
 	for index in range(route.size()):
@@ -246,14 +270,8 @@ func _get_route_reject_context(
 
 		if start_obstacle_active:
 			allowed_obstacles.append(start_obstacle)
-
-		if (
-			index == route.size() - 1
-			and endpoint_obstacle != null
-			and is_instance_valid(endpoint_obstacle)
-			and endpoint_obstacle not in allowed_obstacles
-		):
-			allowed_obstacles.append(endpoint_obstacle)
+		if start_door_obstacle_active:
+			allowed_obstacles.append(start_door_obstacle)
 
 		var segment_reject := _get_segment_reject_context(
 			current,
@@ -270,7 +288,12 @@ func _get_route_reject_context(
 				start_obstacle != null
 				and is_instance_valid(start_obstacle)
 			)
+			segment_reject["has_start_door"] = (
+				start_door_obstacle != null
+				and is_instance_valid(start_door_obstacle)
+			)
 			segment_reject["start_obstacle_active"] = start_obstacle_active
+			segment_reject["start_door_obstacle_active"] = start_door_obstacle_active
 			segment_reject["allowed_origin_shelf_mismatch"] = (
 				start_obstacle_active
 				and start_obstacle != null
@@ -278,6 +301,15 @@ func _get_route_reject_context(
 				and not _is_node_or_descendant_of_path(
 					str(segment_reject.get("collider_path", "")),
 					start_obstacle
+				)
+			)
+			segment_reject["allowed_start_door_mismatch"] = (
+				start_door_obstacle_active
+				and start_door_obstacle != null
+				and is_instance_valid(start_door_obstacle)
+				and not _is_node_or_descendant_of_path(
+					str(segment_reject.get("collider_path", "")),
+					start_door_obstacle
 				)
 			)
 			return segment_reject
@@ -288,6 +320,12 @@ func _get_route_reject_context(
 			>= START_OBSTACLE_RELEASE_DISTANCE
 		):
 			start_obstacle_active = false
+		if (
+			start_door_obstacle_active
+			and target.distance_to(start_position)
+			>= START_DOOR_RELEASE_DISTANCE
+		):
+			start_door_obstacle_active = false
 
 		current = target
 
@@ -460,6 +498,55 @@ func _get_start_obstacle() -> Node:
 		return origin_variant as Node
 
 	return null
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _get_start_door_obstacle(store: Node2D) -> Node:
+	if npc == null or store == null:
+		return null
+
+	var door_body := store.get_node_or_null(YARD_DOOR_BODY_PATH)
+	if door_body == null:
+		return null
+
+	if _is_position_near_store_path_role(store, npc.global_position, &"entry"):
+		return door_body
+	if _is_position_near_store_path_role(store, npc.global_position, &"exit"):
+		return door_body
+	if _is_position_near_store_path_role(store, npc.global_position, &"enter_store"):
+		return door_body
+
+	var yard_door := store.get_node_or_null("YardDoor") as Node2D
+	if yard_door != null and npc.global_position.distance_to(yard_door.global_position) <= START_DOOR_MARKER_DISTANCE:
+		return door_body
+
+	return null
+
+
+@warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
+func _is_position_near_store_path_role(
+	store: Node2D,
+	position: Vector2,
+	role: StringName
+) -> bool:
+	var markers := store.get_node_or_null("StorePathMarkers") as Node2D
+	if markers == null:
+		return false
+
+	for child in markers.get_children():
+		var marker := child as Marker2D
+		if marker == null:
+			continue
+		if not marker.has_meta("store_path_role"):
+			continue
+
+		var marker_role := StringName(str(marker.get_meta("store_path_role")))
+		if marker_role != role:
+			continue
+		if marker.global_position.distance_to(position) <= START_DOOR_MARKER_DISTANCE:
+			return true
+
+	return false
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")

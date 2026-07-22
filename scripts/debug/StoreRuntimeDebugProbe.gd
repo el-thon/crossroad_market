@@ -2,7 +2,7 @@ class_name StoreRuntimeDebugProbe
 extends RefCounted
 
 
-const MAX_EVENTS: int = 80
+const MAX_EVENTS: int = 180
 const DEFAULT_THRESHOLD_MSEC: float = 4.0
 
 static var enabled: bool = true

@@ -484,7 +484,12 @@ func _append_access_route_variants(
 			shelf,
 			npc_node
 		):
-			_append_route_candidate(candidates, from_position, direct_route)
+			_append_route_candidate(
+				candidates,
+				from_position,
+				direct_route,
+				npc_node
+			)
 
 	var grid_result := _grid.find_route(
 		from_position,
@@ -497,7 +502,8 @@ func _append_access_route_variants(
 		_append_route_candidate(
 			candidates,
 			from_position,
-			_variant_route_to_vector2_array(grid_result.get("route", []))
+			_variant_route_to_vector2_array(grid_result.get("route", [])),
+			npc_node
 		)
 
 
@@ -541,7 +547,8 @@ func _append_clear_route_variants(
 func _append_route_candidate(
 	candidates: Array[Dictionary],
 	from_position: Vector2,
-	route: Array[Vector2]
+	route: Array[Vector2],
+	npc_node: Node = null
 ) -> void:
 	var clean_route := _routes.dedupe_route_points(route)
 	if clean_route.is_empty():
@@ -549,24 +556,65 @@ func _append_route_candidate(
 	for point in clean_route:
 		if not point.is_finite():
 			return
+	var route_distance := _routes.get_route_distance(from_position, clean_route)
+	var clearance_score := _clearance.get_route_clearance_score(
+		from_position,
+		clean_route,
+		npc_node
+	)
+	var turn_count := _get_route_turn_count(from_position, clean_route)
 	candidates.append({
 		"route": clean_route,
-		"distance": _routes.get_route_distance(from_position, clean_route)
+		"distance": route_distance,
+		"clearance_score": clearance_score,
+		"turn_count": turn_count,
+		"score": route_distance + float(turn_count) * 4.0 - clearance_score * 2.5
 	})
 
 
 func _get_shortest_route(candidates: Array[Dictionary]) -> Array[Vector2]:
 	var best_route: Array[Vector2] = []
-	var best_distance := INF
+	var best_score := INF
 	for candidate in candidates:
-		var route_distance := float(candidate.get("distance", INF))
-		if route_distance >= best_distance:
+		var route_score := float(
+			candidate.get("score", candidate.get("distance", INF))
+		)
+		if route_score >= best_score:
 			continue
-		best_distance = route_distance
+		best_score = route_score
 		best_route = _variant_route_to_vector2_array(
 			candidate.get("route", [])
 		)
 	return best_route
+
+
+func _get_route_turn_count(
+	from_position: Vector2,
+	route: Array[Vector2]
+) -> int:
+	var turn_count := 0
+	var previous_direction := Vector2.ZERO
+	var current := from_position
+	for point in route:
+		var delta := point - current
+		var direction := Vector2.ZERO
+		if absf(delta.x) > absf(delta.y):
+			direction = Vector2.RIGHT if delta.x >= 0.0 else Vector2.LEFT
+		elif absf(delta.y) > 0.0:
+			direction = Vector2.DOWN if delta.y >= 0.0 else Vector2.UP
+
+		if (
+			previous_direction != Vector2.ZERO
+			and direction != Vector2.ZERO
+			and direction != previous_direction
+		):
+			turn_count += 1
+
+		if direction != Vector2.ZERO:
+			previous_direction = direction
+		current = point
+
+	return turn_count
 
 
 func _get_nearest_graph_node_names_for_access(
@@ -624,7 +672,7 @@ func _build_cashier_exit_route_via_queue_right(
 			route.append(route_marker.global_position)
 
 	if not _clearance.is_route_clear_from_current_position(from_position, route):
-		return get_exit_route_from(from_position, fallback_exit_position)
+		return []
 
 	var route_end: Vector2 = from_position
 	if not route.is_empty():
