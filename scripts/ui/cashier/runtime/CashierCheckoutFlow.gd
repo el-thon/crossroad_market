@@ -65,7 +65,9 @@ func process_paid() -> void:
 		cashier._show_scan_panel()
 		return
 
-	npc.complete_checkout()
+	# Credit the exact item total confirmed by the cashier. Scripted NPC totals
+	# describe their request, but can differ from the current catalog prices.
+	npc.complete_checkout(price)
 
 	if npc.checkout_outcome == "reject_return":
 		if cashier._is_gooby_npc(npc):

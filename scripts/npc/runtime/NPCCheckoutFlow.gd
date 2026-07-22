@@ -10,13 +10,13 @@ func setup(npc_node) -> void:
 
 
 @warning_ignore("unused_parameter", "shadowed_variable", "shadowed_variable_base_class")
-func complete_checkout() -> void:
+func complete_checkout(paid_total: int = -1) -> void:
 	if npc.checkout_outcome == "reject_return":
 		reject_checkout_and_return_items("Boo...")
 		return
 
 	@warning_ignore("unused_variable", "shadowed_variable", "incompatible_ternary")
-	var total := get_checkout_total()
+	var total: int = paid_total if paid_total >= 0 else get_checkout_total()
 
 	if total > 0:
 		npc.purchase_completed.emit(npc, npc.item_to_buy, total)
