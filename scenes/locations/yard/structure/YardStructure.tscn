@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://b2k2fky8ku7vk"]
+
+[ext_resource type="Texture2D" uid="uid://bdc4aj2ay83ps" path="res://assets/yard/path.png" id="1_ghhkb"]
+[ext_resource type="Texture2D" uid="uid://b37kkeccotj33" path="res://assets/yard/grass.png" id="2_1m6w5"]
+[ext_resource type="Texture2D" uid="uid://dv1uqukfcdn20" path="res://assets/yard/top-left-tree.png" id="3_grlf6"]
+[ext_resource type="Texture2D" uid="uid://b2upyhtlkpcdu" path="res://assets/yard/top-tree.png" id="4_7smw2"]
+[ext_resource type="Texture2D" uid="uid://dgfvmfwru2yc3" path="res://assets/yard/right-mid-tree.png" id="5_7smw2"]
+[ext_resource type="Texture2D" uid="uid://c75w2fbjx2eeu" path="res://assets/yard/empty-house.png" id="5_72r58"]
+[ext_resource type="Texture2D" uid="uid://bi08afvgg84cm" path="res://assets/yard/store.png" id="7_h3qsw"]
+[ext_resource type="Texture2D" uid="uid://dy5suse0wlqi0" path="res://assets/yard/player-house.png" id="8_5lhgd"]
+
+[node name="YardStructure" type="Node2D" unique_id=1360511442]
+
+[node name="Path" type="Sprite2D" parent="." unique_id=2002396207]
+position = Vector2(240, 135)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1_ghhkb")
+
+[node name="Grass" type="Sprite2D" parent="." unique_id=1368727717]
+position = Vector2(239.99998, 135.00002)
+scale = Vector2(0.50000006, 0.50000006)
+texture = ExtResource("2_1m6w5")
+
+[node name="LeftTrees" type="Sprite2D" parent="." unique_id=483439040]
+position = Vector2(240, 135)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("3_grlf6")
+
+[node name="TopTrees" type="Sprite2D" parent="." unique_id=1259640681]
+position = Vector2(240, 135.00002)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("4_7smw2")
+
+[node name="EmptyHouse" type="Sprite2D" parent="." unique_id=397226996]
+position = Vector2(239.99998, 135)
+scale = Vector2(0.49999997, 0.5)
+texture = ExtResource("5_72r58")
+
+[node name="RightTrees" type="Sprite2D" parent="." unique_id=1872738843]
+position = Vector2(240, 135)
+scale = Vector2(0.49999997, 0.49999997)
+texture = ExtResource("5_7smw2")
+
+[node name="Store" type="Sprite2D" parent="." unique_id=2013045991]
+position = Vector2(239.99998, 135)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("7_h3qsw")
+
+[node name="PlayerHouse" type="Sprite2D" parent="." unique_id=1698761564]
+position = Vector2(240, 135)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("8_5lhgd")
