@@ -77,7 +77,7 @@ region_rect = Rect2(134.93579, 17.647757, 6.115219, 23.561563)
 z_index = 20
 anchors_preset = 0
 offset_left = 297.0
-offset_top = 37.0
+offset_top = 38.0
 offset_right = 305.0
 offset_bottom = 233.0
 
@@ -112,8 +112,9 @@ mouse_filter = 2
 [node name="DetailColumn" type="VBoxContainer" parent="DetailArea" unique_id=1849201216]
 clip_contents = true
 layout_mode = 0
+offset_left = 4.0
 offset_top = 11.0
-offset_right = 99.0
+offset_right = 96.0
 offset_bottom = 111.0
 mouse_filter = 2
 theme_override_constants/separation = 3
@@ -142,26 +143,26 @@ max_lines_visible = 2
 
 [node name="CloseButton" type="Button" parent="." unique_id=975910989]
 layout_mode = 0
-offset_left = 328.00003
-offset_top = 221.0
-offset_right = 372.73688
-offset_bottom = 234.1579
+offset_left = 328.0
+offset_top = 199.0
+offset_right = 372.73685
+offset_bottom = 212.15788
 scale = Vector2(1.5, 1.5)
 focus_mode = 0
 flat = true
 
 [node name="Sprite2D" type="Sprite2D" parent="CloseButton" unique_id=1394950676]
-position = Vector2(22.10527, -7.017563)
+position = Vector2(22.333328, 6.3157196)
 texture = ExtResource("1_8ggci")
 region_enabled = true
 region_rect = Rect2(204.21518, 128.59348, 42.363464, 13.37793)
 
 [node name="Label" type="Label" parent="CloseButton" unique_id=1314825382]
 layout_mode = 0
-offset_left = 12.666645
-offset_top = -15.333282
-offset_right = 37.666645
-offset_bottom = 4.6667175
+offset_left = 12.894703
+offset_top = -2.0
+offset_right = 37.894703
+offset_bottom = 18.0
 scale = Vector2(0.8, 0.8)
 theme_override_colors/font_color = Color(0.356863, 0.176471, 0.0941176, 1)
 theme_override_font_sizes/font_size = 8
@@ -171,16 +172,16 @@ vertical_alignment = 1
 
 [node name="PurchaseButton" type="Button" parent="." unique_id=1076584059]
 layout_mode = 0
-offset_left = 328.00006
-offset_top = 197.99998
-offset_right = 372.7369
-offset_bottom = 211.15788
+offset_left = 328.0
+offset_top = 178.00002
+offset_right = 372.73685
+offset_bottom = 191.15791
 scale = Vector2(1.5, 1.5)
 focus_mode = 0
 flat = true
 
 [node name="Sprite2D" type="Sprite2D" parent="PurchaseButton" unique_id=1436439473]
-position = Vector2(22.10527, -7.017563)
+position = Vector2(22.10527, 6.315773)
 texture = ExtResource("1_8ggci")
 region_enabled = true
 region_rect = Rect2(204.21518, 128.59348, 42.363464, 13.37793)
@@ -188,9 +189,9 @@ region_rect = Rect2(204.21518, 128.59348, 42.363464, 13.37793)
 [node name="Label" type="Label" parent="PurchaseButton" unique_id=976268440]
 layout_mode = 0
 offset_left = 15.3333435
-offset_top = -15.733345
+offset_top = -2.4000092
 offset_right = 35.333344
-offset_bottom = 7.266655
+offset_bottom = 20.59999
 scale = Vector2(0.8, 0.8)
 theme_override_colors/font_color = Color(0.356863, 0.176471, 0.0941176, 1)
 theme_override_font_sizes/font_size = 8
